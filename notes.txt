@@ -1,0 +1,38 @@
+* What is a Parser ?
+  * Purpose
+    * Typical compilation chain
+        text -[parser]-> parse tree -[precompiler]-> AST -[compiler]-> binary code
+  * Grammar
+    * BNF
+  * Recursive parsing
+  * Parse Tree
+
+* Limitations of BNF grammar
+  * validation-oriented tokenization
+  * resulting parse tree uncompatible with compiler input
+    * structure depth
+    * unclear 
+
+* Parse Tree vs. AST
+
+  * Quick analysis of differences between Parse Tree and Abstract Syntax Tree
+    * PT = deep structure, implicit semantics
+    * AST = explicit semantics, terminal tokens stripped (terminal tokens are the separators of the parsed language, they contain no information)
+      From the compiler point of view, AST is a noise-free representation of source code.
+
+  * Evolving from PT to AST
+    * PTs and ASTs are very close structures
+    * partial flattenning of structure
+      -> not all rules should create their node
+         - operator rules create a sub-tree
+         - transient rules 
+    * node tagging
+    * Modifying BNF grammar to generate a useable AST
+      - partially flatten structure
+        -> consider two rule definition semantics :
+            operator_rule_name ::= <rule_expression> .
+            transient_rule_name = <rule_expression> .
+      - tag nodes
+        -> using operator rules names
+  
+
