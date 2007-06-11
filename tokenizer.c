@@ -19,6 +19,16 @@
 #include "ast.h"
 #include "tokenizer.h"
 
+void ast_serialize(ast_node_t*ast,char**output);
+
+void dump_node(ast_node_t*n) {
+	static char buffer[4096];
+	char*ptr=buffer;
+	memset(buffer,0,4096);
+	ast_serialize(n,&ptr);
+	debug_writeln(buffer);
+}
+
 
 void update_pos_cache(token_context_t*t);
 
@@ -115,15 +125,20 @@ void token_context_free(token_context_t*t) {
 ast_node_t*token_produce_re(token_context_t*t,const regex_t*expr) {
 	regmatch_t token;
 	char*ret;
+	int r,c;
 	/* perform some preventive garbage filtering */
 	_filter_garbage(t);
+	update_pos_cache(t);
+	r=t->pos_cache.row;
+	c=t->pos_cache.col;
 	if(regexec(expr,t->source+t->ofs,1,&token,0)!=REG_NOMATCH&&token.rm_so==0) {
 		assert(token.rm_so==0);
 		ret=match2str(t->source+t->ofs,0,token.rm_eo);
 		t->ofs+=token.rm_eo;
 //		debug_write("debug-- matched token [%s]\n",ret);
 		update_pos_cache(t);
-		return newAtom(ret,t->pos_cache.row,t->pos_cache.col);
+		return newPair(newAtom(ret,t->pos_cache.row,t->pos_cache.col),NULL,r,c);
+		//return newAtom(ret,t->pos_cache.row,t->pos_cache.col);
 	} else {
 //		debug_write("debug-- no good token\n");
 	}
@@ -132,11 +147,16 @@ ast_node_t*token_produce_re(token_context_t*t,const regex_t*expr) {
 
 
 ast_node_t*token_produce_str(token_context_t*t,const char*token) {
+	int r,c;
 	_filter_garbage(t);
+	update_pos_cache(t);
+	r=t->pos_cache.row;
+	c=t->pos_cache.col;
 	if(!strncmp(t->source+t->ofs,token,strlen(token))) {
 		t->ofs+=strlen(token);
 		update_pos_cache(t);
-		return newAtom(token,t->pos_cache.row,t->pos_cache.col);
+		return newPair(newAtom(token,t->pos_cache.row,t->pos_cache.col),NULL,r,c);
+		//return newAtom(token,t->pos_cache.row,t->pos_cache.col);
 	}
 	return NULL;
 }
@@ -219,11 +239,14 @@ ast_node_t*_produce_seq_rec(token_context_t*t,ast_node_t*seq) {
 		rec=_produce_seq_rec(t,getCdr(seq));
 		if(rec) {
 			update_pos_cache(t);
-			if(isAtom(rec)&&!strcmp(Value(rec),"eos")) {
+			if(isAtom(rec)) {
+				assert(!strcmp(Value(rec),"eos"));
 				deleteNode(rec);
-				return newPair(tmp,NULL,t->pos_cache.row,t->pos_cache.col);
+				//return newPair(tmp,NULL,t->pos_cache.row,t->pos_cache.col);
+				return tmp;
 			} else {
-				return newPair(tmp,rec,t->pos_cache.row,t->pos_cache.col);
+				//return newPair(tmp,rec,t->pos_cache.row,t->pos_cache.col);
+				return Append(tmp,rec);
 			}
 		} else {
 			deleteNode(tmp);
@@ -240,12 +263,12 @@ ast_node_t* token_produce_seq(token_context_t*t,ast_node_t*seq) {
 
 	/* try and produce seq */
 	ret=_produce_seq_rec(t,seq);
-	if(ret) {
-//		return newPair(newAtom("seq"),ret);
-		return ret;
+/*	if(ret) {
+		return newPair(ret,NULL,0,0);
 	} else {
 		return NULL;
-	}
+	}*/
+	return ret;
 }
 
 
@@ -261,8 +284,9 @@ ast_node_t* token_produce_alt(token_context_t*t,ast_node_t*alt) {
 	tmp=token_produce_any(t,getCar(alt),t->flags&STRIP_TERMINALS);
 	if(tmp) {
 		/* select first matching alternative */
-		update_pos_cache(t);
-		return newPair(tmp,NULL,t->pos_cache.row,t->pos_cache.col);
+		//update_pos_cache(t);
+		//return newPair(tmp,NULL,t->pos_cache.row,t->pos_cache.col);
+		return tmp;
 	} else {
 		return token_produce_alt(t,getCdr(alt));
 	}
@@ -282,6 +306,7 @@ ast_node_t* token_produce_any(token_context_t*t,ast_node_t*expr,int strip_T) {
 	tag=node_tag(expr);
 
 	rec_lvl+=1;
+
 //	debug_write("--debug[% 4.4i]-- produce %s ",rec_lvl,tag);
 //	dump_node(getCdr(expr));
 //	printf("\n");
@@ -289,15 +314,25 @@ ast_node_t* token_produce_any(token_context_t*t,ast_node_t*expr,int strip_T) {
 
 	token_context_push(t);
 
-	if(!strcmp(tag,"seq")) {
+	if(!strcmp(tag,"Seq")) {
 	/* case seq : try and produce every subexpr, or fail. return whole cons'd list */
 		ret=token_produce_seq(t,getCdr(expr));
 //		debug_write("### -=< seq %s >=- ###\n",ret?"OK":"failed");
+		if(ret) {
+			debug_write("Produce Seq ");
+			dump_node(expr);
+			dump_node(ret);
+		}
 
-	} else if(!strcmp(tag,"alt")) {
+	} else if(!strcmp(tag,"Alt")) {
 	/* case alt : try and produce each subexpr, return the first whole production or fail */
 		ret=token_produce_alt(t,getCdr(expr));
 //		debug_write("### -=< alt %s >=- ###\n",ret?"OK":"failed");
+		if(ret) {
+			debug_write("Produce Alt ");
+			dump_node(expr);
+			dump_node(ret);
+		}
 
 	} else if(!strcmp(tag,"RE")) {
 	/* case regex : call and return token_produce_re */
@@ -319,13 +354,13 @@ ast_node_t* token_produce_any(token_context_t*t,ast_node_t*expr,int strip_T) {
 			if(strip_T) {
 				deleteNode(ret);
 				ret=newPair(newAtom("strip.me",0,0),NULL,0,0);
-			} else {
-				update_pos_cache(t);
-				ret=newPair(ret,NULL,t->pos_cache.row,t->pos_cache.col);
+//			} else {
+//				update_pos_cache(t);
+//				ret=newPair(ret,NULL,t->pos_cache.row,t->pos_cache.col);
 			}
 		}
 
-	} else if(!strcmp(tag,"opr_rule")) {
+	} else if(!strcmp(tag,"OperatorRule")) {
 		int r,c;
 	/* case operator rule : try and produce rule, return tagged parse tree */
 		expr=getCdr(expr);	/* shift the operator tag */
@@ -336,10 +371,14 @@ ast_node_t* token_produce_any(token_context_t*t,ast_node_t*expr,int strip_T) {
 		tag=node_tag(expr);
 		ret=token_produce_any(t,getCar(getCdr(expr)),t->flags&STRIP_TERMINALS);
 		if(ret) {
-			ret=newPair(newAtom(tag,r,c),ret,r,c);
+			ret=newPair(newPair(newAtom(tag,r,c),ret,r,c),NULL,r,c);
+			debug_write("Produce OperatorRule ");
+			dump_node(expr);
+			dump_node(ret);
+			fputc('\n',stderr);
 		}
 
-	} else if(!strcmp(tag,"trans_rule")) {
+	} else if(!strcmp(tag,"TransientRule")) {
 	/* case transient rule : try and produce rule, return raw parse tree */
 		expr=getCdr(expr);	/* shift the operator tag */
 //		dump_node(expr);
@@ -351,14 +390,14 @@ ast_node_t* token_produce_any(token_context_t*t,ast_node_t*expr,int strip_T) {
 		ast_node_t*nt=find_nterm(t->grammar,Value(getCar(getCdr(expr))));
 		if(!nt) {
 			/* error, fail */
-//			debug_write("FAIL-- couldn't find non-terminal `%s'\n",Value(getCar(getCdr(expr))));
+			debug_write("FAIL-- couldn't find non-terminal `%s'\n",Value(getCar(getCdr(expr))));
 			ret=NULL;
 		} else {
 			ret=token_produce_any(t,nt,0);
 		}
 //		debug_write("### -=< nterm %s %s >=- ###\n",Value(getCar(getCdr(expr))),ret?"OK":"failed");
 
-	} else if(!strcmp(tag,"eof")) {
+	} else if(!strcmp(tag,"EOF")) {
 		_filter_garbage(t);
 		//if(*(t->source+t->ofs)&&t->ofs!=t->length) {
 		if(t->ofs!=t->size) {
@@ -367,11 +406,12 @@ ast_node_t* token_produce_any(token_context_t*t,ast_node_t*expr,int strip_T) {
 			update_pos_cache(t);
 			ret=newPair(newAtom("EOF",t->pos_cache.row,t->pos_cache.col),NULL,t->pos_cache.row,t->pos_cache.col);
 		}
-//		debug_write("### -=< eof %s >=- ###\n",ret?"OK":"failed");
+//		debug_write("### -=< EOF %s >=- ###\n",ret?"OK":"failed");
 	}
 
 	rec_lvl-=1;
 	if(ret) {
+		//dump_node(ret);
 		token_context_validate(t);
 		return ret;
 	} else {

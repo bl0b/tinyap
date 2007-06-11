@@ -62,7 +62,9 @@ m_div_l = <m_atom>.
 
 m_div_r = <m_atom>.
 
-_start = <m_expr> ";" ( eof
-		      | <_start>
-		      ).
+_expr = <m_expr> ";".
+
+_start = ( EOF
+	 | <_expr> <_start>
+	 ).
 

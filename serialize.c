@@ -32,10 +32,10 @@ const struct {
 	{'n','\n'},
 	{'t','\t'},
 	{'r','\r'},
-	{'n','\n'},
 	{'\\','\\'},
 	{'(','('},
 	{')',')'},
+	{'"','"'},
 	{' ',' '},
 	{0,0}
 };
@@ -60,10 +60,8 @@ void unescape_chr(char**src,char**dest) {
 		if(escape_characters[i].escaped) {
 			/* if we do have an escaped character, swallow it before returning */
 //			debug_writeln("unescaping \\%c",escape_characters[i].escaped);
-			**dest=escape_characters[i].unescaped;
+			ret=escape_characters[i].unescaped;
 			*src+=1;
-			*dest+=1;
-			return;
 		}
 	}
 	/* either ret is not \ or there's no valid escaped character following, thus we push raw ret in dest */
@@ -130,6 +128,7 @@ char* usrlz_token(token_context_t*t,const char*whitespaces,const char*terminator
 	srcptr=t->source+t->ofs;
 
 	if((!srcptr)||(!*srcptr)) {
+		return "";
 		//debug_writeln("* NULL TOKEN");
 /*	} else if(*srcptr=='('||*srcptr==')') {
 		buffer[0]=*srcptr;

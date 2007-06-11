@@ -187,7 +187,8 @@ void print_pair(ast_node_t*n);
 
 
 
-static inline ast_node_t*Append(ast_node_t*a,ast_node_t*b) {
+static inline ast_node_t*Append(const ast_node_t*a,const ast_node_t*b) {
+	ast_node_t*ptr;
 	if(!b) {
 		return a;
 	}
@@ -195,10 +196,15 @@ static inline ast_node_t*Append(ast_node_t*a,ast_node_t*b) {
 		return b;
 	}
 	assert(isPair(b));
-	while(a&&isPair(a)&&a->pair._cdr) a=a->pair._cdr;
 	assert(isPair(a));
-	assert(a->pair._cdr==NULL);
-	a->pair._cdr=b;
+	ptr=a;
+	debug_write("Append ");dump_node(b);
+	debug_write("    to ");dump_node(a);
+	while(ptr&&isPair(ptr)&&ptr->pair._cdr) ptr=ptr->pair._cdr;
+	assert(isPair(ptr));
+	assert(ptr->pair._cdr==NULL);
+	ptr->pair._cdr=b;
+	debug_write("     = ");dump_node(a);
 	return a;
 }
 

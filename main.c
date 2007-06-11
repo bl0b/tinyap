@@ -26,15 +26,17 @@
 
 
 void ast_serialize(ast_node_t*ast,char**output);
+void print_rules(ast_node_t*rs);
 
 ast_node_t*grammar,*ast;
 
 FILE*inputFile,*outputFile;
 const char*grammarSource="explicit";	/* default : explicit NFGDG */
+int print_grammar=0;
 const char*textSource="-";		/* default : input from stdin */
 const char*outputDest="-";		/* default : output to stdout */
 
-#define cmp_param(_arg_str_long,_arg_str_short) (i<(argc-1) && (	\
+#define cmp_param(_n,_arg_str_long,_arg_str_short) (i<(argc-_n) && (	\
 		(_arg_str_long && !strcmp(_arg_str_long,argv[i]))	\
 					||				\
 		(_arg_str_short && !strcmp(_arg_str_short,argv[i]))	\
@@ -43,23 +45,30 @@ const char*outputDest="-";		/* default : output to stdout */
 int get_opts(int argc,char*argv[]) {
 	int i;
 	for(i=1;i<argc;i+=1) {
-		if(cmp_param("--grammar","-g")) {
+		if(cmp_param(1,"--grammar","-g")) {
 			i+=1;
 			grammarSource=argv[i];
-		} else if(cmp_param("--input","-i")) {
+		} else if(cmp_param(1,"--input","-i")) {
 			i+=1;
 			textSource=argv[i];
-		} else if(cmp_param("--output","-o")) {
+		} else if(cmp_param(1,"--output","-o")) {
 			i+=1;
 			outputDest=argv[i];
-		} else if(!(strcmp("--help",argv[i])&&strcmp("-h",argv[i]))) {
+		} else if(cmp_param(1,"--print-grammar","-pg")) {
+			i+=1;
+			print_grammar=1;
+			grammarSource=argv[i];
+			return 0;
+		} else if(cmp_param(0,"--help","-h")) {
 			printf("This is not yet another (Java) parser.\n");
-			printf("(c) Damien 'bl0b' Leroux 2007\n\n");
+			printf("(c) 2007 Damien 'bl0b' Leroux\n\n");
 			printf("Usage : %s [--input,-i [inputFile]] [--output,-o [outputFile]] [--grammar,-g [grammarFile]] [--help,-h]\n",argv[0]);
 			printf("\n\t--grammar,-g name\tuse this grammar to parse input\n");
 			printf("\t\t\"" GRAMMAR_EXPLICIT "\"\t(default) selects explicit variant\n");
 			printf("\t\t\"" GRAMMAR_CAMELCASING "\"\tselects CamelCasing variant\n");
 			printf("\t\tany other string is a filename to read grammar from\n");
+			printf("\n\t--print-grammar,-pg name\toutput the grammar in explicit dialect of Blob's Noise-Filtering Form\n");
+			printf("\t\targument is the same as above\n");
 			printf("\n\t--input,-i name \ttext source to use\n");
 			printf("\t\t- (default)\tselects standard input\n");
 			printf("\t\tany other string is a filename to read from\n");
@@ -88,6 +97,9 @@ int main(int argc, char**argv) {
 		fprintf(stderr,"Fatal : no grammar :(\n");
 		exit(-1);
 	}
+	//debug_write("");
+	//dump_node(grammar);
+	//fputc('\n',stdout);
 
 	if(!strcmp(textSource,"-")) {
 		inputFile=stdin;
@@ -115,6 +127,13 @@ int main(int argc, char**argv) {
 
 	buffer=(char*)malloc(buflen);
 	memset(buffer,0,buflen);
+
+	if(print_grammar) {
+		print_rules(grammar);
+		fputc('\n',stdout);
+		exit(0);
+	}
+
 	if(fread(buffer,1,buflen,inputFile)<0) {
 		perror("Fatal : reading text");
 	}
@@ -126,6 +145,7 @@ int main(int argc, char**argv) {
 
 	toktext=token_context_new(buffer,strlen(buffer),"[ \t\r\n]+",grammar,STRIP_TERMINALS);
 	ast=clean_ast(token_produce_any(toktext,find_nterm(grammar,"_start"),0));
+	//ast=token_produce_any(toktext,find_nterm(grammar,"_start"),0);
 
 	if(ast) {
 		memset(buffer,0,buflen);
@@ -147,6 +167,8 @@ int main(int argc, char**argv) {
 
 	token_context_free(toktext);
 
+	fputc('\n',stdout);
+
 	return 0;
 }
 
@@ -161,7 +183,7 @@ math_mult_expr = <number>.\n\
 math_mult ::= <math_mult_expr> \"*\" <math_mult_expr>.\n\
 math_add_expr = (<math_mult>|<number>) .\n\
 math_add ::= <math_add_expr> \"+\" <math_add_expr>.\n\
-_start = <math_add> (<_start>|eof).\
+_start = <math_add> (<_start>|EOF).\
 ";
 
 char*j_random_foobar="23*5+2*35 3*4+5";
@@ -243,24 +265,24 @@ void print_rule_elem(ast_node_t*e) {
 
 	tag=Value(getCar(e));
 
-	if(!strcmp(tag,"opr_rule")) {
+	if(!strcmp(tag,"OperatorRule")) {
 		char*id=Value(getCar(getCdr(e)));
 		printf("%s ::= ",id);
 		print_rule_elem(getCar(getCdr(getCdr(e))));
 		printf(".\n");
-	} else if(!strcmp(tag,"trans_rule")) {
+	} else if(!strcmp(tag,"TransientRule")) {
 		char*id=Value(getCar(getCdr(e)));
 		printf("%s = ",id);
 		print_rule_elem(getCar(getCdr(getCdr(e))));
 		printf(".\n");
-	} else if(!strcmp(tag,"seq")) {
+	} else if(!strcmp(tag,"Seq")) {
 		t=getCdr(e);
 		while(t) {
 			print_rule_elem(getCar(t));
 			t=getCdr(t);
 		}
 		printf(" ");
-	} else if(!strcmp(tag,"alt")) {
+	} else if(!strcmp(tag,"Alt")) {
 		printf("( ");
 		t=getCdr(e);
 		print_rule_elem(getCar(t));
@@ -277,8 +299,8 @@ void print_rule_elem(ast_node_t*e) {
 		printf("<%s> ",Value(getCar(getCdr(e))));
 	} else if(!strcmp(tag,"T")) {
 		printf("\"%s\" ",Value(getCar(getCdr(e))));
-	} else if(!strcmp(tag,"eof")) {
-		printf("eof ");
+	} else if(!strcmp(tag,"EOF")) {
+		printf("EOF ");
 	} else {
 		printf("[NOT IMPLEMENTED [%s]] ",tag);
 	}
@@ -289,13 +311,12 @@ void print_rule_elem(ast_node_t*e) {
 void print_rules(ast_node_t*rs) {
 	if(!rs) return;
 
-	if(rs&&isAtom(getCar(rs))&&!strcmp(Value(getCar(rs)),"RuleList")) {
+	if(rs&&isAtom(getCar(rs))&&!strcmp(Value(getCar(rs)),"Grammar")) {
+		print_rules(getCdr(rs));
+	} else {
+		print_rule_elem(getCar(rs));
 		print_rules(getCdr(rs));
 	}
-
-	print_rule_elem(getCar(rs));
-
-	print_rules(getCdr(rs));
 }
 
 

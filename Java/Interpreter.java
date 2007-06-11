@@ -38,7 +38,9 @@ public class Interpreter {
 
 
 	static double test_math_ast(AST.Node n) {
-		if(n.getNodeAt(0).getString().equals("number")) {
+		if(n==null||n.isNil()||n.size()==0||n.getNodeAt(0)==null||!n.getNodeAt(0).isString()) {
+			return 0;
+		} else if(n.getNodeAt(0).getString().equals("number")) {
 			return Double.valueOf(n.getNodeAt(1).getString());
 		} else if(n.getNodeAt(0).getString().equals("m_minus")) {
 			return - test_math_ast(n.getNodeAt(1));
