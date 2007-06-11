@@ -15,26 +15,51 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
-#include "ast.h"
 
-volatile int depth=0;
+#ifndef _TINYAP_H__
+#define _TINYAP_H__
 
-#define _node(_tag,_contents) Cons(Atom(_tag),(_contents))
+#ifdef __cplusplus
+extern "C" {
+#endif
+#ifndef _TINYAP_AST_H__
+	typedef union _ast_node_t* ast_node_t;
+#endif
+	typedef struct _tinyap_t* tinyap_t;
 
-void delete_node(ast_node_t*n) {
-	if(!n) return;
-	switch(n->type) {
-	case ast_Atom:
-		free(n->atom._str);
-		break;
-	case ast_Pair:
-		delete_node(n->pair._car);
-		delete_node(n->pair._cdr);
-		break;
-	case ast_Nil:;	/* so that -Wall won't complain */
-	};
-	free(n);
+	tinyap_t	tinyap_parse(const char*input,const char*grammar);
+
+	int		tinyap_parsed_ok(const tinyap_t);
+	ast_node_t*	tinyap_get_output(const tinyap_t);
+
+	int		tinyap_get_error_col(const tinyap_t);
+	int		tinyap_get_error_row(const tinyap_t);
+	const char*	tinyap_get_error(const tinyap_t);
+
+	void		tinyap_free(tinyap_t);
+
+#ifdef __cplusplus
 }
 
+#warn TODO : C++ bindings
+
+namespace TinyaP {
+
+	class AST {
+		class Node {
+		private:
+			
+		public:
+			Node() {
+		}
+	}
+
+	class Parser {
+	}
+};
+
+
+#endif
+#endif
 
 

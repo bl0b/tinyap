@@ -1,4 +1,4 @@
-OBJECTS=ast.o bootstrap.o tokenizer.o serialize.o main.o
+OBJECTS=tinyap.o ast.o bootstrap.o tokenizer.o serialize.o main.o
 SOURCES=$(subst .o,.c,$(OBJECTS))
 
 #CARGS=-Wall -ggdb

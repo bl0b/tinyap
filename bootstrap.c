@@ -34,7 +34,7 @@ ast_node_t* ast_unserialize(const char*input);
  */
 /* TODO : think of a more BNF-like syntax (like specific case for OPR rules, and pseudo-nonterminals like _identifier or _number */
 
-const char*explicit_bnff_rules = "(Grammar\n"
+const char*explicit_bnff_rules = "((Grammar\n"
 "(TransientRule	elem		(RE [_a-zA-Z][0-9a-zA-Z_]*))\n"
 "(OperatorRule	T		(Seq (T \\\") (RE \\(\\\\\\\\\\\"|[^\"]\\)+) (T \\\")))\n"
 "(OperatorRule	NT		(Seq (T <) (NT elem) (T >)))\n"
@@ -52,10 +52,10 @@ const char*explicit_bnff_rules = "(Grammar\n"
 "(OperatorRule	Grammar	(NT _loop))\n"
 "(TransientRule	_loop		(Alt (EOF) (Seq (NT rule) (NT _loop))))\n"
 "(OperatorRule	EOF		(T EOF))\n"
-")\n";
+"))\n";
 
 
-const char*CamelCased_bnff_rules = "(Grammar\n"
+const char*CamelCased_bnff_rules = "((Grammar\n"
 "(TransientRule	camelIdent	(RE [A-Z][0-9a-z]*\\([A-Z][0-9a-z]*\\)*))\n"
 "(TransientRule	elem		(RE [_a-z][0-9a-zA-Z_]*))\n"
 "(OperatorRule	T		(Seq (T \\\") (RE \\(\\\\\\\\\\\"|[^\"]\\)+) (T \\\")))\n"
@@ -74,7 +74,7 @@ const char*CamelCased_bnff_rules = "(Grammar\n"
 "(OperatorRule	Grammar		(NT _loop))\n"
 "(TransientRule	_loop		(Alt (EOF) (Seq (NT rule) (NT _loop))))\n"
 "(OperatorRule	EOF		(T EOF))\n"
-")\n";
+"))\n";
 
 
 ast_node_t* init_BNF_rules() {

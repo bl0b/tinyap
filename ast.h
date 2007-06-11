@@ -15,8 +15,8 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
-#ifndef __AST_H__
-#define __AST_H__
+#ifndef _TINYAP_AST_H__
+#define _TINYAP_AST_H__
 
 #include <sys/types.h>
 #include <assert.h>
@@ -32,13 +32,12 @@ extern volatile int depth;
 #define debug_writeln(_fmt ,arg...) do { fprintf(stderr,"%*.*s",depth,depth,""); fprintf(stderr,_fmt ,##arg ); fputc('\n',stderr); fflush(stderr); } while(0)
 
 
-/* What follows should rather be prefixed LISP_ than AST_,
- * but we don't want to build a full LISP interpreter,
- * and the AST user wants to know about row:col position of nodes
+/*! \brief AST Node Types
  */
-
 typedef enum { ast_Nil=0, ast_Atom=0x6106, ast_Pair=0x8108 } ast_type_t;
 
+/*! \brief AST Node
+ */
 typedef union _ast_node_t {
 	/* first union member is used for static initializations */
 	struct {
@@ -73,21 +72,21 @@ typedef union _ast_node_t {
 
 #define _ast_node_type_to_str(__t) (__t==ast_Atom?"Atom":__t==ast_Pair?"Pair":__t?"(unknown)":"#nil")
 
-void dump_node(ast_node_t*n);
+int dump_node(const ast_node_t*n);
 
-static inline ast_node_t*ast_type_check(ast_node_t*n,ast_type_t expected,const char*_f,const int _l) {
+static inline ast_node_t*ast_type_check(const ast_node_t*n,const ast_type_t expected,const char*_f,const int _l) {
 	if((!n)&&expected==ast_Nil) {
 		return NULL;
 	} else if((!n)||n->type!=expected) {
 		/* spawn error */
-		debug_writeln("%s:%d: wrong node type %s [%X] : expected %s ; supp. data : %p %p %i %i\n",
+		debug_writeln("%s:%d: wrong node type %s [%X] : expected %s ; \n",
 			_f, _l,
-			n?_ast_node_type_to_str(n->type):"(nil)", n?n->type:0,_ast_node_type_to_str(expected),
-			n?n->raw._p1:NULL,n?n->raw._p2:NULL,n->pos.row,n->pos.col);
+			n?_ast_node_type_to_str(n->type):"(nil)", n?n->type:0,_ast_node_type_to_str(expected));
+		if(n) dump_node(n);
 		/* die */
 		exit(-1);
 	}
-	return n;
+	return (ast_node_t*)n;
 }
 
 
@@ -159,7 +158,7 @@ static inline ast_node_t*newAtom(const char*data,int row,int col) {
 
 
 
-static inline ast_node_t*newPair(ast_node_t*a,ast_node_t*d,int row,int col) {
+static inline ast_node_t*newPair(const ast_node_t*a,const ast_node_t*d,const int row,const int col) {
 	ast_node_t* ret;
 /*	if( isAtom(a) && (!strcmp(Value(a),"strip.me")) ) {
 		if(isPair(d)) {
@@ -174,14 +173,14 @@ static inline ast_node_t*newPair(ast_node_t*a,ast_node_t*d,int row,int col) {
 	}*/
 	ret=(ast_node_t*)malloc(sizeof(ast_node_t));
 	ret->type=ast_Pair;
-	ret->pair._car=a;
-	ret->pair._cdr=d;
+	ret->pair._car=(ast_node_t*)a;
+	ret->pair._cdr=(ast_node_t*)d;
 	ret->pos.row=row;
 	ret->pos.col=col;
 	return ret;
 }
 
-void deleteNode(ast_node_t*n);
+void delete_node(ast_node_t*n);
 
 void print_pair(ast_node_t*n);
 
@@ -190,22 +189,22 @@ void print_pair(ast_node_t*n);
 static inline ast_node_t*Append(const ast_node_t*a,const ast_node_t*b) {
 	ast_node_t*ptr;
 	if(!b) {
-		return a;
+		return (ast_node_t*)a;
 	}
 	if(!a) {
-		return b;
+		return (ast_node_t*)b;
 	}
 	assert(isPair(b));
 	assert(isPair(a));
-	ptr=a;
-	debug_write("Append ");dump_node(b);
-	debug_write("    to ");dump_node(a);
+	ptr=(ast_node_t*)a;
+	//debug_write("Append ");dump_node(b);
+	//debug_write("    to ");dump_node(a);
 	while(ptr&&isPair(ptr)&&ptr->pair._cdr) ptr=ptr->pair._cdr;
 	assert(isPair(ptr));
 	assert(ptr->pair._cdr==NULL);
-	ptr->pair._cdr=b;
-	debug_write("     = ");dump_node(a);
-	return a;
+	ptr->pair._cdr=(ast_node_t*)b;
+	//debug_write("     = ");dump_node(a);
+	return (ast_node_t*)a;
 }
 
 

@@ -212,9 +212,9 @@ ast_node_t* ast_unserialize(const char*input) {
 }
 
 
-void ast_serialize(ast_node_t*ast,char**output);
+void ast_serialize(const ast_node_t*ast,char**output);
 
-void ast_ser_list(ast_node_t*ast,char**output) {
+void ast_ser_list(const ast_node_t*ast,char**output) {
 	/* FIXME shouldn't happen */
 	if(isAtom(ast)) {
 		ast_serialize(ast,output);
@@ -232,7 +232,7 @@ void ast_ser_list(ast_node_t*ast,char**output) {
 }
 
 
-void ast_serialize(ast_node_t*ast,char**output) {
+void ast_serialize(const ast_node_t*ast,char**output) {
 	char*srcptr;
 	/* if ast is nil, output '()' */
 	if(!ast) {

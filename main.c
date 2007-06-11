@@ -16,8 +16,9 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
 #include "ast.h"
+#include "tinyap.h"
 #include "bootstrap.h"
-#include "tokenizer.h"
+//#include "tokenizer.h"
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -25,7 +26,7 @@
 
 
 
-void ast_serialize(ast_node_t*ast,char**output);
+void ast_serialize(const ast_node_t*ast,char**output);
 void print_rules(ast_node_t*rs);
 
 ast_node_t*grammar,*ast;
@@ -85,18 +86,13 @@ int get_opts(int argc,char*argv[]) {
 
 
 int main(int argc, char**argv) {
-	token_context_t* toktext;
+	//token_context_t* toktext;
+	tinyap_t parser;
 	char*buffer,*ptr;
 	int buflen=1048576;
 
 	get_opts(argc,argv);
 
-	grammar=get_ruleset(grammarSource);
-	if(!grammar) {
-		/* spawn error */
-		fprintf(stderr,"Fatal : no grammar :(\n");
-		exit(-1);
-	}
 	//debug_write("");
 	//dump_node(grammar);
 	//fputc('\n',stdout);
@@ -129,6 +125,12 @@ int main(int argc, char**argv) {
 	memset(buffer,0,buflen);
 
 	if(print_grammar) {
+		grammar=get_ruleset(grammarSource);
+		if(!grammar) {
+			/* spawn error */
+			fprintf(stderr,"Fatal : no grammar :(\n");
+			exit(-1);
+		}
 		print_rules(grammar);
 		fputc('\n',stdout);
 		exit(0);
@@ -143,16 +145,16 @@ int main(int argc, char**argv) {
 
 	/* tokenize and ast'ize */
 
-	toktext=token_context_new(buffer,strlen(buffer),"[ \t\r\n]+",grammar,STRIP_TERMINALS);
-	ast=clean_ast(token_produce_any(toktext,find_nterm(grammar,"_start"),0));
-	//ast=token_produce_any(toktext,find_nterm(grammar,"_start"),0);
+	//toktext=token_context_new(buffer,strlen(buffer),"[ \t\r\n]+",grammar,STRIP_TERMINALS);
+	//ast=clean_ast(token_produce_any(toktext,find_nterm(grammar,"_start"),0));
+	parser=tinyap_parse(buffer,grammarSource);
 
-	if(ast) {
+	if(tinyap_parsed_ok(parser)) {
 		memset(buffer,0,buflen);
 
 		ptr=buffer;
 
-		ast_serialize(ast,&ptr);
+		ast_serialize(tinyap_get_output(parser),&ptr);
 
 		fwrite(buffer,strlen(buffer),1,outputFile);
 
@@ -160,12 +162,12 @@ int main(int argc, char**argv) {
 			fclose(outputFile);
 		}
 	} else {
-		fprintf(stderr,"parse error at line %i, column %i\n%s",parse_error_line(toktext),parse_error_column(toktext),parse_error(toktext));
+		fprintf(stderr,"parse error at line %i, column %i\n%s",tinyap_get_error_row(parser),tinyap_get_error_col(parser),tinyap_get_error(parser));
 	}
 
 	free(buffer);
 
-	token_context_free(toktext);
+	tinyap_free(parser);
 
 	fputc('\n',stdout);
 
