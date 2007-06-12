@@ -27,7 +27,7 @@
 #include <unistd.h>
 
 
-ast_node_t* ast_unserialize(const char*input);
+ast_node_t  ast_unserialize(const char*input);
 
 /*
  * BOOTSTRAP
@@ -77,14 +77,14 @@ const char*CamelCased_bnff_rules = "((Grammar\n"
 "))\n";
 
 
-ast_node_t* init_BNF_rules() {
+ast_node_t  init_BNF_rules() {
 	return ast_unserialize(explicit_bnff_rules);
 }
 
-ast_node_t* get_ruleset(const char*name) {
+ast_node_t  get_ruleset(const char*name) {
 	struct stat st;
 	char*buf;
-	ast_node_t*ret=NULL;
+	ast_node_t ret=NULL;
 	if(!strcmp(name,GRAMMAR_EXPLICIT)) {
 		ret=ast_unserialize(explicit_bnff_rules);
 	} else if(!strcmp(name,GRAMMAR_CAMELCASING)) {
@@ -98,5 +98,6 @@ ast_node_t* get_ruleset(const char*name) {
 		ret=ast_unserialize(buf);
 		free(buf);
 	}
+	//dump_node(ret);
 	return ret;
 }

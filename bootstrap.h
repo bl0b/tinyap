@@ -15,12 +15,17 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
+#ifndef _TINYAP_BOOTSTRAP_H__
+#define _TINYAP_BOOTSTRAP_H__
 
-//ast_node_t* init_BNF_rules();
-
-//extern char* lisp_like_bnf_rules;
+/*! \brief AST Node public type
+ */
+typedef union _ast_node_t* ast_node_t;
 
 #define GRAMMAR_EXPLICIT "explicit"
 #define GRAMMAR_CAMELCASING "CamelCasing"
 
-ast_node_t* get_ruleset(const char*name);
+ast_node_t  get_ruleset(const char*name);
+
+
+#endif

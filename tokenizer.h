@@ -31,7 +31,7 @@ typedef struct _token_context_t {
 	size_t ofstack[OFSTACK_SIZE];
 	size_t ofsp;
 	size_t farthest;
-	ast_node_t*grammar;
+	ast_node_t grammar;
 	struct {
 		int last_ofs;
 		int last_nlofs;
@@ -41,15 +41,15 @@ typedef struct _token_context_t {
 } token_context_t;
 
 
-ast_node_t* token_produce_any(token_context_t*t,ast_node_t*expr,int strip_T);
-ast_node_t*find_nterm(const ast_node_t*ruleset,const char*ntermid);
-ast_node_t*clean_ast(ast_node_t*t);
+ast_node_t  token_produce_any(token_context_t*t,ast_node_t expr,int strip_T);
+ast_node_t find_nterm(const ast_node_t ruleset,const char*ntermid);
+ast_node_t clean_ast(ast_node_t t);
 
-ast_node_t*token_produce_re(token_context_t*t,const regex_t*expr);
-ast_node_t*token_produce_str(token_context_t*t,const char*token);
+ast_node_t token_produce_re(token_context_t*t,const regex_t*expr);
+ast_node_t token_produce_str(token_context_t*t,const char*token);
 
 regex_t*token_regcomp(const char*reg_expr);
-token_context_t*token_context_new(const char*src,const size_t length,const char*garbage_regex,ast_node_t*greuh,size_t drapals);
+token_context_t*token_context_new(const char*src,const size_t length,const char*garbage_regex,ast_node_t greuh,size_t drapals);
 size_t token_context_peek(const token_context_t*t);
 void token_context_push(token_context_t*t);
 void token_context_validate(token_context_t*t);

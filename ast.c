@@ -19,9 +19,11 @@
 
 volatile int depth=0;
 
+volatile int _node_alloc_count=0;
+
 #define _node(_tag,_contents) Cons(Atom(_tag),(_contents))
 
-void delete_node(ast_node_t*n) {
+void delete_node(ast_node_t n) {
 	if(!n) return;
 	switch(n->type) {
 	case ast_Atom:
@@ -33,6 +35,7 @@ void delete_node(ast_node_t*n) {
 		break;
 	case ast_Nil:;	/* so that -Wall won't complain */
 	};
+	_node_alloc_count-=1;
 	free(n);
 }
 

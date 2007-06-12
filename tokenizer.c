@@ -19,9 +19,9 @@
 #include "ast.h"
 #include "tokenizer.h"
 
-void ast_serialize(const ast_node_t*ast,char**output);
+void ast_serialize(const ast_node_t ast,char**output);
 
-int dump_node(const ast_node_t*n) {
+int dump_node(const ast_node_t n) {
 	static char buffer[4096];
 	char*ptr=buffer;
 	memset(buffer,0,4096);
@@ -55,7 +55,7 @@ char*match2str(const char*src,const size_t start,const size_t end) {
 
 
 
-token_context_t*token_context_new(const char*src,const size_t length,const char*garbage_regex,ast_node_t*greuh,size_t drapals) {
+token_context_t*token_context_new(const char*src,const size_t length,const char*garbage_regex,ast_node_t greuh,size_t drapals) {
 	token_context_t*t=(token_context_t*)malloc(sizeof(token_context_t));
 	t->source=strdup(src);
 	t->ofs=0;
@@ -123,7 +123,7 @@ void token_context_free(token_context_t*t) {
  * return NULL on no match
  */
 
-ast_node_t*token_produce_re(token_context_t*t,const regex_t*expr) {
+ast_node_t token_produce_re(token_context_t*t,const regex_t*expr) {
 	regmatch_t token;
 	char*ret;
 	int r,c;
@@ -147,7 +147,7 @@ ast_node_t*token_produce_re(token_context_t*t,const regex_t*expr) {
 }
 
 
-ast_node_t*token_produce_str(token_context_t*t,const char*token) {
+ast_node_t token_produce_str(token_context_t*t,const char*token) {
 	int r,c;
 	_filter_garbage(t);
 	update_pos_cache(t);
@@ -193,7 +193,7 @@ _start=(<Rule> <_start> | <rule>).
 
 
 
-ast_node_t* token_produce_any(token_context_t*t,ast_node_t*expr,int strip_T);
+ast_node_t  token_produce_any(token_context_t*t,ast_node_t expr,int strip_T);
 
 
 
@@ -203,10 +203,10 @@ ast_node_t* token_produce_any(token_context_t*t,ast_node_t*expr,int strip_T);
 
 
 
-ast_node_t*find_nterm(const ast_node_t*ruleset,const char*ntermid) {
-	ast_node_t*root=getCar(ruleset);
-	ast_node_t*n=getCdr(root);	/* skip tag */
-	assert(!strcmp(Value(getCar((ast_node_t*)root)),"Grammar"));	/* and be sure it made sense */
+ast_node_t find_nterm(const ast_node_t ruleset,const char*ntermid) {
+	ast_node_t root=getCar(ruleset);
+	ast_node_t n=getCdr(root);	/* skip tag */
+	assert(!strcmp(Value(getCar((ast_node_t )root)),"Grammar"));	/* and be sure it made sense */
 //	dump_node(n);
 //	printf("\n");
 	while(n&&strcmp(node_tag(getCdr(getCar(n))),ntermid)) {	/* skip operator tag to fetch rule name */
@@ -223,8 +223,8 @@ ast_node_t*find_nterm(const ast_node_t*ruleset,const char*ntermid) {
 }
 
 
-ast_node_t*_produce_seq_rec(token_context_t*t,ast_node_t*seq) {
-	ast_node_t*tmp,*rec;
+ast_node_t _produce_seq_rec(token_context_t*t,ast_node_t seq) {
+	ast_node_t tmp,rec;
 
 	/* if seq is Nil, don't fail */
 	if(!seq) {
@@ -259,8 +259,8 @@ ast_node_t*_produce_seq_rec(token_context_t*t,ast_node_t*seq) {
 
 
 
-ast_node_t* token_produce_seq(token_context_t*t,ast_node_t*seq) {
-	ast_node_t*ret;
+ast_node_t  token_produce_seq(token_context_t*t,ast_node_t seq) {
+	ast_node_t ret;
 
 	/* try and produce seq */
 	ret=_produce_seq_rec(t,seq);
@@ -274,8 +274,8 @@ ast_node_t* token_produce_seq(token_context_t*t,ast_node_t*seq) {
 
 
 
-ast_node_t* token_produce_alt(token_context_t*t,ast_node_t*alt) {
-	ast_node_t*tmp;
+ast_node_t  token_produce_alt(token_context_t*t,ast_node_t alt) {
+	ast_node_t tmp;
 
 	/* if alt is Nil, fail */
 	if(!alt) {
@@ -296,10 +296,10 @@ ast_node_t* token_produce_alt(token_context_t*t,ast_node_t*alt) {
 
 
 
-ast_node_t* token_produce_any(token_context_t*t,ast_node_t*expr,int strip_T) {
+ast_node_t  token_produce_any(token_context_t*t,ast_node_t expr,int strip_T) {
 	static int rec_lvl=0;
 	char*tag;
-	ast_node_t*ret=NULL;
+	ast_node_t ret=NULL;
 
 	if(!expr) {
 		return NULL;
@@ -337,7 +337,7 @@ ast_node_t* token_produce_any(token_context_t*t,ast_node_t*expr,int strip_T) {
 
 	} else if(!strcmp(tag,"RE")) {
 	/* case regex : call and return token_produce_re */
-		ast_node_t* re = getCar(getCdr(expr));
+		ast_node_t  re = getCar(getCdr(expr));
 		if(!re->raw._p2) {
 			/* take advantage of unused atom field to implement regexp cache */
 			re->raw._p2=token_regcomp(Value(re));
@@ -388,7 +388,7 @@ ast_node_t* token_produce_any(token_context_t*t,ast_node_t*expr,int strip_T) {
 
 	} else if(!strcmp(tag,"NT")) {
 	/* case nterm : call and return token_produce_nterm */
-		ast_node_t*nt=find_nterm(t->grammar,Value(getCar(getCdr(expr))));
+		ast_node_t nt=find_nterm(t->grammar,Value(getCar(getCdr(expr))));
 		if(!nt) {
 			/* error, fail */
 			debug_write("FAIL-- couldn't find non-terminal `%s'\n",Value(getCar(getCdr(expr))));
@@ -426,7 +426,7 @@ ast_node_t* token_produce_any(token_context_t*t,ast_node_t*expr,int strip_T) {
 
 
 
-ast_node_t*clean_ast(ast_node_t*t) {
+ast_node_t clean_ast(ast_node_t t) {
 	if(!t) {
 		return NULL;
 	}
@@ -442,7 +442,7 @@ ast_node_t*clean_ast(ast_node_t*t) {
 		t->pair._cdr=clean_ast(t->pair._cdr);
 		//if(t->pair._car==NULL&&t->pair._cdr==NULL) {
 		if(t->pair._car==NULL) {
-			ast_node_t*cdr=t->pair._cdr;
+			ast_node_t cdr=t->pair._cdr;
 			t->pair._cdr=NULL;
 			delete_node(t);
 			return cdr;

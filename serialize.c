@@ -75,12 +75,12 @@ void unescape_chr(char**src,char**dest) {
 
 
 /* escape first character in *src, put it in *dest, and advance pointers */
-void escape_chr(char**src,char**dest) {
+void escape_chr(char**src,int(*func)(int,void*),void*param) {
 	/* index to search for character escaping combination */
 	int i=0;
 	char ret=**src;
 	if(!ret) {
-		**dest=0;
+		func(0,param);
 		return;
 	}
 
@@ -91,14 +91,11 @@ void escape_chr(char**src,char**dest) {
 
 	if(escape_characters[i].unescaped!=0) {
 		/* have to escape character, two bytes will be pushed onto *dest */
-		**dest='\\';
-		*dest+=1;
-		**dest=escape_characters[i].escaped;
-		*dest+=1;
+		func('\\',param);
+		func(escape_characters[i].escaped,param);
 	} else {
 		/* push raw **src into **dest */
-		**dest=ret;
-		*dest+=1;
+		func(ret,param);
 	}
 	/* now dest is all set up, advance source */
 	*src+=1;
@@ -129,13 +126,6 @@ char* usrlz_token(token_context_t*t,const char*whitespaces,const char*terminator
 
 	if((!srcptr)||(!*srcptr)) {
 		return "";
-		//debug_writeln("* NULL TOKEN");
-/*	} else if(*srcptr=='('||*srcptr==')') {
-		buffer[0]=*srcptr;
-		destptr+=1;
-		t->ofs+=1;
-		//debug_writeln("* %s PARENTHESIS",*srcptr=='('?"OPENING":"CLOSING");
-*/
 	} else if(*srcptr=='(') {
 		t->ofs+=1;
 		return OPEN_PAR;
@@ -160,10 +150,10 @@ char* usrlz_token(token_context_t*t,const char*whitespaces,const char*terminator
 
 
 
-ast_node_t* _qlp_elem(token_context_t*t);
+ast_node_t  _qlp_elem(token_context_t*t);
 
-ast_node_t* _qlp_list(token_context_t*t) {
-	ast_node_t*car=_qlp_elem(t);
+ast_node_t  _qlp_list(token_context_t*t) {
+	ast_node_t car=_qlp_elem(t);
 	if(car) {
 //		printf("\tcar="); dump_node(car); printf("\n");
 		//return newPair(car,_qlp_list(t,sym));
@@ -172,13 +162,13 @@ ast_node_t* _qlp_list(token_context_t*t) {
 	return NULL;
 }
 
-ast_node_t* _qlp_elem(token_context_t*t) {
+ast_node_t  _qlp_elem(token_context_t*t) {
 /* ( => cons(_qlp_rec(t),_qlp_rec(t))
  * ) => NULL
  * \. => atom(.)
  * [^()]* => symbol
  */
-	ast_node_t*ret=NULL;
+	ast_node_t ret=NULL;
 	char*cur=t->source+t->ofs;
 	char*token;
 
@@ -195,6 +185,7 @@ ast_node_t* _qlp_elem(token_context_t*t) {
 	} else if(!*token) {
 		ret=NULL;
 	} else {
+		//debug_write("token='%s' ",token);
 		ret=newAtom(token,0,0);
 	}
 
@@ -203,7 +194,7 @@ ast_node_t* _qlp_elem(token_context_t*t) {
 }
 
 
-ast_node_t* ast_unserialize(const char*input) {
+ast_node_t  ast_unserialize(const char*input) {
 	token_context_t toktext;/*=token_context_new(input,"[\t\n\r ]*",NULL,0);*/
 	toktext.ofs=0;
 	toktext.source=(char*)input;
@@ -212,50 +203,71 @@ ast_node_t* ast_unserialize(const char*input) {
 }
 
 
-void ast_serialize(const ast_node_t*ast,char**output);
+void ast_serialize(const ast_node_t ast,int(*func)(int,void*),void*param);
 
-void ast_ser_list(const ast_node_t*ast,char**output) {
+int str_put(int c,void*data) {
+	char**output=(char**)data;
+	**output=(char)c;
+	*output+=1;
+	return 1;
+}
+
+int incr(int c,void*data) {
+	unsigned int*counter=(unsigned int*)data;
+	*counter+=1;
+	return 1;
+}
+
+void ast_ser_list(const ast_node_t ast,int(*func)(int,void*),void*param) {
 	/* FIXME shouldn't happen */
 	if(isAtom(ast)) {
-		ast_serialize(ast,output);
+		ast_serialize(ast,func,param);
 		return;
 	}
 
 	if(getCar(ast)) {
-		ast_serialize(getCar(ast),output);
+		ast_serialize(getCar(ast),func,param);
 	}
 	if(getCdr(ast)) {
-		**output=' ';
-		*output+=1;
-		ast_ser_list(getCdr(ast),output);
+		func(' ',param);
+		ast_ser_list(getCdr(ast),func,param);
 	}
 }
 
 
-void ast_serialize(const ast_node_t*ast,char**output) {
+void ast_serialize(const ast_node_t ast,int(*func)(int,void*),void*param) {
 	char*srcptr;
 	/* if ast is nil, output '()' */
 	if(!ast) {
-		**output='(';
-		*output+=1;
-		**output=')';
-		*output+=1;
+		func('(',param);
+		func(')',param);
 	/* if ast is pair, serialize list */
 	} else if(isPair(ast)) {
-		**output='(';
-		*output+=1;
-		ast_ser_list(ast,output);
-		**output=')';
-		*output+=1;
+		func('(',param);
+		ast_ser_list(ast,func,param);
+		func(')',param);
 	/* if ast is atom, output atom */
 	} else if(isAtom(ast)) {
 		srcptr=getAtom(ast);
 		while(*srcptr!=0) {
-			escape_chr(&srcptr,output);
+			escape_chr(&srcptr,func,param);
 		}
 /*		*output+=strlen(getAtom(ast));*/
 	}
-	**output=0;
+	func('\0',param);
 }
 
+
+const char* ast_serialize_to_string(const ast_node_t ast) {
+	unsigned int size=0;
+	char*ret,*tmp;
+	ast_serialize(ast,incr,(void*)&size);
+	tmp=ret=(char*)malloc(size);
+	ast_serialize(ast,str_put,(void*)&tmp);
+	return ret;
+}
+
+void ast_serialize_to_file(const ast_node_t ast,FILE*f) {
+	ast_serialize(ast,(int(*)(int,void*))fputc,(void*)f);
+}
 

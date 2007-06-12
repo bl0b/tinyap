@@ -24,6 +24,8 @@
 #include <string.h>
 #include <stdio.h>
 
+#include "bootstrap.h"
+
 extern volatile int depth;
 
 #define debug_enter() do { depth+=3; } while(0)
@@ -36,9 +38,8 @@ extern volatile int depth;
  */
 typedef enum { ast_Nil=0, ast_Atom=0x6106, ast_Pair=0x8108 } ast_type_t;
 
-/*! \brief AST Node
- */
-typedef union _ast_node_t {
+
+union _ast_node_t {
 	/* first union member is used for static initializations */
 	struct {
 		ast_type_t _;
@@ -67,14 +68,14 @@ typedef union _ast_node_t {
 		union _ast_node_t* _car;
 		union _ast_node_t* _cdr;
 	} pair;
-} ast_node_t;
+};
 
 
 #define _ast_node_type_to_str(__t) (__t==ast_Atom?"Atom":__t==ast_Pair?"Pair":__t?"(unknown)":"#nil")
 
-int dump_node(const ast_node_t*n);
+int dump_node(const ast_node_t n);
 
-static inline ast_node_t*ast_type_check(const ast_node_t*n,const ast_type_t expected,const char*_f,const int _l) {
+static inline ast_node_t ast_type_check(const ast_node_t n,const ast_type_t expected,const char*_f,const int _l) {
 	if((!n)&&expected==ast_Nil) {
 		return NULL;
 	} else if((!n)||n->type!=expected) {
@@ -86,13 +87,13 @@ static inline ast_node_t*ast_type_check(const ast_node_t*n,const ast_type_t expe
 		/* die */
 		exit(-1);
 	}
-	return (ast_node_t*)n;
+	return (ast_node_t )n;
 }
 
 
 
-#define _atom(__s,_r,_c) (ast_node_t[]){{{ast_Atom,__s,NULL,_r,_c}}}
-#define _pair(__a,__d,_r,_c) (ast_node_t[]){{{ast_Pair,__a,__d,_r,_c}}}
+#define _atom(__s,_r,_c) (union _ast_node_t[]){{{ast_Atom,__s,NULL,_r,_c}}}
+#define _pair(__a,__d,_r,_c) (union _ast_node_t[]){{{ast_Pair,__a,__d,_r,_c}}}
 
 
 /*! \par __n an AST node
@@ -110,22 +111,22 @@ static inline ast_node_t*ast_type_check(const ast_node_t*n,const ast_type_t expe
  */
 #define getCdr(__n) (ast_type_check((__n),ast_Pair,__FILE__,__LINE__)->pair._cdr)
 
-static inline int getRow(ast_node_t*n) {
+static inline int getRow(ast_node_t n) {
 	if(!n) return 0;
 	return n->pos.row;
 }
 
-static inline int getCol(ast_node_t*n) {
+static inline int getCol(ast_node_t n) {
 	if(!n) return 0;
 	return n->pos.col;
 }
 
-static inline void setRow(ast_node_t*n,int r) {
+static inline void setRow(ast_node_t n,int r) {
 	if(!n) return;
 	n->pos.row=r;
 }
 
-static inline void setCol(ast_node_t*n,int c) {
+static inline void setCol(ast_node_t n,int c) {
 	if(!n) return;
 	n->pos.col=c;
 }
@@ -143,23 +144,25 @@ static inline void setCol(ast_node_t*n,int c) {
 #define Value	getAtom
 
 
+extern volatile int _node_alloc_count;
 
 
-static inline ast_node_t*newAtom(const char*data,int row,int col) {
-	ast_node_t* ret=(ast_node_t*)malloc(sizeof(ast_node_t));
+static inline ast_node_t newAtom(const char*data,int row,int col) {
+	ast_node_t  ret=(ast_node_t )malloc(sizeof(union _ast_node_t));
 	ret->type=ast_Atom;
 	ret->atom._str=strdup(data);
 	ret->raw._p2=NULL;	/* useful for regexp cache hack */
 	ret->pos.row=row;
 	ret->pos.col=col;
+	_node_alloc_count+=1;
 	return ret;
 }
 
 
 
 
-static inline ast_node_t*newPair(const ast_node_t*a,const ast_node_t*d,const int row,const int col) {
-	ast_node_t* ret;
+static inline ast_node_t newPair(const ast_node_t a,const ast_node_t d,const int row,const int col) {
+	ast_node_t  ret;
 /*	if( isAtom(a) && (!strcmp(Value(a),"strip.me")) ) {
 		if(isPair(d)) {
 			return d;
@@ -171,40 +174,41 @@ static inline ast_node_t*newPair(const ast_node_t*a,const ast_node_t*d,const int
 			}
 		}
 	}*/
-	ret=(ast_node_t*)malloc(sizeof(ast_node_t));
+	ret=(ast_node_t )malloc(sizeof(union _ast_node_t));
 	ret->type=ast_Pair;
-	ret->pair._car=(ast_node_t*)a;
-	ret->pair._cdr=(ast_node_t*)d;
+	ret->pair._car=(ast_node_t )a;
+	ret->pair._cdr=(ast_node_t )d;
 	ret->pos.row=row;
 	ret->pos.col=col;
+	_node_alloc_count+=1;
 	return ret;
 }
 
-void delete_node(ast_node_t*n);
+void delete_node(ast_node_t n);
 
-void print_pair(ast_node_t*n);
+void print_pair(ast_node_t n);
 
 
 
-static inline ast_node_t*Append(const ast_node_t*a,const ast_node_t*b) {
-	ast_node_t*ptr;
+static inline ast_node_t Append(const ast_node_t a,const ast_node_t b) {
+	ast_node_t ptr;
 	if(!b) {
-		return (ast_node_t*)a;
+		return (ast_node_t )a;
 	}
 	if(!a) {
-		return (ast_node_t*)b;
+		return (ast_node_t )b;
 	}
 	assert(isPair(b));
 	assert(isPair(a));
-	ptr=(ast_node_t*)a;
+	ptr=(ast_node_t )a;
 	//debug_write("Append ");dump_node(b);
 	//debug_write("    to ");dump_node(a);
 	while(ptr&&isPair(ptr)&&ptr->pair._cdr) ptr=ptr->pair._cdr;
 	assert(isPair(ptr));
 	assert(ptr->pair._cdr==NULL);
-	ptr->pair._cdr=(ast_node_t*)b;
+	ptr->pair._cdr=(ast_node_t )b;
 	//debug_write("     = ");dump_node(a);
-	return (ast_node_t*)a;
+	return (ast_node_t )a;
 }
 
 
