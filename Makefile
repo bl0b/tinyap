@@ -1,18 +1,28 @@
-OBJECTS=tinyap.o ast.o bootstrap.o tokenizer.o serialize.o main.o
+OBJECTS=tinyap.o ast.o bootstrap.o tokenizer.o serialize.o
 SOURCES=$(subst .o,.c,$(OBJECTS))
+
+LIB_TARGET=libtinyap.so
+
+TEST_C_TGT=tinyap
+TEST_CPP_TGT=tinyap++
+
+TEST_TARGETS=$(TEST_C_TGT) $(TEST_CPP_TGT)
 
 #CARGS=-Wall -ggdb
 
 CCARGS=-Wall -ggdb
 #CCARGS=-Wall -O3
 CC=gcc
+CXX=g++
 C=$(CC) $(CCARGS) $(CADD)
+CX=$(CXX) $(CCARGS) $(CADD)
 
 LD=gcc
+LD_SHARE=-shared
 LDARGS=
 L=$(LD) $(LDARGS)
 
-all: tinyap java
+all: $(LIB_TARGET) $(TEST_TARGETS)
 
 .depend: $(SOURCES)
 	$C --depend $(SOURCES) > $@
@@ -25,10 +35,20 @@ java:
 $(OBJECTS):%.o:%.c
 	$C -c $< -o $@
 
-tinyap: .depend $(OBJECTS)
-	$L $(OBJECTS) -o tinyap
+$(LIB_TARGET): .depend $(OBJECTS)
+	$L $(LD_SHARE) $(OBJECTS) -o $@
+
+$(TEST_C_TGT): main.c
+	$C $(LIB_TARGET) $< -o $@
+
+$(TEST_CPP_TGT): main++.c++
+	$(CX) $(LIB_TARGET) $< -o $@
+
 
 clean:
 	rm -f *~ *.o tinyap .depend
 	(cd Java&&make clean)
 
+doc: Doxyfile $(SOURCES)
+	rm -rf doc/
+	doxygen

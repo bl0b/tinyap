@@ -39,6 +39,8 @@ struct _tinyap_t {
 	char*source_file;
 	char*source_buffer;
 	size_t source_buffer_sz;
+
+	int error;
 };
 
 void tinyap_delete(tinyap_t t) {
@@ -78,6 +80,7 @@ void tinyap_serialize_to_file(const ast_node_t n,const char*fnam) {
 		f=fopen(fnam,"w");
 	}
 	ast_serialize_to_file(n,f);
+	fputc('\n',f);
 	fclose(f);
 }
 
@@ -142,7 +145,7 @@ void tinyap_set_grammar(tinyap_t t,const char*g) {
 	if(t->grammar) {
 		delete_node(t->grammar);
 	}
-	t->grammar=get_ruleset(g);
+	t->grammar=tinyap_get_ruleset(g);
 	init_grammar(t);
 }
 
@@ -220,6 +223,7 @@ void tinyap_set_source_buffer(tinyap_t t,const char* b,const unsigned int sz) {
 	
 }
 
+
 int tinyap_parse(tinyap_t t) {
 	if(t->toktext) {
 		token_context_free(t->toktext);
@@ -238,12 +242,20 @@ int tinyap_parse(tinyap_t t) {
 				t->start,
 				0));
 
-	return t->output!=NULL;
+	return (t->error=(t->output!=NULL));
 	
 }
 
 
-int tinyap_parsed_ok(const tinyap_t t) { return t->output!=NULL; }
+int tinyap_parse_as_grammar(tinyap_t t) {
+	if(tinyap_parse(t)) {
+		tinyap_set_grammar_ast(t,tinyap_get_output(t));
+		t->output=NULL;
+	}
+	return t->error;
+}
+
+int tinyap_parsed_ok(const tinyap_t t) { return t->error; }
 
 ast_node_t tinyap_get_output(const tinyap_t t) { return t->output; }
 
@@ -262,11 +274,12 @@ int tinyap_node_is_list(const ast_node_t  n) {
 
 ast_node_t tinyap_list_get_element(const ast_node_t n,int i) {
 	ast_node_t ret=n;
-	while(i>0) {
+	while(ret&&i>0) {
 		ret=getCdr(ret);
 		i-=1;
 	}
-	return ret;
+	if(!ret) return NULL;
+	return getCar(ret);
 }
 
 
@@ -279,17 +292,12 @@ const char* tinyap_node_get_string(const ast_node_t  n) {
 }
 
 ast_node_t  tinyap_node_get_operand(const ast_node_t  n,int i) {
-	ast_node_t  o=getCdr(n);
-	while(o&&i>0) {
-		o=getCdr(o);
-		i-=1;
-	}
-	if(o) {
-		return getCar(o);
-	}
-	return NULL;
+	return tinyap_list_get_element(getCdr(n),i);
 }
 
+const char*	tinyap_node_get_operator(const ast_node_t  n) {
+	return Value(getCar(n));
+}
 
 int tinyap_node_get_operand_count(const ast_node_t  n) {
 	ast_node_t  o=getCdr(n);
@@ -302,7 +310,4 @@ int tinyap_node_get_operand_count(const ast_node_t  n) {
 }
 
 
-const char*	tinyap_node_get_operator(const ast_node_t  n) {
-	return Value(getCar(n));
-}
 

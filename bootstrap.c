@@ -42,12 +42,12 @@ const char*explicit_bnff_rules = "((Grammar\n"
 "(TransientRule	rule		(Alt (NT OperatorRule) (NT TransientRule)))\n"
 "(OperatorRule	OperatorRule	(Seq (NT elem) (T ::=) (NT rule_expr) (T .)))\n"
 "(OperatorRule	TransientRule	(Seq (NT elem) (T =) (NT rule_expr) (T .)))\n"
-"(TransientRule	rule_expr	(Alt (Seq (T \\() (NT Alt) (T \\))) (NT Seq) (NT rule_elem)))\n"
+"(TransientRule	rule_expr	(Alt (NT Alt) (NT Seq) (NT rule_elem)))\n"
 "(OperatorRule	Seq		(Seq (NT rule_elem) (NT seq_expr)))\n"
-"(OperatorRule	Alt		(NT alt_expr))\n"
+"(OperatorRule	Alt		(Seq (T \\() (NT alt_expr) (T \\))))\n"
 "(TransientRule	seq_expr	(Alt (Seq (NT rule_elem) (NT seq_expr)) (NT rule_elem)))\n"
 "(TransientRule	alt_expr	(Alt (Seq (NT rule_elem) (T |) (NT alt_expr)) (Seq (NT Seq) (T |) (NT alt_expr)) (NT Seq) (NT rule_elem)))\n"
-"(TransientRule	rule_elem	(Alt (NT T) (NT NT) (NT RE) (Seq (T \\() (NT Alt) (T \\))) (NT EOF)))\n"
+"(TransientRule	rule_elem	(Alt (NT T) (NT NT) (NT RE) (NT Alt) (NT EOF)))\n"
 "(TransientRule	_start		(NT Grammar))\n"
 "(OperatorRule	Grammar	(NT _loop))\n"
 "(TransientRule	_loop		(Alt (EOF) (Seq (NT rule) (NT _loop))))\n"
@@ -81,7 +81,7 @@ ast_node_t  init_BNF_rules() {
 	return ast_unserialize(explicit_bnff_rules);
 }
 
-ast_node_t  get_ruleset(const char*name) {
+ast_node_t  tinyap_get_ruleset(const char*name) {
 	struct stat st;
 	char*buf;
 	ast_node_t ret=NULL;

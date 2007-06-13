@@ -85,7 +85,8 @@ static inline ast_node_t ast_type_check(const ast_node_t n,const ast_type_t expe
 			n?_ast_node_type_to_str(n->type):"(nil)", n?n->type:0,_ast_node_type_to_str(expected));
 		if(n) dump_node(n);
 		/* die */
-		exit(-1);
+		abort();
+		//exit(-1);
 	}
 	return (ast_node_t )n;
 }

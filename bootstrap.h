@@ -25,7 +25,7 @@ typedef union _ast_node_t* ast_node_t;
 #define GRAMMAR_EXPLICIT "explicit"
 #define GRAMMAR_CAMELCASING "CamelCasing"
 
-ast_node_t  get_ruleset(const char*name);
+ast_node_t  tinyap_get_ruleset(const char*name);
 
 
 #endif

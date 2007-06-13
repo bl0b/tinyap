@@ -16,17 +16,16 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
 
+#include "tinyap.h"
 #include "ast.h"
 #include "tokenizer.h"
 
 void ast_serialize(const ast_node_t ast,char**output);
 
 int dump_node(const ast_node_t n) {
-	static char buffer[4096];
-	char*ptr=buffer;
-	memset(buffer,0,4096);
-	ast_serialize(n,&ptr);
-	debug_writeln(buffer);
+	const char*ptr=tinyap_serialize_to_string(n);
+	debug_writeln(ptr);
+	free((char*)ptr);
 	return 0;
 }
 
@@ -401,11 +400,13 @@ ast_node_t  token_produce_any(token_context_t*t,ast_node_t expr,int strip_T) {
 	} else if(!strcmp(tag,"EOF")) {
 		_filter_garbage(t);
 		//if(*(t->source+t->ofs)&&t->ofs!=t->length) {
-		if(t->ofs!=t->size) {
+		if(t->source[t->ofs]||t->ofs<t->size) {
+			//debug_writeln("EOF not matched at #%u (against #%u)",t->ofs,t->size);
 			ret=NULL;
 		} else {
+			//debug_writeln("EOF matched at #%u (against #%u)",t->ofs,t->size);
 			update_pos_cache(t);
-			ret=newPair(newAtom("EOF",t->pos_cache.row,t->pos_cache.col),NULL,t->pos_cache.row,t->pos_cache.col);
+			ret=newPair(newAtom("strip.me",t->pos_cache.row,t->pos_cache.col),NULL,t->pos_cache.row,t->pos_cache.col);
 		}
 //		debug_write("### -=< EOF %s >=- ###\n",ret?"OK":"failed");
 	}
@@ -431,7 +432,7 @@ ast_node_t clean_ast(ast_node_t t) {
 		return NULL;
 	}
 	if(isAtom(t)) {
-		if(strcmp(Value(t),"strip.me")&&strcmp(Value(t),"EOF")) {
+		if(strcmp(Value(t),"strip.me")) {
 			return t;
 		} else {
 			delete_node(t);
