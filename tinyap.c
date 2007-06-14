@@ -191,8 +191,9 @@ void tinyap_set_source_file(tinyap_t t,const char*fnam) {
 		if(strcmp(fnam,"stdin")&&strcmp(fnam,"-")) {
 			if(stat(t->source_file,&st)) {
 				/* error */
+				fprintf(stderr,"Couldn't stat %s :\n",t->source_file);
 				perror("stat");
-				tinyap_set_source_buffer(t,NULL,0);
+				tinyap_set_source_buffer(t,"",1);
 			} else {
 				f=fopen(t->source_file,"r");
 			}
@@ -271,6 +272,15 @@ int tinyap_node_is_list(const ast_node_t  n) {
 	return isPair(n);
 }
 
+unsigned int tinyap_list_get_size(const ast_node_t n) {
+	ast_node_t  o=n;
+	unsigned int i=0;
+	while(o) {
+		o=getCdr(o);
+		i+=1;
+	}
+	return i;
+}
 
 ast_node_t tinyap_list_get_element(const ast_node_t n,int i) {
 	ast_node_t ret=n;
@@ -309,5 +319,12 @@ int tinyap_node_get_operand_count(const ast_node_t  n) {
 	return i;
 }
 
+int tinyap_node_get_row(const ast_node_t n) {
+	return getRow(n);
+}
+
+int tinyap_node_get_col(const ast_node_t n) {
+	return getCol(n);
+}
 
 

@@ -15,13 +15,14 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
-import parsing.AST;
-import parsing.TinyaJP;
 import java.lang.*;
 import java.awt.*;
 import javax.swing.*;
 import javax.swing.tree.*;
 import java.awt.event.*;
+
+import tinyajp.AstNode;
+import tinyajp.Parser;
 
 public class Demo {
 	static public void main(String[] args) {
@@ -34,7 +35,7 @@ public class Demo {
 		frame.pack();
 		
 		try {
-			java.io.FileReader fGram=new java.io.FileReader("../math.gram");
+			java.io.FileReader fGram=new java.io.FileReader("math.CC.gram");
 			String cbuf=new String();
 			int c=0;
 		       	while((c=fGram.read())!=-1) cbuf+=(char)c;

@@ -15,8 +15,8 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
-import parsing.AST;
-import parsing.TinyaJP;
+import tinyajp.AstNode;
+import tinyajp.Parser;
 import java.lang.*;
 import java.awt.*;
 import javax.swing.*;
@@ -33,12 +33,12 @@ public class Panneau extends JPanel {
 	private JSplitPane splitPane;
 	private Font font;
 
-	private String prettyNode(AST.Node n) {
+	private String prettyNode(AstNode n) {
 		String name;
 		if(n.isString()) {
 			name=n.getString();
 		} else if(n.isList()) {
-			name=n.getNodeAt(0).getString();
+			name=n.getElementAt(0).getString();
 		} else {
 			name="oups";
 		}
@@ -53,38 +53,38 @@ public class Panneau extends JPanel {
 			if(expr.equals("quit")) {
 				System.exit(0);
 			}
-			TinyaJP parser = new TinyaJP(AST.get("explicit"));
-			AST grammar=parser.parseString(Panneau.this.grammar.getText());
-			if(grammar.getRoot().isNil()) {
-				System.out.println(parser.lastError());
-				Panneau.this.showError(parser.lastErrorLine(),parser.lastErrorColumn(),parser.lastError());
+
+			Parser parser=new Parser();
+
+			parser.setGrammar("CamelCasing")
+			      .setSourceBuffer(Panneau.this.grammar.getText())
+			      .parseAsGrammar();
+
+			if(!parser.parsedOK()) {
+				Panneau.this.showError(parser.getErrorRow(),parser.getErrorCol(),parser.getError());
+				return;
+			}
+
+			parser.setSourceBuffer(expr).parse();
+
+			if(!parser.parsedOK()) {
+				Panneau.this.showError(parser.getErrorRow(),parser.getErrorCol(),parser.getError());
+				return;
 			} else {
-				//dump_nodes(grammar.getRoot());
-				TinyaJP mathParser = new TinyaJP(grammar);
-				AST ast;
-				AST.Node n;
+				AstNode n;
 				double d;
-				ast=mathParser.parseString(expr);
-				if(ast.getRoot().isNil()) {
-					System.out.println("Erreur à la ligne "+mathParser.lastErrorLine());
-					System.out.println(mathParser.lastError());
-					Panneau.this.showError(mathParser.lastErrorLine(),mathParser.lastErrorColumn(),mathParser.lastError());
-				} else {
-					String resultats=new String();
-					for(int i=0;i<ast.getRoot().size();i++) {
-						n=ast.getRoot().getNodeAt(i);
-						if(n!=null) {
-							d=Interpreter.test_math_ast(n);
-							//dump_nodes(n);
-							//System.out.println(" = "+d);
-							resultats+=" = "+d+"\n";
-							
-						}
+				String resultats=new String();
+				for(int i=0;i<parser.getOutput().getSize();i++) {
+					n=parser.getOutput().getElementAt(i);
+					if(n!=null) {
+						d=Interpreter.test_math_ast(n);
+						//dump_nodes(n);
+						//System.out.println(" = "+d);
+						resultats+=" = "+d+"\n";
+						
 					}
-					Panneau.this.showResult(ast,resultats);
 				}
-				//System.out.print("Entrez une expression arithmétique : ");
-				//expr=readString();
+				Panneau.this.showResult(parser.getOutput(),resultats);
 			}
 		}
 	}
@@ -127,21 +127,21 @@ public class Panneau extends JPanel {
 		grammar.setText(g);
 	}
 
-	private void showRes_rec(DefaultMutableTreeNode p,AST.Node n) {
+	private void showRes_rec(DefaultMutableTreeNode p,AstNode n) {
 		if(n.isString()) {
 			p.add(new DefaultMutableTreeNode(prettyNode(n)));
 		} else if(n.isList()) {
 			DefaultMutableTreeNode op;
-			if(n.getNodeAt(0).isString()) {
+			if(n.getElementAt(0).isString()) {
 				op=new DefaultMutableTreeNode(prettyNode(n));
 				//System.out.println("w/ op");
 			} else {
 				op=new DefaultMutableTreeNode(new String("<nop>"));
 				//System.out.println("w/o op");
 			}
-			//System.out.println("n.size = "+n.size());
-			for(int i=1;i<n.size();i++) {
-				showRes_rec(op,n.getNodeAt(i));
+			//System.out.println("n.size = "+n.getSize());
+			for(int i=1;i<n.getSize();i++) {
+				showRes_rec(op,n.getElementAt(i));
 			}
 			p.add(op);
 		} else if(n.isNil()) {
@@ -151,9 +151,7 @@ public class Panneau extends JPanel {
 		}
 	}
 	
-	public void showResult(AST a,String res) {
-		AST.Node n=a.getRoot();
-		
+	public void showResult(AstNode n,String res) {
 		astRoot=new DefaultMutableTreeNode(new String("Result"));
 		resultAST=new JTree(astRoot);
 		result = new JTextArea();
@@ -162,8 +160,8 @@ public class Panneau extends JPanel {
 
 		//resultPanel.remove(resultAST);
 		if(!(n==null||n.isNil())) {
-			for(int i=0;i<n.size();i++) {
-				showRes_rec(astRoot,n.getNodeAt(i));
+			for(int i=0;i<n.getSize();i++) {
+				showRes_rec(astRoot,n.getElementAt(i));
 			}
 		}
 		result.setText(input.getText()+"\n"+res);
@@ -178,7 +176,7 @@ public class Panneau extends JPanel {
 	}
 
 	public void showError(int l,int c,String err) {
-		showResult(new AST(),"Parser : error at line "+l+", column "+c+" :\n"+err);
+		showResult(AstNode.nil,"Parser : error at line "+l+", column "+c+" :\n"+err);
 	}
 }
 

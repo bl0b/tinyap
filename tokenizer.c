@@ -400,7 +400,7 @@ ast_node_t  token_produce_any(token_context_t*t,ast_node_t expr,int strip_T) {
 	} else if(!strcmp(tag,"EOF")) {
 		_filter_garbage(t);
 		//if(*(t->source+t->ofs)&&t->ofs!=t->length) {
-		if(t->source[t->ofs]||t->ofs<t->size) {
+		if(t->ofs<t->size) {
 			//debug_writeln("EOF not matched at #%u (against #%u)",t->ofs,t->size);
 			ret=NULL;
 		} else {

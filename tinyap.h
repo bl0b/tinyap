@@ -109,6 +109,9 @@ extern "C" {
 	 * \return 1 if node is a pair, 0 otherwise
 	 */
 	int		tinyap_node_is_list(const ast_node_t);
+	/*! \brief get the length of the list
+	 */
+	unsigned int	tinyap_list_get_size(const ast_node_t);
 	/*! \brief access to the n-th element of this list
 	 */
 	ast_node_t	tinyap_list_get_element(const ast_node_t,int);
@@ -129,8 +132,19 @@ extern "C" {
 	 */
 	const char*	tinyap_node_get_operator(const ast_node_t);
 
-	void tinyap_serialize_to_file(const ast_node_t,const char*);
-	const char*tinyap_serialize_to_string(const ast_node_t);
+	/*! \brief get the row corresponding to this node in source text
+	 */
+	int		tinyap_node_get_row(const ast_node_t);
+	/*! \brief get the col corresponding to this node in source text
+	 */
+	int		tinyap_node_get_col(const ast_node_t);
+
+	/*! \brief serialize this node to the named file
+	 */
+	void		tinyap_serialize_to_file(const ast_node_t,const char*);
+	/*! \brief serialize this node into a new C string (must be freed by the user)
+	 */
+	const char*	tinyap_serialize_to_string(const ast_node_t);
 
 #ifdef __cplusplus
 }
@@ -149,6 +163,8 @@ namespace TinyaP {
 		{ return tinyap_node_is_nil(handle); }
 		bool isList() const
 		{ return tinyap_node_is_list(handle); }
+		bool isOp() const
+		{ return tinyap_node_is_list(handle)&&tinyap_node_is_atom(tinyap_list_get_element(handle,0)); }
 		bool isString() const
 		{ return tinyap_node_is_string(handle); }
 		const char* getString() const
@@ -165,6 +181,12 @@ namespace TinyaP {
 		{ return tinyap_serialize_to_string(handle); }
 		void toFile(const char*fnam) const
 		{ return tinyap_serialize_to_file(handle,fnam); }
+
+		int getRow() const
+		{ return tinyap_node_get_row(handle); }
+
+		int getCol() const
+		{ return tinyap_node_get_col(handle); }
 
 		ast_node_t getHandle() const
 		{ return handle; }

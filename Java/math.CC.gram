@@ -1,0 +1,68 @@
+Number ::= /[0-9]+(\.[0-9]*)?/.
+
+MathExpr ::= ( <MathAdd>
+	     | <MathSub>
+	     | <MathMul>
+	     | <MathDiv>
+	     | <MathMinus>
+	     | <Number>
+	     ).
+
+MathMinus ::= "-" <m_atom>.
+
+MathAdd  ::= <m_add_l> "+" <m_add_r>.
+MathSub  ::= <m_sub_l> "-" <m_sub_r>.
+
+MathMul  ::= <m_mul_l> "*" <m_mul_r>.
+MathDiv  ::= <m_div_l> "/" <m_div_r>.
+
+
+
+m_atom ::= ( <Number>
+	 | <MathMinus>
+	 | "(" <MathExpr> ")"
+	 ).
+
+
+m_add_l ::= ( <MathSub>
+	  | <MathMul>
+	  | <MathDiv>
+	  | <m_atom>
+	  ).
+
+m_add_r ::= ( <MathAdd>
+	  | <MathSub>
+	  | <MathMul>
+	  | <MathDiv>
+	  | <m_atom>
+	  ).
+
+
+m_sub_l ::= ( <MathMul>
+	  | <MathDiv>
+	  | <m_atom>
+	  ).
+
+m_sub_r ::= ( <MathMul>
+	  | <MathDiv>
+          | <m_atom>
+	  ).
+
+
+m_mul_l ::= ( <MathDiv>
+	  | <m_atom>
+	  ).
+
+m_mul_r ::= ( <MathMul>
+	  | <MathDiv>
+	  | <m_atom>
+	  ).
+
+m_div_l ::= <m_atom>.
+
+m_div_r ::= <m_atom>.
+
+_start ::= <MathExpr> ";" ( EOF
+			| <_start>
+			).
+

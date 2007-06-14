@@ -15,8 +15,8 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
-import parsing.AST;
-import parsing.TinyaJP;
+import tinyajp.AstNode;
+import tinyajp.Parser;
 
 public class Interpreter {
 	static String readString() {
@@ -37,34 +37,34 @@ public class Interpreter {
 	}
 
 
-	static double test_math_ast(AST.Node n) {
-		if(n==null||n.isNil()||n.size()==0||n.getNodeAt(0)==null||!n.getNodeAt(0).isString()) {
+	static double test_math_ast(AstNode n) {
+		if(n==null||(!n.isOp())) {
 			return 0;
-		} else if(n.getNodeAt(0).getString().equals("number")) {
-			return Double.valueOf(n.getNodeAt(1).getString());
-		} else if(n.getNodeAt(0).getString().equals("m_minus")) {
-			return - test_math_ast(n.getNodeAt(1));
-		} else if(n.getNodeAt(0).getString().equals("m_expr")) {
-			return test_math_ast(n.getNodeAt(1));
-		} else if(n.getNodeAt(0).getString().equals("m_add")) {
-			return test_math_ast(n.getNodeAt(1))
-				+ test_math_ast(n.getNodeAt(2));
-		} else if(n.getNodeAt(0).getString().equals("m_sub")) {
-			return test_math_ast(n.getNodeAt(1))
-				- test_math_ast(n.getNodeAt(2));
-		} else if(n.getNodeAt(0).getString().equals("m_mul")) {
-			return test_math_ast(n.getNodeAt(1))
-				* test_math_ast(n.getNodeAt(2));
-		} else if(n.getNodeAt(0).getString().equals("m_div")) {
-			return test_math_ast(n.getNodeAt(1))
-				/ test_math_ast(n.getNodeAt(2));
+		} else if(n.getOperator().equals("Number")) {
+			return Double.valueOf(n.getOperand(0).getString());
+		} else if(n.getOperator().equals("MathMinus")) {
+			return - test_math_ast(n.getOperand(0));
+		} else if(n.getOperator().equals("MathExpr")) {
+			return test_math_ast(n.getOperand(0));
+		} else if(n.getOperator().equals("MathAdd")) {
+			return test_math_ast(n.getOperand(0))
+				+ test_math_ast(n.getOperand(1));
+		} else if(n.getOperator().equals("MathSub")) {
+			return test_math_ast(n.getOperand(0))
+				- test_math_ast(n.getOperand(1));
+		} else if(n.getOperator().equals("MathMul")) {
+			return test_math_ast(n.getOperand(0))
+				* test_math_ast(n.getOperand(1));
+		} else if(n.getOperator().equals("MathDiv")) {
+			return test_math_ast(n.getOperand(0))
+				/ test_math_ast(n.getOperand(1));
 		} else {
-			System.out.println("opérateur inconnu "+n.getNodeAt(0).getString());
+			System.out.println("opérateur inconnu "+n.getOperator());
 			return 0;
 		}
 	}
 
-	static void dump_node_rec(AST.Node n, String ofs) {
+	static void dump_node_rec(AstNode n, String ofs) {
 		if(n==null) {
 			System.out.println(ofs+"#nil");
 		} else if(n.isString()) {
@@ -72,15 +72,15 @@ public class Interpreter {
 		} else {
 			System.out.println(ofs+"  [");
 			/* n.isList()==true */
-			for(int i=0;i<n.size();i++) {
-				dump_node_rec(n.getNodeAt(i),ofs+"    ");
+			for(int i=0;i<=n.getOperandCount();i++) {
+				dump_node_rec(n.getOperand(i),ofs+"    ");
 			}
 			System.out.println(ofs+"  ]");
 		}
 	}
 
 	/* proxy pour dump_node_rec */
-	static void dump_nodes(AST.Node n) {
+	static void dump_nodes(AstNode n) {
 		dump_node_rec(n,"");
 	}
 
