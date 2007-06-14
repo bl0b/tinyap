@@ -19,7 +19,83 @@
 #ifndef _TINYAP_H__
 #define _TINYAP_H__
 
+/*! \brief arbitrary and totally meaningless version string
+ */
 #define TINYAP_VERSION "1.0"
+
+/*!
+ * \mainpage tinyap
+ *
+ * \section sec_toc Table of Contents
+ * 
+ * -# \ref sec_intro
+ * -# \ref sec_gram
+ *    -# \ref sec_gram_intro
+ *    -# \ref sec_gram_grammar
+ * -# \ref sec_output
+ * 
+ * This is not yet another parser.
+ * 
+ * \section sec_intro Introduction
+ * 
+ * Actually, this is an abstract parser. It takes a grammar description and some
+ * source text to produce an Abstract Syntax Tree (AST) that structures the information
+ * that was contained in the source.
+ * It's an LL parser using the recursive descent with backup algorithm, and it can produce
+ * litteral strings and regular expressions from its input text.
+ * 
+ * \section sec_gram The grammar
+ *
+ * \subsection sec_gram_intro Introduction
+ * 
+ * The grammar description language is derived from the BNF. It defines "terminals", &lt;non-terminals&gt;,
+ * /regular expressions/, sequences, alternatives. Basically, the parser will append each token it produces
+ * to its result list. To control the creation of the AST, two types of rules are defined :
+ *
+ * - <strong>Operator</strong> rules : define a node in the AST. An AST Node is a tagged list of operands, the tag being the
+ *   name of the rule, and each operand is either a node or the source token.
+ *   e.g. :
+ *     given the rules
+ *       <pre>MyOperator ::= &lt;Ident&gt; "op" &lt;Ident&gt;.
+ *       Ident ::= /[a-z]+/.</pre>
+ *     and the text <pre>"foo op bar"</pre>,
+ *     we get the node <pre>(MyOperator (Ident "foo") (Ident "bar"))</pre>.
+ * - <strong>Transient</strong> rules : silently append the token(s) it produces to the current node
+ *   e.g. :
+ *     given the rules \verbatim MyOperator ::= &lt;Ident&gt; "op" &lt;mytransient&gt;.\nmytransient ::= ( &lt;Ident&gt; "op" &lt;mytransient&gt; | &lt;Ident&gt; ).\nIdent ::= /[a-z]+/.\endverbatim
+ *     and the text <pre>"foo op bar op baz"</pre>,
+ *     we get the node <pre>(MyOperator (Ident "foo") (Ident "bar") (Ident "baz"))</pre>.
+ * 
+ * Briefly, if the current parser output is ("foo" "bar") and a transient rule produces ("baz" "wobble"), the parser output will become ("foo" "bar" "baz" "wobble"). If the transient rule were an operator rule, the output would have become ("foo" "bar" ("baz" "wooble")).
+ * 
+ * Each rule declaration starts by the rule name, followed by the rule operator, one or more symbols to produce, and ends with a dot.
+ * Alternative compounds are enclosed between parenthesis (aka round braces), and alternatives inside are separated by a pipe "|" character.
+ * 
+ * \subsection sec_gram_grammar Grammar-descriptive Grammar
+ *
+ * Two dialects are defined for the grammar description language :
+ * - "explicit" : Operator rules are defined using the "::=" rule operator, Transient rules are defined using "=" operator, c-style identifiers are accepted.
+ * - "CamelCasing" : Operator rules are defined using CamelCased identifiers, Transient rules are defined using c-style identifiers that are NOT CamelCased.
+ *
+ * Here are both dialects described in explicit dialect :
+ *
+ * explicit :
+ * <pre>\verbinclude .explicit.grammar </pre>
+ * CamelCasing :
+ * <pre>\verbinclude .CamelCasing.grammar </pre>
+ *
+ * Two special rule names are defined :
+ * - _start : if this rule is defined, the start of the text is matched against this rule. Otherwise, the first defined rule is used.
+ * - _whitespace : if its right part is a string, it defines the list of whitespace characters that will be skipped when parsing. If it is a regexp, it defines the expression that will recognize character sequences to skip from source text. If this rule is not defined, " \\r\\n\\t" will be used as whitespace characters list.
+ *
+ * Finally, the special symbol EOF matches the end of the source text.
+ *
+ * \section sec_output The output
+ *
+ * blah blah blah.
+ *
+ */
+
 
 #ifdef __cplusplus
 extern "C" {
@@ -164,7 +240,7 @@ namespace TinyaP {
 		bool isList() const
 		{ return tinyap_node_is_list(handle); }
 		bool isOp() const
-		{ return tinyap_node_is_list(handle)&&tinyap_node_is_atom(tinyap_list_get_element(handle,0)); }
+		{ return tinyap_node_is_list(handle)&&tinyap_node_is_string(tinyap_list_get_element(handle,0)); }
 		bool isString() const
 		{ return tinyap_node_is_string(handle); }
 		const char* getString() const

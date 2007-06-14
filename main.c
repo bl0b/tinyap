@@ -86,7 +86,6 @@ int do_args(int argc,char*argv[]) {
 		} else if(cmp_param(0,"--print-grammar","-pg")) {
 			print_rules(tinyap_get_grammar_ast(parser));
 			fputc('\n',stdout);
-			return 0;
 		} else if(cmp_param(0,"--version","-v")) {
 			printf(TINYAP_ABOUT);
 			printf("version " TINYAP_VERSION "\n" );
@@ -172,11 +171,21 @@ void print_rule_elem(ast_node_t e) {
 		}
 		printf(") ");
 	} else if(!strcmp(tag,"RE")) {
-		printf("/%s/ ",tinyap_node_get_string(tinyap_node_get_operand(e,0)));
+		const char*esc=tinyap_node_get_string(tinyap_node_get_operand(e,0));
+		printf("/%s/ ",esc);
+		free((char*)esc);
 	} else if(!strcmp(tag,"NT")) {
-		printf("<%s> ",tinyap_node_get_string(tinyap_node_get_operand(e,0)));
+		const char*esc=tinyap_node_get_string(tinyap_node_get_operand(e,0));
+		printf("<%s> ",esc);
+		free((char*)esc);
 	} else if(!strcmp(tag,"T")) {
-		printf("\"%s\" ",tinyap_node_get_string(tinyap_node_get_operand(e,0)));
+		const char*esc=tinyap_node_get_string(tinyap_node_get_operand(e,0));
+		if(!strcmp(esc,"\"")) {
+			fputs("\"\\\"\" ",stdout);
+		} else {
+			printf("\"%s\" ",esc);
+		}
+		free((char*)esc);
 	} else if(!strcmp(tag,"EOF")) {
 		printf("EOF ");
 	} else {

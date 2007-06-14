@@ -49,6 +49,14 @@ clean:
 	rm -f *~ *.o tinyap .depend
 	(cd Java&&make clean)
 
-doc: Doxyfile $(SOURCES)
+.PHONY: doc clean
+
+.explicit.grammar: tinyap libtinyap.so
+	LD_LIBRARY_PATH=. ./tinyap -g explicit -pg > .explicit.grammar
+
+.CamelCasing.grammar: tinyap libtinyap.so
+	LD_LIBRARY_PATH=. ./tinyap -g CamelCasing -pg > .CamelCasing.grammar
+
+doc: Doxyfile .explicit.grammar .CamelCasing.grammar tinyap.h bootstrap.h
 	rm -rf doc/
 	doxygen

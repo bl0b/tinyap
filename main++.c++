@@ -76,7 +76,6 @@ int do_args(int argc,char*argv[]) {
 		} else if(cmp_param(0,"--print-grammar","-pg")) {
 			print_rules(parser.getGrammarAst());
 			fputc('\n',stdout);
-			return 0;
 		} else if(cmp_param(0,"--version","-v")) {
 			printf(TINYAP_ABOUT);
 			printf("version " TINYAP_VERSION "\n" );
@@ -160,11 +159,17 @@ void print_rule_elem(AstNode*e) {
 		}
 		printf(") ");
 	} else if(!strcmp(tag,"RE")) {
-		printf("/%s/ ",e->getOperand(0)->getString());
+		const char*esc=e->getOperand(0)->getString();
+		printf("/%s/ ",esc);
+		free((char*)esc);
 	} else if(!strcmp(tag,"NT")) {
-		printf("<%s> ",e->getOperand(0)->getString());
+		const char*esc=e->getOperand(0)->getString();
+		printf("<%s> ",esc);
+		free((char*)esc);
 	} else if(!strcmp(tag,"T")) {
-		printf("\"%s\" ",e->getOperand(0)->getString());
+		const char*esc=e->getOperand(0)->getString();
+		printf("\"%s\" ",esc);
+		free((char*)esc);
 	} else if(!strcmp(tag,"EOF")) {
 		printf("EOF ");
 	} else {
