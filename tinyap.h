@@ -222,6 +222,11 @@ extern "C" {
 	 */
 	const char*	tinyap_serialize_to_string(const ast_node_t);
 
+	/*! \brief walk this subtree using this named pilot with this init data.
+	 * \return whatever the pilot evaluated to
+	 */
+	void*		tinyap_walk(const ast_node_t subtree, const char* pilot_name, void* pilot_init_data);
+
 #ifdef __cplusplus
 }
 

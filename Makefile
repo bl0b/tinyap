@@ -10,7 +10,7 @@ TEST_TARGETS=$(TEST_C_TGT) $(TEST_CPP_TGT)
 
 #CARGS=-Wall -ggdb
 
-CCARGS=-Wall -ggdb
+CCARGS=-Wall -ggdb -fPIC
 #CCARGS=-Wall -O3
 CC=gcc
 CXX=g++
