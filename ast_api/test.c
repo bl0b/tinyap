@@ -15,29 +15,34 @@ int main(int argc, const char**argv) {
 	ast_node_t tree;
 	char*src;
 
-	void* ld_self = dlopen(NULL, RTLD_LAZY);
-	void* pouet = dlsym( ld_self, "plop" );
-	printf("self = %p\n",ld_self);
-	printf("pouet = %p\n",pouet);
-	if(pouet) {
-		printf("%s\n",((fun_t)pouet)());
-	} else {
-		printf("%s\n",dlerror());
-	}
-	dlclose(ld_self);
+//	void* ld_self = dlopen(NULL, RTLD_LAZY);
+//	void* pouet = dlsym( ld_self, "plop" );
+//	printf("self = %p\n",ld_self);
+//	printf("pouet = %p\n",pouet);
+//	if(pouet) {
+//		printf("%s\n",((fun_t)pouet)());
+//	} else {
+//		printf("%s\n",dlerror());
+//	}
+//	dlclose(ld_self);
+//
+//	printf("\n\n");
 
-	printf("\n\n");
+	printf("ιθηΰ ploum ploum tralala\n\n");
 
 	init_pilot_manager();
 
 	parser = tinyap_new();
 
-	tinyap_set_source_file(parser,"../math.gram");
+	tinyap_set_source_file(parser, "../math.gram");
 	tinyap_parse_as_grammar(parser);
 
-	src = "23*42+23-42;";
+//	src = "23*42+23-42;";
+//	src = "1+2*(1+2*(1+2*(1+2*(1+2*(1+2*(1+2*(1+2*(1+2))))))));";
+	src = "1+2*(1+2*(1+2*(1+2*(1+2*(1+2*(1+2*(1+2*(1+2*(1+2*(1+2*(1+2*(1+2*(1+2)))))))))))));";
 
 	tinyap_set_source_buffer(parser,src,strlen(src));
+//	tinyap_set_source_file(parser, "stdin");
 	tinyap_parse(parser);
 	if(tinyap_parsed_ok(parser)) {
 		tree = tinyap_get_output(parser);

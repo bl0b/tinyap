@@ -16,20 +16,20 @@ static void dump(interp_t i) {
 }
 
 static void init(interp_t* i) {
-	printf("init with %p\n",*i);
+//	printf("init with %p\n",*i);
 	if(*i==NULL) {
 		*i = (interp_t) malloc(sizeof(struct _interp_t));
 		memset(*i,0,sizeof(struct _interp_t));
 		(*i)->sp=-1;
 	}
-	dump(*i);
+//	dump(*i);
 }
 
 static void push(interp_t i, int n) {
 	i->sp += 1;
-	printf("push %i at %i\n",n,i->sp);
+//	printf("push %i at %i\n",n,i->sp);
 	i->stack[i->sp]=n;
-	dump(i);
+//	dump(i);
 }
 
 static int peek(interp_t i) {
@@ -38,9 +38,9 @@ static int peek(interp_t i) {
 
 static int pop(interp_t i) {
 	int ret = i->stack[i->sp];
-	printf("pop %i\n",ret);
+//	printf("pop %i\n",ret);
 	i->sp -= 1;
-	dump(i);
+//	dump(i);
 	return ret;
 }
 
@@ -52,7 +52,7 @@ void* ape_test_init(void* init_data) {
 }
 
 void* ape_test_result(interp_t i) {
-	printf("fetch result [%i]\n",i->stack[0]);
+//	printf("fetch result [%i]\n",i->stack[0]);
 	return i->stack;
 }
 
@@ -68,7 +68,7 @@ WalkDirection ape_test_default(wast_t node, interp_t this) {
 
 WalkDirection ape_test_number(wast_t node, interp_t this) {
 /*	printf(tinyap_serialize_to_string(node));*/
-	printf("got %s\n",wa_op(wa_opd(node,0)));
+//	printf("got %s\n",wa_op(wa_opd(node,0)));
 	push(this,atoi(wa_op(wa_opd(node,0))));
 	return Done;
 }

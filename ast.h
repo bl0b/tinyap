@@ -30,8 +30,8 @@ extern volatile int depth;
 
 #define debug_enter() do { depth+=3; } while(0)
 #define debug_leave() do { depth-=3; } while(0)
-#define debug_write(_fmt ,arg...) do { fprintf(stderr,"%*.*s",depth,depth,""); fprintf(stderr,_fmt ,##arg ); fflush(stderr); } while(0)
-#define debug_writeln(_fmt ,arg...) do { fprintf(stderr,"%*.*s",depth,depth,""); fprintf(stderr,_fmt ,##arg ); fputc('\n',stderr); fflush(stderr); } while(0)
+#define debug_write(_fmt ,arg...) do { fprintf(stdout,"%*.*s",depth,depth,""); fprintf(stdout,_fmt ,##arg ); fflush(stdout); } while(0)
+#define debug_writeln(_fmt ,arg...) do { fprintf(stdout,"%*.*s",depth,depth,""); fprintf(stdout,_fmt ,##arg ); fputc('\n',stdout); fflush(stdout); } while(0)
 
 
 /*! \brief AST Node Types

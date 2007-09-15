@@ -207,8 +207,11 @@ void ast_serialize(const ast_node_t ast,int(*func)(int,void*),void*param);
 
 int str_put(int c,void*data) {
 	char**output=(char**)data;
+	//fputc(c,stdout);
 	**output=(char)c;
-	*output+=1;
+	if(c) {
+		*output+=1;
+	}
 	return 1;
 }
 
@@ -262,8 +265,10 @@ const char* ast_serialize_to_string(const ast_node_t ast) {
 	unsigned int size=0;
 	char*ret,*tmp;
 	ast_serialize(ast,incr,(void*)&size);
-	tmp=ret=(char*)malloc(size);
+//	printf("serialize needs %i bytes\n",size);
+	tmp=ret=(char*)malloc(size+1);
 	ast_serialize(ast,str_put,(void*)&tmp);
+//	printf("serialized to %s (%i)\n",ret,strlen(ret));
 	return ret;
 }
 

@@ -33,6 +33,8 @@ int dump_node(const ast_node_t n) {
 void update_pos_cache(token_context_t*t);
 
 
+
+
 /* prepends a ^ to reg_expr and returns the compiled extended POSIX regexp */
 regex_t*token_regcomp(const char*reg_expr) {
 	static char buf[256];
@@ -72,6 +74,9 @@ token_context_t*token_context_new(const char*src,const size_t length,const char*
 	t->pos_cache.last_nlofs=0;
 	t->pos_cache.row=1;
 	t->pos_cache.col=1;
+
+	node_cache_init(t->cache);
+
 	return t;
 }
 
@@ -93,6 +98,7 @@ void token_context_push(token_context_t*t) {
 
 
 void token_context_validate(token_context_t*t) {
+	/* TODO : implement node caching here */
 	t->ofsp-=1;		/* release space on stack, don't update t->ofs */
 	t->farthest=t->ofs;
 }
@@ -112,6 +118,7 @@ void token_context_free(token_context_t*t) {
 	if(t->garbage) {
 		regfree(t->garbage);
 	}
+	node_cache_flush(t->cache);
 	free(t->source);
 	free(t);
 }
@@ -249,7 +256,8 @@ ast_node_t _produce_seq_rec(token_context_t*t,ast_node_t seq) {
 				return Append(tmp,rec);
 			}
 		} else {
-			delete_node(tmp);
+			/* FIXME : delay deletions until final cache flush */
+			//delete_node(tmp);
 			return NULL;
 		}
 	}
@@ -295,59 +303,96 @@ ast_node_t  token_produce_alt(token_context_t*t,ast_node_t alt) {
 
 
 
+#define OP_EOF 1
+#define OP_RE  2
+#define OP_T   3
+#define OP_RTR 4
+#define OP_ROP 5
+#define OP_NT  6
+#define OP_SEQ 7
+#define OP_ALT 8
+
+
+
 ast_node_t  token_produce_any(token_context_t*t,ast_node_t expr,int strip_T) {
 	static int rec_lvl=0;
 	char*tag;
+	char*key=NULL;
 	ast_node_t ret=NULL;
+	int typ=0;
+	int r,c;
+	size_t dummy;
+	int row,col;
+	ast_node_t nt, re;
 
 	if(!expr) {
 		return NULL;
 	}
 	tag=node_tag(expr);
 
-	rec_lvl+=1;
+	row = t->pos_cache.row;
+	col = t->pos_cache.col;
+
+	if(!strcmp(tag,"Seq")) {
+		typ = OP_SEQ;
+	} else if(!strcmp(tag,"Alt")) {
+		typ = OP_ALT;
+	} else if(!strcmp(tag,"RE")) {
+		typ = OP_RE;
+//		key = Value(Car(Cdr(expr)));
+	} else if(!strcmp(tag,"T")) {
+		typ = OP_T;
+//		key = Value(Car(Cdr(expr)));
+	} else if(!strcmp(tag,"NT")) {
+		typ = OP_NT;
+		key = Value(Car(Cdr(expr)));
+	} else if(!strcmp(tag,"TransientRule")) {
+		typ = OP_RTR;
+//		key = node_tag(Cdr(expr));
+	} else if(!strcmp(tag,"OperatorRule")) {
+		typ = OP_ROP;
+//		key = node_tag(Cdr(expr));
+	} else if(!strcmp(tag,"EOF")) {
+		typ = OP_EOF;
+	}
 
 //	debug_write("--debug[% 4.4i]-- produce %s ",rec_lvl,tag);
 //	dump_node(getCdr(expr));
 //	printf("\n");
 //	fprintf(stderr,"\tsource = %10.10s%s\n",t->source+t->ofs,t->ofs<(strlen(t->source)-10)?"...":"");
 
+
+
+//*
+	if(key&&node_cache_retrieve(t->cache, row, col, key, &ret,&t->ofs)) {
+//		printf("found %s at %i:%i %s\n",key,row, col,tinyap_serialize_to_string(ret));
+		update_pos_cache(t);
+		return ret;
+	}
+//*/
+
+	rec_lvl+=1;
+
 	token_context_push(t);
 
-	if(!strcmp(tag,"Seq")) {
-	/* case seq : try and produce every subexpr, or fail. return whole cons'd list */
+	switch(typ) {
+	case OP_SEQ:
 		ret=token_produce_seq(t,getCdr(expr));
-//		debug_write("### -=< seq %s >=- ###\n",ret?"OK":"failed");
-//		if(ret) {
-			//debug_write("Produce Seq ");
-			//dump_node(expr);
-			//dump_node(ret);
-//		}
-
-	} else if(!strcmp(tag,"Alt")) {
-	/* case alt : try and produce each subexpr, return the first whole production or fail */
+		break;
+	case OP_ALT:
 		ret=token_produce_alt(t,getCdr(expr));
-//		debug_write("### -=< alt %s >=- ###\n",ret?"OK":"failed");
-//		if(ret) {
-//			debug_write("Produce Alt ");
-//			dump_node(expr);
-//			dump_node(ret);
-//		}
-
-	} else if(!strcmp(tag,"RE")) {
-	/* case regex : call and return token_produce_re */
-		ast_node_t  re = getCar(getCdr(expr));
+		break;
+	case OP_RE:		
+		re = getCar(getCdr(expr));
 		if(!re->raw._p2) {
 			/* take advantage of unused atom field to implement regexp cache */
 			re->raw._p2=token_regcomp(Value(re));
 			/* FIXME : need call to regfree() on delete, should implement that in token_regcomp */
 		}
-		//ret=newPair(token_produce_re(t,re->raw._p2),NULL);
+		key = Value(re);
 		ret=token_produce_re(t,re->raw._p2);
-//		debug_write("### -=< regex %s >=- ###\n",ret?"OK":"failed");
-
-	} else if(!strcmp(tag,"T")) {
-	/* case term : call and return token_produce_str */
+		break;
+	case OP_T:
 		ret=token_produce_str(t,Value(getCar(getCdr(expr))));
 //		debug_write("### -=< term %s >=- ###\n",ret?"OK":"failed");
 		if(ret) {
@@ -359,45 +404,50 @@ ast_node_t  token_produce_any(token_context_t*t,ast_node_t expr,int strip_T) {
 //				ret=newPair(ret,NULL,t->pos_cache.row,t->pos_cache.col);
 			}
 		}
-
-	} else if(!strcmp(tag,"OperatorRule")) {
-		int r,c;
-	/* case operator rule : try and produce rule, return tagged parse tree */
+		break;
+	case OP_ROP:
 		expr=getCdr(expr);	/* shift the operator tag */
 //		dump_node(expr);
 		update_pos_cache(t);
 		r=t->pos_cache.row;
 		c=t->pos_cache.col;
 		tag=node_tag(expr);
+
 		ret=token_produce_any(t,getCar(getCdr(expr)),t->flags&STRIP_TERMINALS);
 		if(ret) {
 			ret=newPair(newPair(newAtom(tag,r,c),ret,r,c),NULL,r,c);
 //			debug_write("Produce OperatorRule ");
 //			dump_node(expr);
 //			dump_node(ret);
-//			fputc('\n',stderr);
-		}
+//			fputc('\n',stdout);
+//			printf("add to cache [ %li:%li:%s ] %p\n", t->pos_cache.row, t->pos_cache.col, tag, ret);
+//			node_cache_add(t->cache, t->pos_cache.row, t->pos_cache.col, tag, ret);
 
-	} else if(!strcmp(tag,"TransientRule")) {
-	/* case transient rule : try and produce rule, return raw parse tree */
+		}
+		break;
+	case OP_RTR:
 		expr=getCdr(expr);	/* shift the operator tag */
 //		dump_node(expr);
 		tag=node_tag(expr);
-		ret=token_produce_any(t,getCar(getCdr(expr)),t->flags&STRIP_TERMINALS);
 
-	} else if(!strcmp(tag,"NT")) {
-	/* case nterm : call and return token_produce_nterm */
-		ast_node_t nt=find_nterm(t->grammar,Value(getCar(getCdr(expr))));
+		ret=token_produce_any(t,getCar(getCdr(expr)),t->flags&STRIP_TERMINALS);
+		break;
+	case OP_NT:
+		tag = Value(getCar(getCdr(expr)));
+		if(!node_cache_retrieve(t->cache,0,0,tag,&nt,&dummy)) {
+			nt=find_nterm(t->grammar,tag);
+			node_cache_add(t->cache,0,0,tag,nt,0);
+		}
+		
 		if(!nt) {
 			/* error, fail */
-			debug_write("FAIL-- couldn't find non-terminal `%s'\n",Value(getCar(getCdr(expr))));
+			debug_write("FAIL-- couldn't find non-terminal `%s'\n", tag);
 			ret=NULL;
 		} else {
 			ret=token_produce_any(t,nt,0);
 		}
-//		debug_write("### -=< nterm %s %s >=- ###\n",Value(getCar(getCdr(expr))),ret?"OK":"failed");
-
-	} else if(!strcmp(tag,"EOF")) {
+		break;
+	case OP_EOF:
 		_filter_garbage(t);
 		//if(*(t->source+t->ofs)&&t->ofs!=t->length) {
 		if(t->ofs<t->size) {
@@ -408,11 +458,16 @@ ast_node_t  token_produce_any(token_context_t*t,ast_node_t expr,int strip_T) {
 			update_pos_cache(t);
 			ret=newPair(newAtom("strip.me",t->pos_cache.row,t->pos_cache.col),NULL,t->pos_cache.row,t->pos_cache.col);
 		}
-//		debug_write("### -=< EOF %s >=- ###\n",ret?"OK":"failed");
-	}
+		break;
+	};
 
 	rec_lvl-=1;
 	if(ret) {
+		/* add to node cache */
+		if(key) {
+//			printf("add to cache [ %i:%i:%s ] %s\n", row, col, key, tinyap_serialize_to_string(ret));
+			node_cache_add(t->cache,row,col,key,ret,t->ofs);
+		}
 		//dump_node(ret);
 		token_context_validate(t);
 		return ret;
@@ -422,6 +477,116 @@ ast_node_t  token_produce_any(token_context_t*t,ast_node_t expr,int strip_T) {
 	}
 }
 
+
+//	if(!strcmp(tag,"Seq")) {
+//	/* case seq : try and produce every subexpr, or fail. return whole cons'd list */
+//		ret=token_produce_seq(t,getCdr(expr));
+////		debug_write("### -=< seq %s >=- ###\n",ret?"OK":"failed");
+////		if(ret) {
+//			//debug_write("Produce Seq ");
+//			//dump_node(expr);
+//			//dump_node(ret);
+////		}
+//
+//	} else if(!strcmp(tag,"Alt")) {
+//	/* case alt : try and produce each subexpr, return the first whole production or fail */
+//		ret=token_produce_alt(t,getCdr(expr));
+////		debug_write("### -=< alt %s >=- ###\n",ret?"OK":"failed");
+////		if(ret) {
+////			debug_write("Produce Alt ");
+////			dump_node(expr);
+////			dump_node(ret);
+////		}
+//
+//	} else if(!strcmp(tag,"RE")) {
+//	/* case regex : call and return token_produce_re */
+//		ast_node_t  re = getCar(getCdr(expr));
+//		if(!re->raw._p2) {
+//			/* take advantage of unused atom field to implement regexp cache */
+//			re->raw._p2=token_regcomp(Value(re));
+//			/* FIXME : need call to regfree() on delete, should implement that in token_regcomp */
+//		}
+//		key = Value(re);
+//		//ret=newPair(token_produce_re(t,re->raw._p2),NULL);
+//		ret=token_produce_re(t,re->raw._p2);
+////		debug_write("### -=< regex %s >=- ###\n",ret?"OK":"failed");
+//
+//	} else if(!strcmp(tag,"T")) {
+//	/* case term : call and return token_produce_str */
+//		ret=token_produce_str(t,Value(getCar(getCdr(expr))));
+////		debug_write("### -=< term %s >=- ###\n",ret?"OK":"failed");
+//		if(ret) {
+//			if(strip_T) {
+//				delete_node(ret);
+//				ret=newPair(newAtom("strip.me",0,0),NULL,0,0);
+////			} else {
+////				update_pos_cache(t);
+////				ret=newPair(ret,NULL,t->pos_cache.row,t->pos_cache.col);
+//			}
+//		}
+//
+//	} else if(!strcmp(tag,"OperatorRule")) {
+//	/* case operator rule : try and produce rule, return tagged parse tree */
+//		expr=getCdr(expr);	/* shift the operator tag */
+////		dump_node(expr);
+//		update_pos_cache(t);
+//		r=t->pos_cache.row;
+//		c=t->pos_cache.col;
+//		tag=node_tag(expr);
+//
+//		ret=token_produce_any(t,getCar(getCdr(expr)),t->flags&STRIP_TERMINALS);
+//		if(ret) {
+//			ret=newPair(newPair(newAtom(tag,r,c),ret,r,c),NULL,r,c);
+//			debug_write("Produce OperatorRule ");
+//			dump_node(expr);
+//			dump_node(ret);
+//			fputc('\n',stdout);
+////			printf("add to cache [ %li:%li:%s ] %p\n", t->pos_cache.row, t->pos_cache.col, tag, ret);
+////			node_cache_add(t->cache, t->pos_cache.row, t->pos_cache.col, tag, ret);
+//
+//		}
+//
+//	} else if(!strcmp(tag,"TransientRule")) {
+//	/* case transient rule : try and produce rule, return raw parse tree */
+//		expr=getCdr(expr);	/* shift the operator tag */
+////		dump_node(expr);
+//		tag=node_tag(expr);
+//
+//		ret=token_produce_any(t,getCar(getCdr(expr)),t->flags&STRIP_TERMINALS);
+//
+////		printf("add to cache [ %li:%li:%s ] %p\n", t->pos_cache.row, t->pos_cache.col, tag, ret);
+////		node_cache_add(t->cache, t->pos_cache.row, t->pos_cache.col, tag, ret);
+//
+//	} else if(!strcmp(tag,"NT")) {
+//	/* case nterm : call and return token_produce_nterm */
+//		tag = Value(getCar(getCdr(expr)));
+//		if(!node_cache_retrieve(t->cache,0,0,tag,&nt)) {
+//			nt=find_nterm(t->grammar,tag);
+//			node_cache_add(t->cache,0,0,tag,nt);
+//		}
+//		
+//		if(!nt) {
+//			/* error, fail */
+//			debug_write("FAIL-- couldn't find non-terminal `%s'\n", tag);
+//			ret=NULL;
+//		} else {
+//			ret=token_produce_any(t,nt,0);
+//		}
+////		debug_write("### -=< nterm %s %s >=- ###\n",Value(getCar(getCdr(expr))),ret?"OK":"failed");
+//
+//	} else if(!strcmp(tag,"EOF")) {
+//		_filter_garbage(t);
+//		//if(*(t->source+t->ofs)&&t->ofs!=t->length) {
+//		if(t->ofs<t->size) {
+//			//debug_writeln("EOF not matched at #%u (against #%u)",t->ofs,t->size);
+//			ret=NULL;
+//		} else {
+//			//debug_writeln("EOF matched at #%u (against #%u)",t->ofs,t->size);
+//			update_pos_cache(t);
+//			ret=newPair(newAtom("strip.me",t->pos_cache.row,t->pos_cache.col),NULL,t->pos_cache.row,t->pos_cache.col);
+//		}
+////		debug_write("### -=< EOF %s >=- ###\n",ret?"OK":"failed");
+//	}
 
 
 

@@ -57,6 +57,7 @@ void tinyap_delete(tinyap_t t) {
 
 	if(t->source_file) free(t->source_file);
 	if(t->source_buffer) free(t->source_buffer);
+
 	free(t);
 }
 

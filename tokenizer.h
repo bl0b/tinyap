@@ -18,6 +18,9 @@
 
 #include <regex.h>
 
+#include "node_cache.h"
+
+
 #define OFSTACK_SIZE 4096
 
 #define STRIP_TERMINALS 1
@@ -38,6 +41,7 @@ typedef struct _token_context_t {
 		int row;
 		int col;
 	} pos_cache;
+	node_cache_t cache;
 } token_context_t;
 
 

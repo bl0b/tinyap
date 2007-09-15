@@ -82,7 +82,7 @@ char* make_mthd(const char*p, const char*m) {
  */
 static pilot_t new_pilot_from(pilot_cache_elem_t pce,void* init_data) {
 	pilot_t ret;
-	printf("new_pilot_from init_data=%p\n",init_data);
+//	printf("new_pilot_from init_data=%p\n",init_data);
 	ret = (pilot_t) malloc(sizeof(struct _pilot_t));
 	ret->p_type = pce;
 	ret->data = pce->init(init_data);
@@ -128,7 +128,7 @@ pilot_cache_elem_t new_pilot_cache_elem(const char* p_name) {
 
 	init_hashtab(ret->methods,hash_str,cmp_str);
 
-	printf("nouveau pilote connu : %s\n",p_name);
+//	printf("nouveau pilote connu : %s\n",p_name);
 	
 	return ret;
 }
@@ -136,7 +136,7 @@ pilot_cache_elem_t new_pilot_cache_elem(const char* p_name) {
 pilot_t new_pilot(const char* p_name, void*init_data) {
 	/* seek for entry in htab */
 	pilot_cache_elem_t pce = (pilot_cache_elem_t) hash_find(pilot_mgr.cache, (hash_key)p_name);
-	printf("new_pilot init_data=%p\n",init_data);
+//	printf("new_pilot init_data=%p\n",init_data);
 	if(!pce) {
 		pce = new_pilot_cache_elem(p_name);
 		hash_addelem(pilot_mgr.cache,(hash_key)p_name,pce);
@@ -162,12 +162,12 @@ node_visit_method get_visit_method(pilot_t p, const char* nodetype) {
 	htab_entry_t e = hash_find_e(p->p_type->methods, (hash_key)nodetype);
 
 	if(e) {
-		printf("visit method is cached.\n");
+//		printf("visit method is cached.\n");
 		return (node_visit_method)e->e;
 	} else {
 		char* tmp = make_mthd(p->p_type->name, nodetype);
 		void* sym = dlsym(p->p_type->dl_handle, tmp);
-		printf("visit method ain't cached.\n");
+//		printf("visit method ain't cached.\n");
 		//free(tmp);
 		if(sym==NULL) {
 			sym = (void*)p->p_type->defaultMethod;
@@ -179,7 +179,7 @@ node_visit_method get_visit_method(pilot_t p, const char* nodetype) {
 
 WalkDirection do_visit(pilot_t p, wast_t node) {
 	node_visit_method v = get_visit_method(p, wa_op(node));
-	printf("do_visit with %s on %s\n",p->p_type->name,wa_op(node));
+//	printf("do_visit with %s on %s\n",p->p_type->name,wa_op(node));
 	return v(node,p->data);
 }
 

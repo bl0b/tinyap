@@ -1,4 +1,4 @@
-OBJECTS=tinyap.o ast.o bootstrap.o tokenizer.o serialize.o
+OBJECTS=tinyap.o ast.o bootstrap.o tokenizer.o serialize.o node_cache.o
 SOURCES=$(subst .o,.c,$(OBJECTS))
 
 LIB_TARGET=libtinyap.so
@@ -6,11 +6,11 @@ LIB_TARGET=libtinyap.so
 TEST_C_TGT=tinyap
 TEST_CPP_TGT=tinyap++
 
-TEST_TARGETS=$(TEST_C_TGT) $(TEST_CPP_TGT)
+TEST_TARGETS=$(TEST_C_TGT) $(TEST_CPP_TGT) $(TEST_C_TGT)_static
 
 #CARGS=-Wall -ggdb
 
-CCARGS=-Wall -ggdb -fPIC
+CCARGS=-Wall -ggdb -pg -fPIC
 #CCARGS=-Wall -O3
 CC=gcc
 CXX=g++
@@ -19,7 +19,7 @@ CX=$(CXX) $(CCARGS) $(CADD)
 
 LD=gcc
 LD_SHARE=-shared
-LDARGS=
+LDARGS=-pg
 L=$(LD) $(LDARGS)
 
 all: $(LIB_TARGET) $(TEST_TARGETS)
@@ -45,8 +45,15 @@ $(TEST_CPP_TGT): main++.c++
 	$(CX) $(LIB_TARGET) $< -o $@
 
 
+$(TEST_C_TGT)_static: main.c
+	$C $(OBJECTS) $< -o $@
+
+$(TEST_CPP_TGT)_static: main++.c++
+	$C $(OBJECTS) $< -o $@
+
+
 clean:
-	rm -f *~ *.o tinyap .depend
+	rm -f *~ *.o $(TEST_TARGETS) .depend
 	(cd Java&&make clean)
 
 .PHONY: doc clean
