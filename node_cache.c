@@ -89,8 +89,8 @@ int node_cache_retrieve(node_cache_t cache, int l, int c, const char* rule, ast_
 	node_cache_entry_t nce = cache[ofs];
 	while(nce) {
 		if(l==nce->k_l&&c==nce->k_c&&(!strcmp(rule,nce->k_rule))) {
-//			printf("node_cache_retrieve has found\n");
 			*node_p = copy_node(nce->v_node);
+//			printf("node_cache_retrieve has found %s\n",tinyap_serialize_to_string(*node_p));
 			*ofs_p = nce->v_ofs;
 			return 1;
 		} else {

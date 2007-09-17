@@ -98,8 +98,9 @@ const char* tinyap_get_whitespace(tinyap_t t) {
 
 void tinyap_set_whitespace(tinyap_t t,const char*ws) {
 	t->ws_source=strdup(ws);
-	t->ws=(char*)malloc(strlen(t->ws_source)+1);
+	t->ws=(char*)malloc(strlen(t->ws_source)+4);
 	sprintf(t->ws,"[%s]+",t->ws_source);
+	printf("has set whitespace RE to %s\n",t->ws);
 }
 
 void tinyap_set_whitespace_regexp(tinyap_t t,const char*re) {
@@ -108,6 +109,7 @@ void tinyap_set_whitespace_regexp(tinyap_t t,const char*re) {
 		t->ws_source=NULL;
 	}
 	t->ws=strdup(re);
+	printf("has set whitespace RE to %s\n",t->ws);
 }
 
 const char* tinyap_get_grammar(tinyap_t t) {
@@ -119,11 +121,13 @@ void init_grammar(tinyap_t t) {
 	ast_node_t ws_node=find_nterm(t->grammar,"_whitespace");
 	t->start=find_nterm(t->grammar,"_start");
 	if(!t->start) {
-		t->start=getCar(getCdr(t->grammar));
+		printf("Dump de la grammaire %s\n",tinyap_serialize_to_string(t->grammar));
+		t->start=getCar(getCdr(getCar(t->grammar)));
 	}
 	if(ws_node) {
 		char*ws_tag;
-		ast_node_t ws_node=getCar(getCdr(getCdr(ws_node)));
+		ws_node=getCar(getCdr(getCdr(ws_node)));
+		printf("whitespace : %s\n",tinyap_serialize_to_string(ws_node));
 
 		ws_tag=Value(getCar(ws_node));
 
@@ -182,7 +186,7 @@ unsigned int tinyap_get_source_buffer_length(tinyap_t t) {
 void tinyap_set_source_file(tinyap_t t,const char*fnam) {
 	if(fnam) {
 		struct stat st;
-		FILE*f;
+		FILE*f = NULL;
 
 		if(t->source_file) {
 			free(t->source_file);
@@ -328,4 +332,14 @@ int tinyap_node_get_col(const ast_node_t n) {
 	return getCol(n);
 }
 
+
+wast_t tinyap_make_wast(const ast_node_t n) {
+	return make_wast((ast_node_t)n);
+}
+
+
+
+void* tinyap_walk(const wast_t subtree, const char* pilot_name, void* pilot_init_data) {
+	return do_walk(subtree,pilot_name,pilot_init_data);
+}
 

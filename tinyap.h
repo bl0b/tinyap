@@ -103,6 +103,7 @@ extern "C" {
 #ifndef _TINYAP_AST_H__
 #endif
 	typedef struct _tinyap_t* tinyap_t;
+	typedef struct _wast_t* wast_t;
 
 #include "bootstrap.h"
 
@@ -222,10 +223,18 @@ extern "C" {
 	 */
 	const char*	tinyap_serialize_to_string(const ast_node_t);
 
+	/*! \brief make this AST walkable.
+	 * \return a walkable copy of the given tree.
+	 */
+	wast_t		tinyap_make_wast(const ast_node_t);
+
 	/*! \brief walk this subtree using this named pilot with this init data.
 	 * \return whatever the pilot evaluated to
 	 */
-	void*		tinyap_walk(const ast_node_t subtree, const char* pilot_name, void* pilot_init_data);
+	void*		tinyap_walk(const wast_t subtree, const char* pilot_name, void* pilot_init_data);
+
+
+
 
 #ifdef __cplusplus
 }

@@ -67,7 +67,6 @@ void unescape_chr(char**src,char**dest) {
 	/* either ret is not \ or there's no valid escaped character following, thus we push raw ret in dest */
 	**dest=ret;
 	*dest+=1;
-	return;
 }
 
 

@@ -21,6 +21,7 @@
 #include "tokenizer.h"
 
 void ast_serialize(const ast_node_t ast,char**output);
+void unescape_chr(char**src,char**dest);
 
 int dump_node(const ast_node_t n) {
 	const char*ptr=tinyap_serialize_to_string(n);
@@ -48,9 +49,32 @@ regex_t*token_regcomp(const char*reg_expr) {
 
 
 char*match2str(const char*src,const size_t start,const size_t end) {
-	static char buf[256];
-	memset(buf,0,256);
-	strncpy(buf,src+start,end-start);
+	
+	char* buf = (char*) malloc(end-start);
+	char* rd = (char*)src+start;
+	char* wr = buf;
+	size_t sz=end-start-1,ofs=0;
+
+	if(end>start) {
+//	printf("match2str orig = \"%*.*s\" sz=%li\n",(int)(end-start),(int)(end-start),rd,sz);
+//		memset(buf,0,end-start);
+//	printf("              => \"%s\"\n",buf);
+		while(ofs<sz) {
+			unescape_chr(&rd, &wr);
+			ofs = rd-src-start;
+//		printf("match2str orig = \"%*.*s\"\n",(int)(end-start-ofs),(int)(end-start-ofs),rd);
+//		printf("              => \"%s\" %p %p %li\n",buf,rd,buf,ofs);
+		};
+		*wr = *rd;
+		wr += 1;
+	}
+	*wr = 0;
+
+//	printf("match2str => \"%s\"\n\n",buf);
+
+//	static char buf[256];
+//	memset(buf,0,256);
+//	strncpy(buf,src+start,end-start);
 	return buf;
 }
 
@@ -64,8 +88,10 @@ token_context_t*token_context_new(const char*src,const size_t length,const char*
 	t->ofsp=0;
 	t->flags=drapals;
 	if(garbage_regex) {
+//		printf("t->garbage = \"%s\"\n",garbage_regex);
 		t->garbage=token_regcomp(garbage_regex);
 	} else {
+//		printf("t->garbage = NULL\n");
 		t->garbage=NULL;
 	}
 	t->grammar=greuh;			/* grou la grammaire */
@@ -330,6 +356,9 @@ ast_node_t  token_produce_any(token_context_t*t,ast_node_t expr,int strip_T) {
 	}
 	tag=node_tag(expr);
 
+	_filter_garbage(t);
+	update_pos_cache(t);
+
 	row = t->pos_cache.row;
 	col = t->pos_cache.col;
 
@@ -365,7 +394,7 @@ ast_node_t  token_produce_any(token_context_t*t,ast_node_t expr,int strip_T) {
 
 //*
 	if(key&&node_cache_retrieve(t->cache, row, col, key, &ret,&t->ofs)) {
-//		printf("found %s at %i:%i %s\n",key,row, col,tinyap_serialize_to_string(ret));
+		printf("found %s at %i:%i %s\n",key,row, col,tinyap_serialize_to_string(ret));
 		update_pos_cache(t);
 		return ret;
 	}
@@ -465,7 +494,7 @@ ast_node_t  token_produce_any(token_context_t*t,ast_node_t expr,int strip_T) {
 	if(ret) {
 		/* add to node cache */
 		if(key) {
-//			printf("add to cache [ %i:%i:%s ] %s\n", row, col, key, tinyap_serialize_to_string(ret));
+			printf("add to cache [ %i:%i:%s ] %s\n", row, col, key, tinyap_serialize_to_string(ret));
 			node_cache_add(t->cache,row,col,key,ret,t->ofs);
 		}
 		//dump_node(ret);

@@ -72,7 +72,7 @@ static inline void _filter_garbage(token_context_t*t) {
 //		printf("\tdebug-- matched garbage [%i-%i]\n",token.rm_so,token.rm_eo);
 		assert(token.rm_so==0);
 		t->ofs+=token.rm_eo;
-//		printf("\tdebug-- now ofs=%i\n",t->ofs);
+//		printf("\tdebug-- now ofs=%li\n",t->ofs);
 	} else {
 //		printf("\tdebug-- no garbage\n");
 	}
