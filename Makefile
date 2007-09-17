@@ -1,4 +1,4 @@
-OBJECTS=tinyap.o ast.o bootstrap.o tokenizer.o serialize.o node_cache.o
+OBJECTS=tinyap.o ast.o bootstrap.o tokenizer.o serialize.o node_cache.o walker.o pilot_manager.o ape_prettyprint.o stack.o walkableast.o
 SOURCES=$(subst .o,.c,$(OBJECTS))
 
 LIB_TARGET=libtinyap.so
@@ -10,8 +10,8 @@ TEST_TARGETS=$(TEST_C_TGT) $(TEST_CPP_TGT) $(TEST_C_TGT)_static
 
 #CARGS=-Wall -ggdb
 
-#CCARGS=-Wall -ggdb -pg -fPIC
-CCARGS=-Wall -O3 -fPIC
+CCARGS=-Wall -ggdb -pg -fPIC
+#CCARGS=-Wall -O3 -fPIC
 #CCARGS=-Wall -O3
 CC=gcc
 CXX=g++
@@ -21,7 +21,8 @@ CX=$(CXX) $(CCARGS) $(CADD)
 LD=gcc
 LD_SHARE=-shared
 LDARGS=-pg
-L=$(LD) $(LDARGS)
+LIBS=-Wl,--export-dynamic -ldl
+L=$(LD) $(LDARGS) $(LIBS)
 
 all: $(LIB_TARGET) $(TEST_TARGETS)
 
@@ -40,17 +41,17 @@ $(LIB_TARGET): .depend $(OBJECTS)
 	$L $(LD_SHARE) $(OBJECTS) -o $@
 
 $(TEST_C_TGT): main.c
-	$C $(LIB_TARGET) $< -o $@
+	$C $(LIB_TARGET) $< $(LIBS) -o $@
 
 $(TEST_CPP_TGT): main++.c++
-	$(CX) $(LIB_TARGET) $< -o $@
+	$(CX) $(LIB_TARGET) $< $(LIBS) -o $@
 
 
 $(TEST_C_TGT)_static: main.c
-	$C $(OBJECTS) $< -o $@
+	$C $(OBJECTS) $< $(LIBS) -o $@
 
 $(TEST_CPP_TGT)_static: main++.c++
-	$C $(OBJECTS) $< -o $@
+	$C $(OBJECTS) $< $(LIBS) -o $@
 
 
 clean:

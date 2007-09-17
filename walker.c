@@ -16,7 +16,7 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
 
-#include "../ast.h"
+#include "ast.h"
 #include "walkableast.h"
 #include "walker.h"
 #include "stack.h"
@@ -25,13 +25,22 @@
 
 
 void* walk(wast_t a, pilot_t p) {
-	pilot_cache_elem_t pce = p->p_type;
+	pilot_cache_elem_t pce;
 	WalkDirection d;
-	stack_t stack = new_stack();
-	stack_t ofs_stack = new_stack();
+	stack_t stack;
+	stack_t ofs_stack;
 	wast_t next;
 	size_t opd=0;
 //	int i;
+
+	if(!p) {
+		return NULL;
+	}
+
+	stack = new_stack();
+	ofs_stack = new_stack();
+
+	pce = p->p_type;
 
 	d = do_visit(p,a);
 

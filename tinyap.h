@@ -103,7 +103,10 @@ extern "C" {
 #ifndef _TINYAP_AST_H__
 #endif
 	typedef struct _tinyap_t* tinyap_t;
-	typedef struct _wast_t* wast_t;
+#ifndef _WAST_DEFINED
+	typedef struct _walkable_ast_t* wast_t;
+	#define _WAST_DEFINED
+#endif
 
 #include "bootstrap.h"
 

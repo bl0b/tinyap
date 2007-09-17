@@ -54,7 +54,7 @@ void ast_serialize_to_file(const ast_node_t ast,FILE*f);
 int do_args(int argc,char*argv[]) {
 	int i;
 	tinyap_t parser = tinyap_new();
-	
+
 	for(i=1;i<argc;i+=1) {
 		if(cmp_param(1,"--grammar","-g")) {
 			i+=1;
@@ -104,8 +104,13 @@ int do_args(int argc,char*argv[]) {
 			printf("\n\t--output,-o name\tredirect serialized AST output\n");
 			printf("\t\t- (default)\tselects standard output\n");
 			printf("\t\tany other string is a filename to write to\n");
+			printf("\n\t--walk,-w name\t\twalk the current output tree using named ape\n\n");
 			printf("\n\t--help,-h\t\tdisplay this text\n\n");
 			exit(0);
+		} else if(cmp_param(1,"--walk","-w")) {
+			i+=1;
+			wast_t wa = tinyap_make_wast(tinyap_list_get_element(tinyap_get_output(parser),0));
+			tinyap_walk(wa,argv[i],NULL);
 		}
 	}
 

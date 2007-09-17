@@ -21,7 +21,10 @@
 
 #include "ast.h"
 
-typedef struct _walkable_ast_t* wast_t;
+#ifndef _WAST_DEFINED
+	typedef struct _walkable_ast_t* wast_t;
+	#define _WAST_DEFINED
+#endif
 
 wast_t wa_new(const char* op);
 void wa_del(wast_t);

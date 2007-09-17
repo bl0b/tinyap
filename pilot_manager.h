@@ -19,8 +19,8 @@
 #ifndef __TINYAP_PILOT_MANAGER_H__
 #define  __TINYAP_PILOT_MANAGER_H__
 
-#include "../ast.h"
-#include "../hashtab.h"
+#include "ast.h"
+#include "hashtab.h"
 #include "walkableast.h"
 
 typedef enum {

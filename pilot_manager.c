@@ -18,8 +18,8 @@
 
 #include "walker.h"
 
-#include "../hashtab.h"
-#include "../tinyap.h"
+#include "hashtab.h"
+#include "tinyap.h"
 #include <stdlib.h>
 #include <dlfcn.h>
 
@@ -70,10 +70,13 @@ static int cmp_str(hash_key a, hash_key b) {
 /*! \brief initialize the pilot manager
  */
 void init_pilot_manager() {
-	pilot_mgr.cache = (hashtab_t) malloc(sizeof(struct _hashtable));
-	init_hashtab(pilot_mgr.cache, hash_str, cmp_str);
-
-	pilot_mgr.dl_self = dlopen(NULL, RTLD_LAZY);
+	static int is_init=0;
+	if(!is_init) {
+		pilot_mgr.cache = (hashtab_t) malloc(sizeof(struct _hashtable));
+		init_hashtab(pilot_mgr.cache, hash_str, cmp_str);
+		pilot_mgr.dl_self = dlopen(NULL, RTLD_LAZY);
+		is_init=1;
+	}
 }
 
 /*! \brief terminate the pilot manager

@@ -16,6 +16,7 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
 #include "ast.h"
+#include "walker.h"
 #include "bootstrap.h"
 #include "tokenizer.h"
 #include "tinyap.h"
@@ -66,6 +67,7 @@ tinyap_t tinyap_new() {
 	tinyap_t ret=(tinyap_t)malloc(sizeof(struct _tinyap_t));
 	memset(ret,0,sizeof(struct _tinyap_t));
 	tinyap_set_grammar(ret,"explicit");
+	init_pilot_manager();
 	return ret;
 }
 
@@ -100,7 +102,7 @@ void tinyap_set_whitespace(tinyap_t t,const char*ws) {
 	t->ws_source=strdup(ws);
 	t->ws=(char*)malloc(strlen(t->ws_source)+4);
 	sprintf(t->ws,"[%s]+",t->ws_source);
-	printf("has set whitespace RE to %s\n",t->ws);
+//	printf("has set whitespace RE to %s\n",t->ws);
 }
 
 void tinyap_set_whitespace_regexp(tinyap_t t,const char*re) {
@@ -109,7 +111,7 @@ void tinyap_set_whitespace_regexp(tinyap_t t,const char*re) {
 		t->ws_source=NULL;
 	}
 	t->ws=strdup(re);
-	printf("has set whitespace RE to %s\n",t->ws);
+//	printf("has set whitespace RE to %s\n",t->ws);
 }
 
 const char* tinyap_get_grammar(tinyap_t t) {
@@ -121,13 +123,13 @@ void init_grammar(tinyap_t t) {
 	ast_node_t ws_node=find_nterm(t->grammar,"_whitespace");
 	t->start=find_nterm(t->grammar,"_start");
 	if(!t->start) {
-		printf("Dump de la grammaire %s\n",tinyap_serialize_to_string(t->grammar));
+//		printf("Dump de la grammaire %s\n",tinyap_serialize_to_string(t->grammar));
 		t->start=getCar(getCdr(getCar(t->grammar)));
 	}
 	if(ws_node) {
 		char*ws_tag;
 		ws_node=getCar(getCdr(getCdr(ws_node)));
-		printf("whitespace : %s\n",tinyap_serialize_to_string(ws_node));
+//		printf("whitespace : %s\n",tinyap_serialize_to_string(ws_node));
 
 		ws_tag=Value(getCar(ws_node));
 

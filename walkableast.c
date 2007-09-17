@@ -16,7 +16,7 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
 
-#include "../tinyap.h"
+#include "tinyap.h"
 #include "walkableast.h"
 #include <stdlib.h>
 #include <string.h>
@@ -65,10 +65,21 @@ int wa_is_leaf(wast_t l) {
 }
 
 void wa_add(wast_t f,wast_t s) {
-	f->operands = (wast_t*) realloc(f->operands,f->opd_count+1);
-	f->operands[f->opd_count] = s;
-	f->opd_count += 1;
-	s->father = f;
+	wast_t* tmp;
+//	printf("wa_add %p %li\n",f->operands,f->opd_count+1);
+	if(f->operands) {
+		tmp = (wast_t*) realloc(f->operands,(f->opd_count+1)*sizeof(wast_t));
+	} else {
+		tmp = (wast_t*) malloc((f->opd_count+1)*sizeof(wast_t));
+	}
+	if(tmp) {
+		f->operands = tmp;
+		f->operands[f->opd_count] = s;
+		f->opd_count += 1;
+		s->father = f;
+//	} else {
+//		printf("failed.\n");
+	}
 }
 
 wast_t make_wast(ast_node_t a) {

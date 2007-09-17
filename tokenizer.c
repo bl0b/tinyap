@@ -394,7 +394,7 @@ ast_node_t  token_produce_any(token_context_t*t,ast_node_t expr,int strip_T) {
 
 //*
 	if(key&&node_cache_retrieve(t->cache, row, col, key, &ret,&t->ofs)) {
-		printf("found %s at %i:%i %s\n",key,row, col,tinyap_serialize_to_string(ret));
+//		printf("found %s at %i:%i %s\n",key,row, col,tinyap_serialize_to_string(ret));
 		update_pos_cache(t);
 		return ret;
 	}
@@ -494,7 +494,7 @@ ast_node_t  token_produce_any(token_context_t*t,ast_node_t expr,int strip_T) {
 	if(ret) {
 		/* add to node cache */
 		if(key) {
-			printf("add to cache [ %i:%i:%s ] %s\n", row, col, key, tinyap_serialize_to_string(ret));
+//			printf("add to cache [ %i:%i:%s ] %s\n", row, col, key, tinyap_serialize_to_string(ret));
 			node_cache_add(t->cache,row,col,key,ret,t->ofs);
 		}
 		//dump_node(ret);
