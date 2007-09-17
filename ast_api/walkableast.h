@@ -19,7 +19,7 @@
 #ifndef __TINYAP_WALKABLE_AST_H__
 #define __TINYAP_WALKABLE_AST_H__
 
-#include "../ast.h"
+#include "ast.h"
 
 typedef struct _walkable_ast_t* wast_t;
 

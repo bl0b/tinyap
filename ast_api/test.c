@@ -57,15 +57,19 @@ int main(int argc, const char**argv) {
 
 //	src = "23*42+23-42;";
 //	src = "1+2*(1+2*(1+2*(1+2*(1+2*(1+2*(1+2*(1+2*(1+2))))))));";
-	src = "1+2*(1+2*(1+2*(1+2*(1+2*(1+2*(1+2*(1+2*(1+2*(1+2*(1+2*(1+2*(1+2*(1+2)))))))))))));";
+	src = "1+2;";
 
-	tinyap_set_source_buffer(parser,src,strlen(src));
+	tinyap_set_source_file(parser, "../test.math");
+	//tinyap_set_source_buffer(parser,src,strlen(src));
 //	tinyap_set_source_file(parser, "stdin");
 	tinyap_parse(parser);
+	tree = tinyap_get_output(parser);
 	if(tinyap_parsed_ok(parser)) {
-		tree = tinyap_get_output(parser);
-		int k = *(int*) do_walk(make_wast(Car(tree)),"test",NULL);
+		wast_t w=make_wast(Car(tree));
+		int k = *(int*) do_walk(w,"test",NULL);
 		printf("=> %i\n",k);
+		puts(tinyap_serialize_to_string(tree));
+		do_walk(w,"prettyprint",NULL);
 	} else {
 		printf(tinyap_get_error(parser));
 	}

@@ -27,22 +27,22 @@ stack_t new_stack() {
 	return ret;
 }
 
-void push(stack_t s, wast_t w) {
+void push(stack_t s, void* w) {
 	s->sp += 1;
 	if(s->sz == s->sp) {
 		s->sz+=16;
-		s->stack = (wast_t*) realloc(s->stack, s->sz*sizeof(wast_t));
+		s->stack = (void**) realloc(s->stack, s->sz*sizeof(void*));
 	}
 	s->stack[s->sp] = w;
 }
 
-wast_t pop(stack_t s) {
-	wast_t ret = s->stack[s->sp];
+void* _pop(stack_t s) {
+	void* ret = s->stack[s->sp];
 	s->sp -= 1;
 	return ret;
 }
 
-wast_t peek(stack_t s) {
+void* _peek(stack_t s) {
 	return s->stack[s->sp];
 }
 

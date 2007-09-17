@@ -141,6 +141,7 @@ pilot_cache_elem_t new_pilot_cache_elem(const char* p_name) {
 	ret->init = (void*(*)(void*)) sym;
 	ret->free = (void(*)(pilot_t)) dlsym(handle, make_mthd(p_name,"free"));
 	ret->result = (void*(*)(pilot_t)) dlsym(handle, make_mthd(p_name,"result"));
+	ret->defaultMethod = (node_visit_method) dlsym(handle, make_mthd(p_name,"default"));
 
 	ret->methods = (hashtab_t) malloc(sizeof(struct _hashtable));
 

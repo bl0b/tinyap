@@ -24,13 +24,19 @@
 typedef struct _stack_t {
 	size_t sz;
 	size_t sp;
-	wast_t* stack;
+	void** stack;
 }* stack_t;
 
 stack_t new_stack();
-void push(stack_t s, wast_t w);
-wast_t pop(stack_t s);
-wast_t peek(stack_t s);
+void push(stack_t s, void* w);
+void* _pop(stack_t s);
+#define pop(__t,__s) ((__t)_pop(__s))
+void* _peek(stack_t s);
+#define peek(__t,__s) ((__t)_peek(__s))
 void free_stack(stack_t s);
+
+#define is_empty(_s) (_s->sp==-1)
+#define not_empty(_s) (_s->sp!=-1)
+
 #endif
 

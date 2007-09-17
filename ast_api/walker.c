@@ -28,32 +28,48 @@ void* walk(wast_t a, pilot_t p) {
 	pilot_cache_elem_t pce = p->p_type;
 	WalkDirection d;
 	stack_t stack = new_stack();
+	stack_t ofs_stack = new_stack();
 	wast_t next;
-	int opd;
+	size_t opd=0;
+//	int i;
 
 	d = do_visit(p,a);
 
 	while(d!=Done&&d!=Error) {
+//		printf(" ofs_stack : ");
+//		for(i=0;i<ofs_stack->sz;i++) {
+//			printf(" %li",(size_t)ofs_stack->stack[i]);
+//		}
+//		printf(" opd = %li\n",opd);
 		switch(d) {
 		case Down:
+//			puts("Down");
 			push(stack,a);
+			push(ofs_stack,(void*)opd);
 			opd=-1;
 		case Next:
+//			puts("Next");
 			opd += 1;
-			if(opd<wa_opd_count(a)) {
-				next = wa_opd(a,opd);
+			if(is_empty(stack)) {
+				d = Done;
+				break;
+			} else if(opd<wa_opd_count(peek(wast_t,stack))) {
+				next = wa_opd(peek(wast_t,stack),(unsigned int)opd);
 				break;
 			} else {
-				d=Up;
+				//d=Up;
 			}
 		case Up:
+//			puts("Up");
+			next=NULL;
 			/* either pop or go to father */
-			if(stack->sp) {
-				pop(stack);
+			if(not_empty(stack)) {
+				_pop(stack);
+				opd = pop(size_t,ofs_stack);
 				d=Next;
-				next=NULL;
 			} else {
-				next = wa_father(a);
+				//next = wa_father(a);
+				d = Done;
 			}
 			break;
 		default:;
