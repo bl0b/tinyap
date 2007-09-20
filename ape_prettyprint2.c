@@ -16,42 +16,47 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
 
-#include <stdlib.h>
-#include <string.h>
-#include "stack.h"
+#include "tinyap.h"
+#include "pilot_manager.h"
+#include "walker.h"
 
-stack_t new_stack() {
-	stack_t ret = (stack_t) malloc(sizeof(struct _stack_t));
-	memset(ret,0,sizeof(struct _stack_t));
-	ret->sp=-1;
-	return ret;
-}
 
-void push(stack_t s, void* w) {
-	s->sp += 1;
-	if(s->sz == s->sp) {
-		s->sz+=1024;
-		s->stack = (void**) realloc(s->stack, s->sz*sizeof(void*));
+void* ape_prettyprint2_init(void* init_data) { return NULL; }
+
+void apt_prettyprint2_free(void*data) {}
+
+void prettyprint2_node_header(wast_t father, wast_t node) {
+	char c[4]={' ',' ',0,0};
+	if(!father) {
+		return;
 	}
-	s->stack[s->sp] = w;
-}
-
-void* _pop(stack_t s) {
-	void* ret = s->stack[s->sp];
-	s->sp -= 1;
-	return ret;
-}
-
-void* _peek(stack_t s) {
-	return s->stack[s->sp];
-}
-
-void free_stack(stack_t s) {
-//	printf("free_stack\n");
-	if(s->stack) {
-		free(s->stack);
+	if(!node) {
+		c[1]='-';
+		node=father;
+		father=wa_father(node);
 	}
-	free(s);
+	if(father) {
+		prettyprint2_node_header(wa_father(father), father);
+		if(wa_opd(father,wa_opd_count(father)-1)!=node) {
+			c[0] = '|';
+		} else {
+			if(c[1]=='-') {
+				c[0] = '`';
+			}
+		}
+		fputs(c,stdout);
+	}
 }
 
 
+
+WalkDirection ape_prettyprint2_default(wast_t node, void*___) {
+	prettyprint2_node_header(node,NULL);
+	puts(wa_op(node));
+
+	if(wa_opd_count(node)) {
+		return Down;
+	} else {
+		return Next;
+	}
+}

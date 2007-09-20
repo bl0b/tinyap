@@ -44,14 +44,40 @@ struct _tinyap_t {
 	int error;
 };
 
+
+
+void delete_node(node_cache_t cache, ast_node_t n);
+
+ast_node_t copy_node(ast_node_t);
+
+void node_pool_flush();
+size_t node_pool_size();
+extern volatile int _node_alloc_count;
+void node_pool_init();
+void node_pool_term();
+
+
+void tinyap_terminate() {
+	node_pool_term();
+}
+
+void tinyap_init() {
+	node_pool_init();
+	atexit(tinyap_terminate);
+	init_pilot_manager();
+//	printf("after  tinyap_init : %li nodes (%i alloc'd so far)\n",node_pool_size(),_node_alloc_count);
+}
+
+
 void tinyap_delete(tinyap_t t) {
+//	printf("before tinyap_delete : %li nodes (%i alloc'd so far)\n",node_pool_size(),_node_alloc_count);
 	if(t->toktext) token_context_free(t->toktext);
 
 	if(t->grammar_source) free(t->grammar_source);
-	if(t->grammar) delete_node(t->grammar);
+	if(t->grammar) delete_node(NULL,t->grammar);
 	/* start was inside grammar */
 
-	if(t->output) delete_node(t->output);
+	if(t->output) delete_node(NULL,t->output);
 
 	if(t->ws) free(t->ws);
 	if(t->ws_source) free(t->ws_source);
@@ -60,6 +86,7 @@ void tinyap_delete(tinyap_t t) {
 	if(t->source_buffer) free(t->source_buffer);
 
 	free(t);
+//	printf("after  tinyap_delete : %li nodes (%i alloc'd so far)\n",node_pool_size(),_node_alloc_count);
 }
 
 
@@ -150,7 +177,7 @@ void tinyap_set_grammar(tinyap_t t,const char*g) {
 	}
 	t->grammar_source=strdup(g);
 	if(t->grammar) {
-		delete_node(t->grammar);
+		delete_node(NULL,t->grammar);
 	}
 	t->grammar=tinyap_get_ruleset(g);
 	init_grammar(t);
@@ -167,7 +194,7 @@ void tinyap_set_grammar_ast(tinyap_t t,ast_node_t g) {
 		t->grammar_source=NULL;
 	}
 	if(t->grammar) {
-		delete_node(t->grammar);
+		delete_node(NULL,t->grammar);
 	}
 	t->grammar=g;
 	init_grammar(t);
@@ -200,7 +227,8 @@ void tinyap_set_source_file(tinyap_t t,const char*fnam) {
 				/* error */
 				fprintf(stderr,"Couldn't stat %s :\n",t->source_file);
 				perror("stat");
-				tinyap_set_source_buffer(t,"",1);
+				tinyap_set_source_buffer(t,"",0);
+				return;
 			} else {
 				f=fopen(t->source_file,"r");
 			}
@@ -208,15 +236,20 @@ void tinyap_set_source_file(tinyap_t t,const char*fnam) {
 			f = stdin;
 		}
 	
-		t->source_buffer=(char*)malloc(st.st_size);
+		if(t->source_buffer) {
+			free(t->source_buffer);
+		}
+		t->source_buffer=(char*)malloc(st.st_size+1);
 		t->source_buffer_sz=st.st_size;
-			
+
 		fread(t->source_buffer,1,st.st_size,f);
+		t->source_buffer[t->source_buffer_sz] = 0;
+
 		if(f!=stdin) {
 			fclose(f);
 		}
 	} else {
-		tinyap_set_source_buffer(t,NULL,0);
+		tinyap_set_source_buffer(t,"",0);
 	}
 }
 
@@ -225,14 +258,17 @@ void tinyap_set_source_buffer(tinyap_t t,const char* b,const unsigned int sz) {
 		free(t->source_file);
 		t->source_file=NULL;
 	}
-	t->source_buffer=(char*)malloc(sz);
+	if(t->source_buffer) {
+		free(t->source_buffer);
+	}
+	t->source_buffer=(char*)malloc(sz+1);
 	strncpy(t->source_buffer,b,sz);
+	t->source_buffer[sz]=0;
 	t->source_buffer_sz=sz;
-	
 }
 
-
 int tinyap_parse(tinyap_t t) {
+//	printf("before tinyap_parse : %li nodes (%i alloc'd so far)\n",node_pool_size(),_node_alloc_count);
 	if(t->toktext) {
 		token_context_free(t->toktext);
 	}
@@ -244,12 +280,20 @@ int tinyap_parse(tinyap_t t) {
 			t->grammar,
 			STRIP_TERMINALS);
 
-	t->output=clean_ast(
+	if(t->output) {
+		delete_node(NULL,t->output);
+	}
+
+	t->output=copy_node(clean_ast(
 			token_produce_any(
 				t->toktext,
 				t->start,
-				0));
+				0)));
 
+//	token_context_free(t->toktext);
+//	t->toktext=NULL;
+
+//	printf("after  tinyap_parse : %li nodes (%i alloc'd so far)\n",node_pool_size(),_node_alloc_count);
 	return (t->error=(t->output!=NULL));
 	
 }
@@ -339,6 +383,9 @@ wast_t tinyap_make_wast(const ast_node_t n) {
 	return make_wast((ast_node_t)n);
 }
 
+void tinyap_free_wast(const wast_t w) {
+	wa_del(w);
+}
 
 
 void* tinyap_walk(const wast_t subtree, const char* pilot_name, void* pilot_init_data) {

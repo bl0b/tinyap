@@ -31,6 +31,7 @@ void* walk(wast_t a, pilot_t p) {
 	stack_t ofs_stack;
 	wast_t next;
 	size_t opd=0;
+	void* result;
 //	int i;
 
 	if(!p) {
@@ -89,10 +90,14 @@ void* walk(wast_t a, pilot_t p) {
 		}
 	}
 	if(pce->result) {
-		return pce->result(p->data);
+		result = pce->result(p->data);
 	} else {
-		return NULL;
+		result = NULL;
 	}
+	free_pilot(p);
+	free_stack(stack);
+	free_stack(ofs_stack);
+	return result;
 }
 
 void* do_walk(wast_t node, const char* pilot, void* init_data) {

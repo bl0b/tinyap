@@ -22,6 +22,9 @@
 
 void ast_serialize(const ast_node_t ast,char**output);
 void unescape_chr(char**src,char**dest);
+void delete_node(node_cache_t cache, ast_node_t n);
+ast_node_t copy_node(ast_node_t);
+
 
 int dump_node(const ast_node_t n) {
 	const char*ptr=tinyap_serialize_to_string(n);
@@ -50,7 +53,7 @@ regex_t*token_regcomp(const char*reg_expr) {
 
 char*match2str(const char*src,const size_t start,const size_t end) {
 	
-	char* buf = (char*) malloc(end-start);
+	char* buf = (char*) malloc(end-start+1);
 	char* rd = (char*)src+start;
 	char* wr = buf;
 	size_t sz=end-start-1,ofs=0;
@@ -143,6 +146,7 @@ void token_context_pop(token_context_t*t) {
 void token_context_free(token_context_t*t) {
 	if(t->garbage) {
 		regfree(t->garbage);
+		free(t->garbage);
 	}
 	node_cache_flush(t->cache);
 	free(t->source);
@@ -157,8 +161,9 @@ void token_context_free(token_context_t*t) {
 
 ast_node_t token_produce_re(token_context_t*t,const regex_t*expr) {
 	regmatch_t token;
-	char*ret;
+	char*lbl;
 	int r,c;
+	ast_node_t ret=NULL;
 	/* perform some preventive garbage filtering */
 	_filter_garbage(t);
 	update_pos_cache(t);
@@ -166,16 +171,17 @@ ast_node_t token_produce_re(token_context_t*t,const regex_t*expr) {
 	c=t->pos_cache.col;
 	if(regexec(expr,t->source+t->ofs,1,&token,0)!=REG_NOMATCH&&token.rm_so==0) {
 		assert(token.rm_so==0);
-		ret=match2str(t->source+t->ofs,0,token.rm_eo);
+		lbl=match2str(t->source+t->ofs,0,token.rm_eo);
 		t->ofs+=token.rm_eo;
-//		debug_write("debug-- matched token [%s]\n",ret);
+//		debug_write("debug-- matched token [%s]\n",lbl);
 		update_pos_cache(t);
-		return newPair(newAtom(ret,t->pos_cache.row,t->pos_cache.col),NULL,r,c);
-		//return newAtom(ret,t->pos_cache.row,t->pos_cache.col);
-	} else {
+		ret = newPair(newAtom(lbl,t->pos_cache.row,t->pos_cache.col),NULL,r,c);
+		free(lbl);
+		//return newAtom(lbl,t->pos_cache.row,t->pos_cache.col);
+//	} else {
 //		debug_write("debug-- no good token\n");
 	}
-	return NULL;
+	return ret;
 }
 
 
@@ -274,7 +280,7 @@ ast_node_t _produce_seq_rec(token_context_t*t,ast_node_t seq) {
 			update_pos_cache(t);
 			if(isAtom(rec)) {
 				assert(!strcmp(Value(rec),"eos"));
-				delete_node(rec);
+				delete_node(NULL,rec);
 				//return newPair(tmp,NULL,t->pos_cache.row,t->pos_cache.col);
 				return tmp;
 			} else {
@@ -340,7 +346,8 @@ ast_node_t  token_produce_alt(token_context_t*t,ast_node_t alt) {
 
 
 
-ast_node_t  token_produce_any(token_context_t*t,ast_node_t expr,int strip_T) {
+ast_node_t token_produce_any(token_context_t*t,ast_node_t expr,int strip_T) {
+//	static int prit=0;
 	static int rec_lvl=0;
 	char*tag;
 	char*key=NULL;
@@ -396,7 +403,7 @@ ast_node_t  token_produce_any(token_context_t*t,ast_node_t expr,int strip_T) {
 	if(key&&node_cache_retrieve(t->cache, row, col, key, &ret,&t->ofs)) {
 //		printf("found %s at %i:%i %s\n",key,row, col,tinyap_serialize_to_string(ret));
 		update_pos_cache(t);
-		return ret;
+		return copy_node(ret);
 	}
 //*/
 
@@ -415,6 +422,8 @@ ast_node_t  token_produce_any(token_context_t*t,ast_node_t expr,int strip_T) {
 		re = getCar(getCdr(expr));
 		if(!re->raw._p2) {
 			/* take advantage of unused atom field to implement regexp cache */
+//			assert(isAtom(re));
+//			printf("prit %i %s\n",prit+=1,Value(re));
 			re->raw._p2=token_regcomp(Value(re));
 			/* FIXME : need call to regfree() on delete, should implement that in token_regcomp */
 		}
@@ -426,7 +435,7 @@ ast_node_t  token_produce_any(token_context_t*t,ast_node_t expr,int strip_T) {
 //		debug_write("### -=< term %s >=- ###\n",ret?"OK":"failed");
 		if(ret) {
 			if(strip_T) {
-				delete_node(ret);
+				delete_node(NULL,ret);
 				ret=newPair(newAtom("strip.me",0,0),NULL,0,0);
 //			} else {
 //				update_pos_cache(t);
@@ -629,7 +638,7 @@ ast_node_t clean_ast(ast_node_t t) {
 		if(strcmp(Value(t),"strip.me")) {
 			return t;
 		} else {
-			delete_node(t);
+			delete_node(NULL,t);
 			return NULL;
 		}
 	} else if(isPair(t)) {
@@ -639,7 +648,7 @@ ast_node_t clean_ast(ast_node_t t) {
 		if(t->pair._car==NULL) {
 			ast_node_t cdr=t->pair._cdr;
 			t->pair._cdr=NULL;
-			delete_node(t);
+			delete_node(NULL,t);
 			return cdr;
 		}
 	}

@@ -40,19 +40,36 @@ void node_cache_init(node_cache_t cache) {
 	}
 }
 
+//void node_cache_clear_node(node_cache_t cache, ast_node_t n) {
+//	int i;
+//	node_cache_entry_t q;
+//	for(i=0;i<NODE_CACHE_SIZE;i+=1) {
+//		if(cache[i]) {
+//			q = cache[i];
+//			do {
+//				if(q->v_node==n) {
+////					printf("   also found at #%i\n",i);
+//					q->v_node=NULL;
+//				}
+//				q = q->next;
+//			} while(q);
+//		}
+//	}
+//}
+
+
+void delete_node(node_cache_t cache, ast_node_t n);
+
 void node_cache_flush(node_cache_t cache) {
 	int i;
-	node_cache_entry_t p,q;
+	node_cache_entry_t q;
 //	printf("node_cache_flush\n");
-	for(i=0;i<NODE_CACHE_SIZE;i++) {
-		if(cache[i]) {
-			q = cache[i];
-			do {
-				p=q->next;
-				free(q);
-				q=p;
-			} while(q);
-			cache[i] = NULL;
+	for(i=0;i<NODE_CACHE_SIZE;i+=1) {
+		while(cache[i]) {
+			q=cache[i];
+			cache[i]=q->next;
+			//delete_node(cache,q->v_node);
+			free(q);
 		}
 	}
 }
@@ -89,7 +106,8 @@ int node_cache_retrieve(node_cache_t cache, int l, int c, const char* rule, ast_
 	node_cache_entry_t nce = cache[ofs];
 	while(nce) {
 		if(l==nce->k_l&&c==nce->k_c&&(!strcmp(rule,nce->k_rule))) {
-			*node_p = copy_node(nce->v_node);
+//			*node_p = copy_node(nce->v_node);
+			*node_p = nce->v_node;
 //			printf("node_cache_retrieve has found %s\n",tinyap_serialize_to_string(*node_p));
 			*ofs_p = nce->v_ofs;
 			return 1;

@@ -36,18 +36,23 @@ extern volatile int depth;
 
 /*! \brief AST Node Types
  */
-typedef enum { ast_Nil=0, ast_Atom=0x6106, ast_Pair=0x8108 } ast_type_t;
+typedef enum { ast_Nil=0, ast_Pool=42, ast_Atom=0x6106, ast_Pair=0x8108 } ast_type_t;
 
 
 union _ast_node_t {
 	/* first union member is used for static initializations */
-	struct {
+	struct _ant_sz {
 		ast_type_t _;
 		void*_p1;
 		void*_p2;
 		int _row;
 		int _col;
 	} raw;
+	struct {
+		ast_type_t _;
+		char __reserve[sizeof(struct _ant_sz)-sizeof(ast_type_t)-sizeof(ast_node_t)];
+		ast_node_t next;
+	} pool;
 	/* position in source text */
 	struct {
 		ast_type_t _res_at;
@@ -70,26 +75,6 @@ union _ast_node_t {
 	} pair;
 };
 
-
-#define _ast_node_type_to_str(__t) (__t==ast_Atom?"Atom":__t==ast_Pair?"Pair":__t?"(unknown)":"#nil")
-
-int dump_node(const ast_node_t n);
-
-static inline ast_node_t ast_type_check(const ast_node_t n,const ast_type_t expected,const char*_f,const int _l) {
-	if((!n)&&expected==ast_Nil) {
-		return NULL;
-	} else if((!n)||n->type!=expected) {
-		/* spawn error */
-		debug_writeln("%s:%d: wrong node type %s [%X] : expected %s ; \n",
-			_f, _l,
-			n?_ast_node_type_to_str(n->type):"(nil)", n?n->type:0,_ast_node_type_to_str(expected));
-		if(n) dump_node(n);
-		/* die */
-		abort();
-		//exit(-1);
-	}
-	return (ast_node_t )n;
-}
 
 
 
@@ -147,45 +132,31 @@ static inline void setCol(ast_node_t n,int c) {
 
 extern volatile int _node_alloc_count;
 
+#define _ast_node_type_to_str(__t) (__t==ast_Atom?"Atom":__t==ast_Pair?"Pair":__t?"(unknown)":"#nil")
 
-static inline ast_node_t newAtom(const char*data,int row,int col) {
-	ast_node_t  ret=(ast_node_t )malloc(sizeof(union _ast_node_t));
-	ret->type=ast_Atom;
-	ret->atom._str=strdup(data);
-	ret->raw._p2=NULL;	/* useful for regexp cache hack */
-	ret->pos.row=row;
-	ret->pos.col=col;
-	_node_alloc_count+=1;
-	return ret;
+int dump_node(const ast_node_t n);
+
+static inline ast_node_t ast_type_check(const ast_node_t n,const ast_type_t expected,const char*_f,const int _l) {
+	if((!n)&&expected==ast_Nil) {
+		return NULL;
+	} else if((!n)||n->type!=expected) {
+		/* spawn error */
+		debug_writeln("%s:%d: wrong node type %s [%X] : expected %s ; \n",
+			_f, _l,
+			n?_ast_node_type_to_str(n->type):"(nil)", n?n->type:0,_ast_node_type_to_str(expected));
+		if(n) dump_node(n);
+		/* die */
+		abort();
+		//exit(-1);
+	}
+	return (ast_node_t )n;
 }
 
 
 
-
-static inline ast_node_t newPair(const ast_node_t a,const ast_node_t d,const int row,const int col) {
-	ast_node_t  ret;
-/*	if( isAtom(a) && (!strcmp(Value(a),"strip.me")) ) {
-		if(isPair(d)) {
-			return d;
-		} else {
-			if(d) {
-				return newPair(d,NULL);
-			} else {
-				return NULL;
-			}
-		}
-	}*/
-	ret=(ast_node_t )malloc(sizeof(union _ast_node_t));
-	ret->type=ast_Pair;
-	ret->pair._car=(ast_node_t )a;
-	ret->pair._cdr=(ast_node_t )d;
-	ret->pos.row=row;
-	ret->pos.col=col;
-	_node_alloc_count+=1;
-	return ret;
-}
-
-void delete_node(ast_node_t n);
+ast_node_t newAtom(const char*data,int row,int col);
+ast_node_t newPair(const ast_node_t a,const ast_node_t d,const int row,const int col);
+//void delete_node(node_cache_t cache, ast_node_t n);
 
 void print_pair(ast_node_t n);
 

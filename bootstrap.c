@@ -81,10 +81,15 @@ ast_node_t  init_BNF_rules() {
 	return ast_unserialize(explicit_bnff_rules);
 }
 
+
+size_t node_pool_size();
+extern volatile int _node_alloc_count;
+
 ast_node_t  tinyap_get_ruleset(const char*name) {
 	struct stat st;
 	char*buf;
 	ast_node_t ret=NULL;
+//	printf("before tinyap_get_ruleset : %li nodes (%i alloc'd so far)\n",node_pool_size(),_node_alloc_count);
 	if(!strcmp(name,GRAMMAR_EXPLICIT)) {
 		ret=ast_unserialize(explicit_bnff_rules);
 	} else if(!strcmp(name,GRAMMAR_CAMELCASING)) {
@@ -94,10 +99,12 @@ ast_node_t  tinyap_get_ruleset(const char*name) {
 		FILE*f=fopen(name,"r");
 		buf=(char*)malloc(st.st_size+1);
 		fread(buf,1,st.st_size,f);
+		buf[st.st_size]=0;
 		fclose(f);
 		ret=ast_unserialize(buf);
 		free(buf);
 	}
+//	printf("after  tinyap_get_ruleset : %li nodes (%i alloc'd so far)\n",node_pool_size(),_node_alloc_count);
 	//dump_node(ret);
 	return ret;
 }

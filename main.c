@@ -51,9 +51,17 @@ const char*outputDest="-";		/* default : output to stdout */
 
 void ast_serialize_to_file(const ast_node_t ast,FILE*f);
 
+
+void node_pool_flush();
+
+
 int do_args(int argc,char*argv[]) {
 	int i;
-	tinyap_t parser = tinyap_new();
+	tinyap_t parser;
+
+	tinyap_init();
+
+	parser = tinyap_new();
 
 	for(i=1;i<argc;i+=1) {
 		if(cmp_param(1,"--grammar","-g")) {
@@ -113,6 +121,7 @@ int do_args(int argc,char*argv[]) {
 			i+=1;
 			wast_t wa = tinyap_make_wast(tinyap_list_get_element(tinyap_get_output(parser),0));
 			tinyap_walk(wa,argv[i],NULL);
+			tinyap_free_wast(wa);
 		}
 	}
 
@@ -126,7 +135,6 @@ int do_args(int argc,char*argv[]) {
 extern volatile int _node_alloc_count;
 
 int main(int argc, char**argv) {
-	
 	return do_args(argc,argv);
 }
 

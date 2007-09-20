@@ -66,25 +66,46 @@ static int cmp_str(hash_key a, hash_key b) {
 	return strcmp((const char*)a, (const char*)b);
 }
 
+volatile int pilot_manager_is_init=0;
 
-/*! \brief initialize the pilot manager
- */
-void init_pilot_manager() {
-	static int is_init=0;
-	if(!is_init) {
-		pilot_mgr.cache = (hashtab_t) malloc(sizeof(struct _hashtable));
-		init_hashtab(pilot_mgr.cache, hash_str, cmp_str);
-		pilot_mgr.dl_self = dlopen(NULL, RTLD_LAZY);
-		is_init=1;
-	}
-}
+void release_pilot(pilot_cache_elem_t pce);
 
 /*! \brief terminate the pilot manager
  */
 void term_pilot_manager() {
-	/* TODO */
+	struct _htab_iterator hi;
+//	hash_key k;
+	if(!pilot_manager_is_init) {
+		return;
+	}
+	pilot_manager_is_init=0;
+//	printf(" @@ term_pilot_manager\n");
 	dlclose(pilot_mgr.dl_self);
+
+	hi_init(&hi,pilot_mgr.cache);
+	while(hi_is_valid(&hi)) {
+//		k = hi_key(&hi);
+		release_pilot((pilot_cache_elem_t)hi_value(&hi));
+		hi_incr(&hi);
+	}
+
+	clean_hashtab(pilot_mgr.cache,NULL);
+	free(pilot_mgr.cache);
 }
+
+
+/*! \brief initialize the pilot manager
+ */
+void init_pilot_manager() {
+	if(!pilot_manager_is_init) {
+		pilot_mgr.cache = (hashtab_t) malloc(sizeof(struct _hashtable));
+		init_hashtab(pilot_mgr.cache, hash_str, cmp_str);
+		pilot_mgr.dl_self = dlopen(NULL, RTLD_LAZY);
+		atexit(term_pilot_manager);
+		pilot_manager_is_init=1;
+	}
+}
+
 
 /*! \brief builds a full pilot method name using a pilot name and a method name
  * \return the full symbol
@@ -112,16 +133,19 @@ static pilot_t new_pilot_from(pilot_cache_elem_t pce,void* init_data) {
 }
 
 
-static void free_pilot(pilot_t p) {
-	/* TODO */
+void free_pilot(pilot_t p) {
+	if(p->p_type->free) {
+		p->p_type->free(p->data);
+	}
+	free(p);
 }
 
 pilot_cache_elem_t new_pilot_cache_elem(const char* p_name) {
 	pilot_cache_elem_t ret;
 	void* handle;
 	void* sym;
-	char*tmp = (char*)malloc(strlen(p_name)+7);
-	sprintf(tmp,"ape_%s",p_name);
+	char*tmp = (char*)malloc(strlen(p_name)+8);
+	sprintf(tmp,"ape_%s.so",p_name);
 	/* try to open ape_[p_name].so */
 	handle = dlopen(tmp, RTLD_LAZY);
 	/* otherwise use main program */
@@ -139,7 +163,7 @@ pilot_cache_elem_t new_pilot_cache_elem(const char* p_name) {
 	ret = (pilot_cache_elem_t)malloc(sizeof(struct _pilot_cache_elem_t));
 	memset(ret,0,sizeof(struct _pilot_cache_elem_t));
 
-	ret->name = p_name;
+	ret->name = strdup(p_name);
 	ret->dl_handle = handle;
 	ret->init = (void*(*)(void*)) sym;
 	ret->free = (void(*)(pilot_t)) dlsym(handle, make_mthd(p_name,"free"));
@@ -161,7 +185,7 @@ pilot_t new_pilot(const char* p_name, void*init_data) {
 //	printf("new_pilot init_data=%p\n",init_data);
 	if(!pce) {
 		pce = new_pilot_cache_elem(p_name);
-		hash_addelem(pilot_mgr.cache,(hash_key)p_name,pce);
+		hash_addelem(pilot_mgr.cache,(hash_key)pce->name,pce);
 	}
 	if(pce) {
 		return new_pilot_from(pce,init_data);
@@ -170,9 +194,21 @@ pilot_t new_pilot(const char* p_name, void*init_data) {
 	}
 }
 
+void free_key(htab_entry_t e) {
+	free(e->key);
+}
 
 void release_pilot(pilot_cache_elem_t pce) {
 	/* TODO */
+	if(pce->dl_handle!=pilot_mgr.dl_self) {
+		dlclose(pce->dl_handle);
+	}
+
+	free((char*)pce->name);
+
+	clean_hashtab(pce->methods,free_key);
+	free(pce->methods);
+	free(pce);
 }
 
 void* get_pilot_data(pilot_t pilot) {
@@ -189,12 +225,12 @@ node_visit_method get_visit_method(pilot_t p, const char* nodetype) {
 	} else {
 		char* tmp = make_mthd(p->p_type->name, nodetype);
 		void* sym = dlsym(p->p_type->dl_handle, tmp);
-//		printf("visit method ain't cached.\n");
+//		printf("visit method %s ain't cached.\n",tmp);
 		//free(tmp);
 		if(sym==NULL) {
 			sym = (void*)p->p_type->defaultMethod;
 		}
-		hash_addelem(p->p_type->methods,(hash_key)nodetype,sym);
+		hash_addelem(p->p_type->methods,(hash_key)strdup(nodetype),sym);
 		return sym;
 	}
 }

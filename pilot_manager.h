@@ -59,6 +59,8 @@ struct _pilot_t {
 
 pilot_t new_pilot(const char* p_name, void*init_data);
 
+void free_pilot(pilot_t);
+
 pilot_t get_pilot(const char* p_name);
 
 void* get_pilot_data(pilot_t pilot);

@@ -110,6 +110,9 @@ extern "C" {
 
 #include "bootstrap.h"
 
+	/*! \brief initialize the tinyap environment. */
+	void tinyap_init();
+
 	/*! \brief create a new parser with default context.
 	 * create a parser with "explicit" metagrammar dialect, " \r\t\n" whitespaces, and input from stdin.
 	 */
@@ -230,6 +233,15 @@ extern "C" {
 	 * \return a walkable copy of the given tree.
 	 */
 	wast_t		tinyap_make_wast(const ast_node_t);
+
+	/*! \brief free this walkable AST.
+	 */
+	void		tinyap_free_wast(const wast_t);
+
+	/*! \brief walk the current output using this named pilot with this init data.
+	 * \return whatever the pilot evaluated to
+	 */
+	void*		tinyap_walk_output(const char* pilot_name, void* pilot_init_data);
 
 	/*! \brief walk this subtree using this named pilot with this init data.
 	 * \return whatever the pilot evaluated to

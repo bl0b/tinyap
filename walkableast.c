@@ -33,11 +33,21 @@ struct _walkable_ast_t {
 wast_t wa_new(const char* op) {
 	wast_t ret = (wast_t)malloc(sizeof(struct _walkable_ast_t));
 	memset(ret,0,sizeof(struct _walkable_ast_t));
-	ret->label = op;
+	ret->label = strdup(op);
 	return ret;
 }
 
 void wa_del(wast_t w) {
+	if(wa_opd_count(w)>0) {
+		int i;
+		for(i=0;i<wa_opd_count(w);i++) {
+			wa_del(wa_opd(w,i));
+		}
+		free(w->operands);
+	}
+	if(w->label) {
+		free((char*)w->label);
+	}
 	free(w);
 }
 

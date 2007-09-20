@@ -53,6 +53,11 @@ $(TEST_C_TGT)_static: main.c
 $(TEST_CPP_TGT)_static: main++.c++
 	$C $(OBJECTS) $< $(LIBS) -o $@
 
+ape_prettyprint2.so: ape_prettyprint2.c
+	$C $(LD_SHARE) $< -o $@
+
+ape_tinycalc.so: ape_tinycalc.c
+	$C $(LD_SHARE) $< -o $@
 
 clean:
 	rm -f *~ *.o $(TEST_TARGETS) .depend
