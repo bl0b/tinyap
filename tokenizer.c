@@ -22,7 +22,7 @@
 
 void ast_serialize(const ast_node_t ast,char**output);
 void unescape_chr(char**src,char**dest);
-void delete_node(node_cache_t cache, ast_node_t n);
+void delete_node(ast_node_t n);
 ast_node_t copy_node(ast_node_t);
 
 
@@ -280,7 +280,7 @@ ast_node_t _produce_seq_rec(token_context_t*t,ast_node_t seq) {
 			update_pos_cache(t);
 			if(isAtom(rec)) {
 				assert(!strcmp(Value(rec),"eos"));
-				delete_node(NULL,rec);
+				delete_node(rec);
 				//return newPair(tmp,NULL,t->pos_cache.row,t->pos_cache.col);
 				return tmp;
 			} else {
@@ -340,9 +340,10 @@ ast_node_t  token_produce_alt(token_context_t*t,ast_node_t alt) {
 #define OP_T   3
 #define OP_RTR 4
 #define OP_ROP 5
-#define OP_NT  6
-#define OP_SEQ 7
-#define OP_ALT 8
+#define OP_PFX 6
+#define OP_NT  7
+#define OP_SEQ 8
+#define OP_ALT 9
 
 
 
@@ -351,7 +352,7 @@ ast_node_t token_produce_any(token_context_t*t,ast_node_t expr,int strip_T) {
 	static int rec_lvl=0;
 	char*tag;
 	char*key=NULL;
-	ast_node_t ret=NULL;
+	ast_node_t ret=NULL, pfx=NULL;
 	int typ=0;
 	int r,c;
 	size_t dummy;
@@ -382,6 +383,8 @@ ast_node_t token_produce_any(token_context_t*t,ast_node_t expr,int strip_T) {
 	} else if(!strcmp(tag,"NT")) {
 		typ = OP_NT;
 		key = Value(Car(Cdr(expr)));
+	} else if(!strcmp(tag,"Prefix")) {
+		typ = OP_PFX;
 	} else if(!strcmp(tag,"TransientRule")) {
 		typ = OP_RTR;
 //		key = node_tag(Cdr(expr));
@@ -390,6 +393,8 @@ ast_node_t token_produce_any(token_context_t*t,ast_node_t expr,int strip_T) {
 //		key = node_tag(Cdr(expr));
 	} else if(!strcmp(tag,"EOF")) {
 		typ = OP_EOF;
+	} else if(!strcmp(tag,"epsilon")) {
+		return newPair(NULL,NULL,0,0);
 	}
 
 //	debug_write("--debug[% 4.4i]-- produce %s ",rec_lvl,tag);
@@ -435,7 +440,7 @@ ast_node_t token_produce_any(token_context_t*t,ast_node_t expr,int strip_T) {
 //		debug_write("### -=< term %s >=- ###\n",ret?"OK":"failed");
 		if(ret) {
 			if(strip_T) {
-				delete_node(NULL,ret);
+				delete_node(ret);
 				ret=newPair(newAtom("strip.me",0,0),NULL,0,0);
 //			} else {
 //				update_pos_cache(t);
@@ -469,6 +474,23 @@ ast_node_t token_produce_any(token_context_t*t,ast_node_t expr,int strip_T) {
 		tag=node_tag(expr);
 
 		ret=token_produce_any(t,getCar(getCdr(expr)),t->flags&STRIP_TERMINALS);
+		break;
+	case OP_PFX:
+		expr=getCdr(expr);	/* shift the operator tag */
+//		dump_node(expr);
+		//tag=node_tag(expr);
+
+		pfx=token_produce_any(t,getCar(expr),t->flags&STRIP_TERMINALS);
+		if(pfx!=NULL) {
+//			printf("have prefix %s\n",tinyap_serialize_to_string(pfx));
+			ret=token_produce_any(t,getCar(getCdr(expr)),t->flags&STRIP_TERMINALS);
+			if(ret) {
+				/* FIXME ? Dirty hack. */
+//				printf("have expr %s\n",tinyap_serialize_to_string(ret));
+				ret->pair._car->pair._cdr = Append(pfx,ret->pair._car->pair._cdr);
+//				printf("have merged into %s\n",tinyap_serialize_to_string(ret));
+			}
+		}
 		break;
 	case OP_NT:
 		tag = Value(getCar(getCdr(expr)));
@@ -638,7 +660,7 @@ ast_node_t clean_ast(ast_node_t t) {
 		if(strcmp(Value(t),"strip.me")) {
 			return t;
 		} else {
-			delete_node(NULL,t);
+			delete_node(t);
 			return NULL;
 		}
 	} else if(isPair(t)) {
@@ -648,7 +670,7 @@ ast_node_t clean_ast(ast_node_t t) {
 		if(t->pair._car==NULL) {
 			ast_node_t cdr=t->pair._cdr;
 			t->pair._cdr=NULL;
-			delete_node(NULL,t);
+			delete_node(t);
 			return cdr;
 		}
 	}

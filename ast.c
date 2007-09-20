@@ -66,7 +66,7 @@ void node_dealloc(ast_node_t node) {
 	}
 }
 
-void delete_node(node_cache_t,ast_node_t);
+void delete_node(ast_node_t);
 
 void node_pool_flush() {
 	ast_node_t n;
@@ -85,7 +85,7 @@ void node_pool_flush() {
 		//node_dealloc(pop(ast_node_t,node_stack));
 		n = pop(ast_node_t,node_stack);
 		if(n->type!=ast_Pool) {
-			delete_node(NULL,n);
+			delete_node(n);
 		}
 		push(tmp_stack,n);
 		//free(n);
@@ -149,7 +149,7 @@ ast_node_t newPair(const ast_node_t a,const ast_node_t d,const int row,const int
 // dirty hc'd include
 void regfree(void*);
 
-void delete_node(node_cache_t cache, ast_node_t n) {
+void delete_node(ast_node_t n) {
 //	static int prout=0;
 	if(!n) return;
 	switch(n->type) {
@@ -165,8 +165,8 @@ void delete_node(node_cache_t cache, ast_node_t n) {
 		}
 		break;
 	case ast_Pair:
-		delete_node(cache, n->pair._car);
-		delete_node(cache, n->pair._cdr);
+		delete_node(n->pair._car);
+		delete_node(n->pair._cdr);
 		break;
 	case ast_Nil:;	/* so that -Wall won't complain */
 	case ast_Pool:;

@@ -46,7 +46,7 @@ struct _tinyap_t {
 
 
 
-void delete_node(node_cache_t cache, ast_node_t n);
+void delete_node(ast_node_t n);
 
 ast_node_t copy_node(ast_node_t);
 
@@ -74,10 +74,10 @@ void tinyap_delete(tinyap_t t) {
 	if(t->toktext) token_context_free(t->toktext);
 
 	if(t->grammar_source) free(t->grammar_source);
-	if(t->grammar) delete_node(NULL,t->grammar);
+	if(t->grammar) delete_node(t->grammar);
 	/* start was inside grammar */
 
-	if(t->output) delete_node(NULL,t->output);
+	if(t->output) delete_node(t->output);
 
 	if(t->ws) free(t->ws);
 	if(t->ws_source) free(t->ws_source);
@@ -126,6 +126,12 @@ const char* tinyap_get_whitespace(tinyap_t t) {
 }
 
 void tinyap_set_whitespace(tinyap_t t,const char*ws) {
+	if(t->ws_source) {
+		free(t->ws_source);
+	}
+	if(t->ws) {
+		free(t->ws);
+	}
 	t->ws_source=strdup(ws);
 	t->ws=(char*)malloc(strlen(t->ws_source)+4);
 	sprintf(t->ws,"[%s]+",t->ws_source);
@@ -136,6 +142,9 @@ void tinyap_set_whitespace_regexp(tinyap_t t,const char*re) {
 	if(t->ws_source) {
 		free(t->ws_source);
 		t->ws_source=NULL;
+	}
+	if(t->ws) {
+		free(t->ws);
 	}
 	t->ws=strdup(re);
 //	printf("has set whitespace RE to %s\n",t->ws);
@@ -177,7 +186,7 @@ void tinyap_set_grammar(tinyap_t t,const char*g) {
 	}
 	t->grammar_source=strdup(g);
 	if(t->grammar) {
-		delete_node(NULL,t->grammar);
+		delete_node(t->grammar);
 	}
 	t->grammar=tinyap_get_ruleset(g);
 	init_grammar(t);
@@ -194,7 +203,7 @@ void tinyap_set_grammar_ast(tinyap_t t,ast_node_t g) {
 		t->grammar_source=NULL;
 	}
 	if(t->grammar) {
-		delete_node(NULL,t->grammar);
+		delete_node(t->grammar);
 	}
 	t->grammar=g;
 	init_grammar(t);
@@ -281,7 +290,7 @@ int tinyap_parse(tinyap_t t) {
 			STRIP_TERMINALS);
 
 	if(t->output) {
-		delete_node(NULL,t->output);
+		delete_node(t->output);
 	}
 
 	t->output=copy_node(clean_ast(

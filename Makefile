@@ -6,13 +6,14 @@ LIB_TARGET=libtinyap.so
 TEST_C_TGT=tinyap
 TEST_CPP_TGT=tinyap++
 
-TEST_TARGETS=$(TEST_C_TGT) $(TEST_CPP_TGT) $(TEST_C_TGT)_static
+TEST_TARGETS=$(TEST_C_TGT) $(TEST_CPP_TGT) $(TEST_C_TGT)_static ape_prettyprint2.so ape_tinycalc.so
 
 #CARGS=-Wall -ggdb
-
 CCARGS=-Wall -ggdb -pg -fPIC
+
 #CCARGS=-Wall -O3 -fPIC
 #CCARGS=-Wall -O3
+
 CC=gcc
 CXX=g++
 C=$(CC) $(CCARGS) $(CADD)

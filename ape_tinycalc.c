@@ -61,24 +61,28 @@ WalkDirection ape_tinycalc_m_add(wast_t node, tc_t this) {
 	this->result = a + b;
 	return Done;
 }
+
 WalkDirection ape_tinycalc_m_sub(wast_t node, tc_t this) {
 	int a = (int)do_walk(wa_opd(node,0),"tinycalc",this);
 	int b = (int)do_walk(wa_opd(node,1),"tinycalc",this);
 	this->result = a - b;
 	return Done;
 }
+
 WalkDirection ape_tinycalc_m_mul(wast_t node, tc_t this) {
 	int a = (int)do_walk(wa_opd(node,0),"tinycalc",this);
 	int b = (int)do_walk(wa_opd(node,1),"tinycalc",this);
 	this->result = a * b;
 	return Done;
 }
+
 WalkDirection ape_tinycalc_m_div(wast_t node, tc_t this) {
 	int a = (int)do_walk(wa_opd(node,0),"tinycalc",this);
 	int b = (int)do_walk(wa_opd(node,1),"tinycalc",this);
 	this->result = a / b;
 	return Done;
 }
+
 WalkDirection ape_tinycalc_m_minus(wast_t node, tc_t this) {
 	int a = (int)do_walk(wa_opd(node,0),"tinycalc",this);
 	this->result = - a;
