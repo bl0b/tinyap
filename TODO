@@ -1,0 +1,5 @@
+* implement pluggable grammars
+	should require two statement types, new_rule and plug_rule (plugging should only
+	consist in inserting an element as the last choice in a pre-existing alternative
+	(Alt) node)
+

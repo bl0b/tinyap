@@ -15,6 +15,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
+#include "config.h"
 
 #include "walker.h"
 
@@ -145,7 +146,8 @@ pilot_cache_elem_t new_pilot_cache_elem(const char* p_name) {
 	void* handle;
 	void* sym;
 	char*tmp = (char*)malloc(strlen(p_name)+8);
-	sprintf(tmp,"ape_%s.so",p_name);
+//	sprintf(tmp,"libape_%s.so",p_name);
+	strcpy(tmp,p_name);
 	/* try to open ape_[p_name].so */
 	handle = dlopen(tmp, RTLD_LAZY);
 	/* otherwise use main program */
