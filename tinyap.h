@@ -87,12 +87,16 @@
  * Two special rule names are defined :
  * - _start : if this rule is defined, the start of the text is matched against this rule. Otherwise, the first defined rule is used.
  * - _whitespace : if its right part is a string, it defines the list of whitespace characters that will be skipped when parsing. If it is a regexp, it defines the expression that will recognize character sequences to skip from source text. If this rule is not defined, " \\r\\n\\t" will be used as whitespace characters list.
+ * \todo Have also line comment and block comment strings.
  *
- * Finally, the special symbol EOF matches the end of the source text.
+ * Finally, the special symbol \c EOF matches the end of the source text and the special symbol \c epsilon matches the empty string.
  *
  * \section sec_output The output
  *
- * blah blah blah.
+ * \subsection sec_out_ast
+ * - (De)Serialization to files and string buffers.
+ * - Walking the output.
+ * - Creating walkable ASTs.
  *
  */
 
