@@ -1,4 +1,5 @@
 include_HEADERS = tinyap.h tinyape.h
+noinst_HEADERS = ast.h pilot_manager.h pilot_cache.h hashtab.h node_cache.h bootstrap.h tokenizer.h stack.h walker.h
 
 bin_PROGRAMS = tinyap
 lib_LTLIBRARIES = libtinyap.la

@@ -205,6 +205,14 @@ ast_node_t  ast_unserialize(const char*input) {
 
 void ast_serialize(const ast_node_t ast,int(*func)(int,void*),void*param);
 
+int file_put(int c,void*data) {
+	FILE*f=(FILE*)data;
+	if(c) {
+		fputc(c,f);
+	}
+	return 1;
+}
+
 int str_put(int c,void*data) {
 	char**output=(char**)data;
 	//fputc(c,stdout);
@@ -273,6 +281,6 @@ const char* ast_serialize_to_string(const ast_node_t ast) {
 }
 
 void ast_serialize_to_file(const ast_node_t ast,FILE*f) {
-	ast_serialize(ast,(int(*)(int,void*))fputc,(void*)f);
+	ast_serialize(ast,file_put,(void*)f);
 }
 
