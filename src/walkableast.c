@@ -17,8 +17,7 @@
  */
 #include "config.h"
 
-#include "tinyap.h"
-#include "walkableast.h"
+#include "tinyape.h"
 #include <stdlib.h>
 #include <string.h>
 

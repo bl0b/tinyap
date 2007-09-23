@@ -18,7 +18,7 @@
 #include "config.h"
 
 #include "ast.h"
-#include "walkableast.h"
+#include "tinyape.h"
 #include "walker.h"
 #include "stack.h"
 #include "pilot_cache.h"

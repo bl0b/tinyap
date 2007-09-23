@@ -16,9 +16,9 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
 
-#include "../src/tinyap.h"
-#include "../src/pilot_manager.h"
-#include "../src/walker.h"
+#include <stdlib.h>
+#include <stdio.h>
+#include "../src/tinyape.h"
 
 
 void* ape_prettyprint2_init(void* init_data) { return NULL; }

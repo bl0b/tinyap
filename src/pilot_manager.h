@@ -21,24 +21,13 @@
 
 #include "ast.h"
 #include "hashtab.h"
-#include "walkableast.h"
+#include "tinyape.h"
 
 typedef enum {
 	Node,
 	Root,
 	InsideNode
 } WalkOrigin;
-
-typedef enum {
-	Up,
-	Down,
-	Next,
-	Done,
-	Error
-} WalkDirection;
-
-
-typedef struct _pilot_t* pilot_t;
 
 typedef WalkDirection (*node_visit_method) (wast_t node, void* pilot_data);
 

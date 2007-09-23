@@ -1,4 +1,4 @@
-include_HEADERS = tinyap.h walkableast.h
+include_HEADERS = tinyap.h tinyape.h
 
 bin_PROGRAMS = tinyap
 lib_LTLIBRARIES = libtinyap.la

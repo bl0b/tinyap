@@ -16,9 +16,9 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
 
-#include "../src/tinyap.h"
-#include "../src/pilot_manager.h"
-#include "../src/walker.h"
+#include "../src/tinyape.h"
+#include <stdlib.h>
+#include <stdio.h>
 
 typedef struct _tc_struc {
 	int result;

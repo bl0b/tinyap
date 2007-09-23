@@ -19,7 +19,7 @@
 #ifndef __TINYAP_WAST_STACK_H__
 #define __TINYAP_WAST_STACK_H__
 
-#include "walkableast.h"
+#include "tinyape.h"
 
 typedef struct _stack_t {
 	size_t sz;
