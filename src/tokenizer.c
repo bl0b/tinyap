@@ -366,7 +366,7 @@ ast_node_t token_produce_leftrec(token_context_t*t,ast_node_t expr,int strip_T,i
 		alt1 = Car(tmp),
 		alt2 = Car(Cdr(tmp));
 
-	printf("alt1 = %s\nalt2 = %s\n",tinyap_serialize_to_string(alt1),tinyap_serialize_to_string(alt2));
+//	printf("alt1 = %s\nalt2 = %s\n",tinyap_serialize_to_string(alt1),tinyap_serialize_to_string(alt2));
 	tmp = token_produce_any(t,alt2,strip_T);
 	if(tmp&&isOp) {
 		tmp=newPair(newPair(newAtom(tag,0,0),tmp,0,0),NULL,0,0);
@@ -380,7 +380,7 @@ ast_node_t token_produce_leftrec(token_context_t*t,ast_node_t expr,int strip_T,i
 			if(tmp&&isOp) {
 				tmp=newPair(newPair(newAtom(tag,0,0),tmp,0,0),NULL,0,0);
 			}
-			printf("prout %s\n",tinyap_serialize_to_string(tmp));
+			//printf("prout %s\n",tinyap_serialize_to_string(tmp));
 		} while(tmp);
 		tmp = replacement;
 		blacklisted=NULL;
@@ -403,24 +403,24 @@ int check_trivial_left_rec(ast_node_t node) {
 	last=node;
 
 /* 	la règle doit être de la forme (Alt (Seq (NT règle) ...) (?)) avec (?) ne commençant pas par (NT règle) */
-	printf("check lefty %s\n",tinyap_serialize_to_string(node));
+	//printf("check lefty %s\n",tinyap_serialize_to_string(node));
 	ast_node_t elems=Car(Cdr(Cdr(node)));
-	printf("\t%s\n",node_tag(elems));
+	//printf("\t%s\n",node_tag(elems));
 	if(!strcmp(node_tag(elems),"Alt")) {
 		alt=elems;
 		elems=Cdr(elems);
-		printf("\t%s\n",node_tag(Car(elems)));
+		//printf("\t%s\n",node_tag(Car(elems)));
 		if(!strcmp(node_tag(Car(elems)),"Seq")) {
 			elems=Cdr(Car(elems));
-			printf("\t%s\n",node_tag(Car(elems)));
+			//printf("\t%s\n",node_tag(Car(elems)));
 			if(!strcmp(node_tag(Car(elems)),"NT")) {
-				printf("\t%s %s\n",node_tag(Cdr(Car(elems))),tag);
+				//printf("\t%s %s\n",node_tag(Cdr(Car(elems))),tag);
 				if(!strcmp(node_tag(Cdr(Car(elems))),tag)) {
 					/* get second part of alternative */
 					elems=Cdr(Cdr(alt));
 					if(elems) {
 						elems=Cdr(elems);
-						printf("!elems => %i\n",!elems);
+						//printf("!elems => %i\n",!elems);
 						return !elems;/* 0 if more than 2 parts in alternative, 1 if exactly 2 */
 					}
 				}
@@ -616,13 +616,13 @@ ast_node_t token_produce_any(token_context_t*t,ast_node_t expr,int strip_T) {
 
 		pfx=token_produce_any(t,getCar(expr),t->flags&STRIP_TERMINALS);
 		if(pfx!=NULL) {
-			printf("have prefix %s\n",tinyap_serialize_to_string(pfx));
+			//printf("have prefix %s\n",tinyap_serialize_to_string(pfx));
 			ret=token_produce_any(t,getCar(getCdr(expr)),t->flags&STRIP_TERMINALS);
 			if(ret&&ret->pair._car) {
 				/* FIXME ? Dirty hack. */
-				printf("have expr %s\n",tinyap_serialize_to_string(ret));
+				//printf("have expr %s\n",tinyap_serialize_to_string(ret));
 				ret->pair._car->pair._cdr = Append(pfx,ret->pair._car->pair._cdr);
-				printf("have merged into %s\n",tinyap_serialize_to_string(ret));
+				//printf("have merged into %s\n",tinyap_serialize_to_string(ret));
 			}
 		}
 		break;
@@ -633,14 +633,14 @@ ast_node_t token_produce_any(token_context_t*t,ast_node_t expr,int strip_T) {
 
 		pfx=token_produce_any(t,getCar(expr),t->flags&STRIP_TERMINALS);
 		if(pfx!=NULL) {
-			printf("have postfix %s\n",tinyap_serialize_to_string(pfx));
+			//printf("have postfix %s\n",tinyap_serialize_to_string(pfx));
 			ret=token_produce_any(t,getCar(getCdr(expr)),t->flags&STRIP_TERMINALS);
 			if(ret&&ret->pair._car) {
-				printf("have expr %s\n",tinyap_serialize_to_string(ret));
+				//printf("have expr %s\n",tinyap_serialize_to_string(ret));
 				//ret->pair._car->pair._cdr = Append(pfx,ret->pair._car->pair._cdr);
 				ret->pair._car = Append(ret->pair._car,pfx);
 
-				printf("have merged into %s\n",tinyap_serialize_to_string(ret));
+				//printf("have merged into %s\n",tinyap_serialize_to_string(ret));
 			}
 		}
 		break;
