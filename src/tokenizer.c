@@ -336,15 +336,112 @@ ast_node_t  token_produce_alt(token_context_t*t,ast_node_t alt) {
 
 
 
+
+
+/*
+ * détection des récursions à gauche simples :
+ * si la règle est une alternative
+ * et
+ * si le premier item (en descendant dans alt et seq) de la règle est (NT règle) 
+ * et
+ * si la règle est une alternative
+ * et
+ * s'il y a au moins une alternative non left-réentrante :
+ * 	- on teste les autres alternatives d'abord (postpone).
+ * 	- sinon :
+ *	 	- on teste si le reste de la règle parse au niveau de récurrence 0.
+ * 		- si oui, on teste au niveau 1, et ainsi de suite jusqu'à foirer.
+ *	- on retourne le dernier résultat non foiré (s'il en est)
+ * RESTRICTION :
+ * 	la règle doit être de la forme (Alt (Seq (NT règle) ...) (?)) avec (?) ne commençant pas par (NT règle)
+ *
+ * il faudrait détecter toutes les récurrences, surtout celles pas gérées, avec une recherche dans une pile d'ops.
+ */
+ast_node_t blacklisted=NULL, replacement=NULL;
+
+ast_node_t token_produce_leftrec(token_context_t*t,ast_node_t expr,int strip_T,int isOp) {
+	const char*tag = node_tag(Cdr(expr));
+	ast_node_t
+		tmp = Cdr(Car(Cdr(Cdr(expr)))),
+		alt1 = Car(tmp),
+		alt2 = Car(Cdr(tmp));
+
+	printf("alt1 = %s\nalt2 = %s\n",tinyap_serialize_to_string(alt1),tinyap_serialize_to_string(alt2));
+	tmp = token_produce_any(t,alt2,strip_T);
+	if(tmp&&isOp) {
+		tmp=newPair(newPair(newAtom(tag,0,0),tmp,0,0),NULL,0,0);
+	}
+
+	if(tmp) {
+		blacklisted=Car(Cdr(alt1));
+		do {
+			replacement = tmp;
+			tmp = token_produce_any(t,alt1,strip_T);
+			if(tmp&&isOp) {
+				tmp=newPair(newPair(newAtom(tag,0,0),tmp,0,0),NULL,0,0);
+			}
+			printf("prout %s\n",tinyap_serialize_to_string(tmp));
+		} while(tmp);
+		tmp = replacement;
+		blacklisted=NULL;
+	}
+	return tmp;
+}
+
+
+
+
+int check_trivial_left_rec(ast_node_t node) {
+	static ast_node_t last=NULL;
+	const char*tag=node_tag(Cdr(node));
+	ast_node_t alt;
+
+	if(node==last) {
+		// don't re-detect, it's being handled
+		return 0;
+	}
+	last=node;
+
+/* 	la règle doit être de la forme (Alt (Seq (NT règle) ...) (?)) avec (?) ne commençant pas par (NT règle) */
+	printf("check lefty %s\n",tinyap_serialize_to_string(node));
+	ast_node_t elems=Car(Cdr(Cdr(node)));
+	printf("\t%s\n",node_tag(elems));
+	if(!strcmp(node_tag(elems),"Alt")) {
+		alt=elems;
+		elems=Cdr(elems);
+		printf("\t%s\n",node_tag(Car(elems)));
+		if(!strcmp(node_tag(Car(elems)),"Seq")) {
+			elems=Cdr(Car(elems));
+			printf("\t%s\n",node_tag(Car(elems)));
+			if(!strcmp(node_tag(Car(elems)),"NT")) {
+				printf("\t%s %s\n",node_tag(Cdr(Car(elems))),tag);
+				if(!strcmp(node_tag(Cdr(Car(elems))),tag)) {
+					/* get second part of alternative */
+					elems=Cdr(Cdr(alt));
+					if(elems) {
+						elems=Cdr(elems);
+						printf("!elems => %i\n",!elems);
+						return !elems;/* 0 if more than 2 parts in alternative, 1 if exactly 2 */
+					}
+				}
+			}
+		}
+	}
+	return 0;
+}
+
+
+
 #define OP_EOF 1
 #define OP_RE  2
 #define OP_T   3
 #define OP_RTR 4
 #define OP_ROP 5
-#define OP_PFX 6
+#define OP_PREFX 6
 #define OP_NT  7
 #define OP_SEQ 8
 #define OP_ALT 9
+#define OP_POSTFX 10
 
 
 
@@ -363,6 +460,13 @@ ast_node_t token_produce_any(token_context_t*t,ast_node_t expr,int strip_T) {
 	if(!expr) {
 		return NULL;
 	}
+
+	// trivial left-recursion handling
+	if(expr==blacklisted) {
+		//return newPair(newAtom("strip.me",0,0),NULL,0,0);
+		return replacement;
+	}
+
 	tag=node_tag(expr);
 
 	_filter_garbage(t);
@@ -385,7 +489,9 @@ ast_node_t token_produce_any(token_context_t*t,ast_node_t expr,int strip_T) {
 		typ = OP_NT;
 		key = Value(Car(Cdr(expr)));
 	} else if(!strcmp(tag,"Prefix")) {
-		typ = OP_PFX;
+		typ = OP_PREFX;
+	} else if(!strcmp(tag,"Postfix")) {
+		typ = OP_POSTFX;
 	} else if(!strcmp(tag,"TransientRule")) {
 		typ = OP_RTR;
 //		key = node_tag(Cdr(expr));
@@ -450,46 +556,91 @@ ast_node_t token_produce_any(token_context_t*t,ast_node_t expr,int strip_T) {
 		}
 		break;
 	case OP_ROP:
-		expr=getCdr(expr);	/* shift the operator tag */
-//		dump_node(expr);
-		update_pos_cache(t);
-		r=t->pos_cache.row;
-		c=t->pos_cache.col;
-		tag=node_tag(expr);
+/*
+ * détection des récursions à gauche simples :
+ * si la règle est une alternative
+ * et
+ * si le premier item (en descendant dans alt et seq) de la règle est (NT règle) 
+ * et
+ * si la règle est une alternative
+ * et
+ * s'il y a au moins une alternative non left-réentrante :
+ * 	- on teste les autres alternatives d'abord (postpone).
+ * 	- sinon :
+ *	 	- on teste si le reste de la règle parse au niveau de récurrence 0.
+ * 		- si oui, on teste au niveau 1, et ainsi de suite jusqu'à foirer.
+ *	- on retourne le dernier résultat non foiré (s'il en est)
+ * RESTRICTION :
+ * 	la règle doit être de la forme (Alt (Seq (NT règle) ...) (?)) avec (?) ne commençant pas par (NT règle)
+ *
+ * il faudrait détecter toutes les récurrences, surtout celles pas gérées, avec une recherche dans une pile d'ops.
+ */
+		if(check_trivial_left_rec(expr)) {
+			ret = token_produce_leftrec(t,expr,t->flags,1);
+			tag=node_tag(Cdr(expr));
+		} else {
+			expr=getCdr(expr);	/* shift the operator tag */
+	//		dump_node(expr);
+			update_pos_cache(t);
+			r=t->pos_cache.row;
+			c=t->pos_cache.col;
+			tag=node_tag(expr);
 
-		ret=token_produce_any(t,getCar(getCdr(expr)),t->flags&STRIP_TERMINALS);
-		if(ret) {
-			ret=newPair(newPair(newAtom(tag,r,c),ret,r,c),NULL,r,c);
-//			debug_write("Produce OperatorRule ");
-//			dump_node(expr);
-//			dump_node(ret);
-//			fputc('\n',stdout);
-//			printf("add to cache [ %li:%li:%s ] %p\n", t->pos_cache.row, t->pos_cache.col, tag, ret);
-//			node_cache_add(t->cache, t->pos_cache.row, t->pos_cache.col, tag, ret);
-
+			ret=token_produce_any(t,getCar(getCdr(expr)),t->flags&STRIP_TERMINALS);
+			if(ret) {
+				ret=newPair(newPair(newAtom(tag,r,c),ret,r,c),NULL,r,c);
+	//			debug_write("Produce OperatorRule ");
+	//			dump_node(expr);
+	//			dump_node(ret);
+	//			fputc('\n',stdout);
+	//			printf("add to cache [ %li:%li:%s ] %p\n", t->pos_cache.row, t->pos_cache.col, tag, ret);
+	//			node_cache_add(t->cache, t->pos_cache.row, t->pos_cache.col, tag, ret);
+			}
 		}
 		break;
 	case OP_RTR:
-		expr=getCdr(expr);	/* shift the operator tag */
-//		dump_node(expr);
-		tag=node_tag(expr);
+		if(check_trivial_left_rec(expr)) {
+			ret = token_produce_leftrec(t,expr,t->flags,0);
+		} else {
+			expr=getCdr(expr);	/* shift the operator tag */
+	//		dump_node(expr);
+			tag=node_tag(expr);
 
-		ret=token_produce_any(t,getCar(getCdr(expr)),t->flags&STRIP_TERMINALS);
+			ret=token_produce_any(t,getCar(getCdr(expr)),t->flags&STRIP_TERMINALS);
+		}
 		break;
-	case OP_PFX:
+	case OP_PREFX:
 		expr=getCdr(expr);	/* shift the operator tag */
 //		dump_node(expr);
 		//tag=node_tag(expr);
 
 		pfx=token_produce_any(t,getCar(expr),t->flags&STRIP_TERMINALS);
 		if(pfx!=NULL) {
-//			printf("have prefix %s\n",tinyap_serialize_to_string(pfx));
+			printf("have prefix %s\n",tinyap_serialize_to_string(pfx));
 			ret=token_produce_any(t,getCar(getCdr(expr)),t->flags&STRIP_TERMINALS);
-			if(ret) {
+			if(ret&&ret->pair._car) {
 				/* FIXME ? Dirty hack. */
-//				printf("have expr %s\n",tinyap_serialize_to_string(ret));
+				printf("have expr %s\n",tinyap_serialize_to_string(ret));
 				ret->pair._car->pair._cdr = Append(pfx,ret->pair._car->pair._cdr);
-//				printf("have merged into %s\n",tinyap_serialize_to_string(ret));
+				printf("have merged into %s\n",tinyap_serialize_to_string(ret));
+			}
+		}
+		break;
+	case OP_POSTFX:
+		expr=getCdr(expr);	/* shift the operator tag */
+//		dump_node(expr);
+		//tag=node_tag(expr);
+
+		pfx=token_produce_any(t,getCar(expr),t->flags&STRIP_TERMINALS);
+		if(pfx!=NULL) {
+			printf("have postfix %s\n",tinyap_serialize_to_string(pfx));
+			ret=token_produce_any(t,getCar(getCdr(expr)),t->flags&STRIP_TERMINALS);
+			if(ret&&ret->pair._car) {
+				printf("have expr %s\n",tinyap_serialize_to_string(ret));
+				//ret->pair._car->pair._cdr = Append(pfx,ret->pair._car->pair._cdr);
+				ret->pair._car = Append(ret->pair._car,pfx);
+
+				printf("have merged into %s\n",tinyap_serialize_to_string(ret));
 			}
 		}
 		break;
