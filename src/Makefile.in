@@ -192,8 +192,8 @@ sysconfdir = @sysconfdir@
 target_alias = @target_alias@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-include_HEADERS = tinyap.h tinyape.h
-noinst_HEADERS = ast.h pilot_manager.h pilot_cache.h hashtab.h node_cache.h bootstrap.h tokenizer.h stack.h walker.h
+include_HEADERS = tinyap.h tinyape.h bootstrap.h
+noinst_HEADERS = ast.h pilot_manager.h pilot_cache.h hashtab.h node_cache.h tokenizer.h stack.h walker.h
 lib_LTLIBRARIES = libtinyap.la
 tinyap_SOURCES = main.c
 tinyap_LDADD = -ldl libtinyap.la
@@ -542,6 +542,10 @@ uninstall-am: uninstall-binPROGRAMS uninstall-includeHEADERS \
 	tags uninstall uninstall-am uninstall-binPROGRAMS \
 	uninstall-includeHEADERS uninstall-libLTLIBRARIES
 
+
+#tinyap_static_SOURCES = $(libtinyap_la_SOURCES) $(tinyap_SOURCES)
+#tinyap_static_LDADD = -ldl
+#tinyap_static_LDFLAGS = -Wl,--export-dynamic
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:

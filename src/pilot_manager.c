@@ -145,9 +145,9 @@ pilot_cache_elem_t new_pilot_cache_elem(const char* p_name) {
 	pilot_cache_elem_t ret;
 	void* handle;
 	void* sym;
-	char*tmp = (char*)malloc(strlen(p_name)+8);
-//	sprintf(tmp,"libape_%s.so",p_name);
-	strcpy(tmp,p_name);
+	char*tmp = (char*)malloc(strlen(p_name)+11);
+	sprintf(tmp,"libape_%s.so",p_name);
+//	strcpy(tmp,p_name);
 	/* try to open ape_[p_name].so */
 	handle = dlopen(tmp, RTLD_LAZY);
 	/* otherwise use main program */
@@ -238,7 +238,12 @@ node_visit_method get_visit_method(pilot_t p, const char* nodetype) {
 }
 
 WalkDirection do_visit(pilot_t p, wast_t node) {
-	node_visit_method v = get_visit_method(p, wa_op(node));
+	node_visit_method v;
+	if(!node) {
+		fprintf(stderr,"Warning : can't visit null node.\n");
+		return Done;
+	}
+	v = get_visit_method(p, wa_op(node));
 //	printf("do_visit with %s on %s\n",p->p_type->name,wa_op(node));
 	return v(node,p->data);
 }

@@ -73,21 +73,21 @@ int do_args(int argc,char*argv[]) {
 			tinyap_set_source_file(parser,argv[i]);
 		} else if(cmp_param(1,"--output","-o")) {
 			i+=1;
-			if(tinyap_parsed_ok(parser)) {
+			if(tinyap_parsed_ok(parser)&&tinyap_get_output(parser)) {
 				tinyap_serialize_to_file(tinyap_get_output(parser),argv[i]);
 			} else {
 				fprintf(stderr,"parse error at line %i, column %i\n%s\n",tinyap_get_error_row(parser),tinyap_get_error_col(parser),tinyap_get_error(parser));
 			}
 		} else if(cmp_param(1,"--parse","-p")) {
 			tinyap_parse(parser);
-			if(tinyap_parsed_ok(parser)) {
+			if(tinyap_parsed_ok(parser)&&tinyap_get_output(parser)) {
 				tinyap_serialize_to_file(tinyap_get_output(parser),argv[i]);
 			} else {
 				fprintf(stderr,"parse error at line %i, column %i\n%s\n",tinyap_get_error_row(parser),tinyap_get_error_col(parser),tinyap_get_error(parser));
 			}
 		} else if(cmp_param(1,"--parse-as-grammar","-pag")) {
 			tinyap_parse_as_grammar(parser);
-			if(tinyap_parsed_ok(parser)) {
+			if(tinyap_parsed_ok(parser)&&tinyap_get_grammar_ast(parser)) {
 				tinyap_serialize_to_file(tinyap_get_output(parser),argv[i]);
 			} else {
 				fprintf(stderr,"parse error at line %i, column %i\n%s\n",tinyap_get_error_row(parser),tinyap_get_error_col(parser),tinyap_get_error(parser));

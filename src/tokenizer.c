@@ -112,7 +112,7 @@ token_context_t*token_context_new(const char*src,const size_t length,const char*
 
 
 
-size_t token_context_peek(const token_context_t*t) {
+static inline size_t token_context_peek(const token_context_t*t) {
 	if(!t->ofsp)
 		return 0;
 	return t->ofstack[t->ofsp-1];
@@ -120,14 +120,14 @@ size_t token_context_peek(const token_context_t*t) {
 
 
 
-void token_context_push(token_context_t*t) {
+static inline void token_context_push(token_context_t*t) {
 	t->ofstack[t->ofsp]=t->ofs;
 	t->ofsp+=1;
 }
 
 
 
-void token_context_validate(token_context_t*t) {
+static inline void token_context_validate(token_context_t*t) {
 	/* TODO : implement node caching here */
 	t->ofsp-=1;		/* release space on stack, don't update t->ofs */
 	t->farthest=t->ofs;
@@ -135,7 +135,7 @@ void token_context_validate(token_context_t*t) {
 
 
 
-void token_context_pop(token_context_t*t) {
+static inline void token_context_pop(token_context_t*t) {
 	if(!t->ofsp)
 		return;
 	t->ofsp-=1;
@@ -188,12 +188,14 @@ ast_node_t token_produce_re(token_context_t*t,const regex_t*expr) {
 
 ast_node_t token_produce_str(token_context_t*t,const char*token) {
 	int r,c;
+	size_t slen;
 	_filter_garbage(t);
 	update_pos_cache(t);
 	r=t->pos_cache.row;
 	c=t->pos_cache.col;
-	if(!strncmp(t->source+t->ofs,token,strlen(token))) {
-		t->ofs+=strlen(token);
+	slen=strlen(token);
+	if(!strncmp(t->source+t->ofs,token,slen)) {
+		t->ofs+=slen;
 		update_pos_cache(t);
 		return newPair(newAtom(token,t->pos_cache.row,t->pos_cache.col),NULL,r,c);
 		//return newAtom(token,t->pos_cache.row,t->pos_cache.col);
@@ -837,22 +839,37 @@ void update_pos_cache(token_context_t*t) {
 	size_t end=t->ofs;
 	size_t last_nlofs=0;
 
+	ofs=t->pos_cache.last_ofs;
+	ln=t->pos_cache.row;
+	last_nlofs=t->pos_cache.last_nlofs;
+
 	if(t->ofs<t->pos_cache.last_ofs) {
+/*
 		ln=1;
 		ofs=0;
 		last_nlofs=0;
-	} else {
-		ofs=t->pos_cache.last_ofs;
-		ln=t->pos_cache.row;
-		last_nlofs=t->pos_cache.last_nlofs;
-	}
-
-	while(ofs<end) {
-		if(t->source[ofs]=='\n') {
-			ln+=1;
-			last_nlofs=ofs+1;
+*/
+		while(ofs>end) {
+			if(t->source[ofs]=='\n') {
+				ln-=1;
+			}
+			ofs-=1;
 		}
-		ofs+=1;
+		while(ofs>0&&t->source[ofs]!='\n') {
+			ofs-=1;
+		}
+		last_nlofs=ofs+(ofs!=0);	/* don't skip character if at start of buffer */
+
+	} else {
+
+		while(ofs<end) {
+			if(t->source[ofs]=='\n') {
+				ln+=1;
+				last_nlofs=ofs+1;
+			}
+			ofs+=1;
+		}
+
 	}
 
 	t->pos_cache.row=ln;

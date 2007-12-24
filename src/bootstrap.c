@@ -56,6 +56,8 @@ const char*explicit_bnff_rules = "((Grammar\n"
 "(TransientRule	_loop		(Alt (EOF) (Seq (NT rule) (NT _loop))))\n"
 "(OperatorRule	EOF		(T EOF))\n"
 "(OperatorRule	epsilon		(T epsilon))\n"
+//"(TransientRule	_whitespace	(RE \\([ \r\n\t]|#[^\r\n]*[\r\n]+\\)+))"
+"(TransientRule _whitespace (RE \\([\\ \\r\\n\\t]|#[^\\r\\n]*[\\r\\n]+\\)+))"
 "))\n";
 
 
@@ -81,6 +83,7 @@ const char*CamelCased_bnff_rules = "((Grammar\n"
 "(TransientRule	_loop		(Alt (EOF) (Seq (NT rule) (NT _loop))))\n"
 "(OperatorRule	EOF		(T EOF))\n"
 "(OperatorRule	epsilon		(T epsilon))\n"
+//"(TransientRule	_whitespace	(RE \\([ \\\\r\\\\n\\\\t]|#[^\\\\r\\\\n]*[\\\\r\\\\n]+\\\)+))"
 "))\n";
 
 

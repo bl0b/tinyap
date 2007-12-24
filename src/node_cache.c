@@ -76,17 +76,14 @@ void node_cache_flush(node_cache_t cache) {
 }
 
 size_t cache_hash(int l, int c, const char*n) {
-	unsigned int accum=0;
-	if(n) {
-		char*k=(char*)n;
-		while(*k) {
-			accum = accum+(accum>>8);
-			accum += *k;
-			k += 1;
-		}
+	unsigned int accum=(l<<7)+c;
+	char*k=(char*)n;
+	while(*k) {
+		accum = (accum^(accum<<8))+*k;
+		k += 1;
 	}
 //	printf("hashed %i:%i:\"%s\" to %i\n",l,c,n,((l<<7)+c+accum)%NODE_CACHE_SIZE);
-	return ((l<<7)+c+accum)%NODE_CACHE_SIZE;
+	return accum%NODE_CACHE_SIZE;
 }
 
 

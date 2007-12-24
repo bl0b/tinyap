@@ -63,6 +63,11 @@ void tinyap_terminate() {
 }
 
 void tinyap_init() {
+	static int is_init=0;
+	if(is_init) {
+		return;
+	}
+	is_init=1;
 	node_pool_init();
 	atexit(tinyap_terminate);
 	init_pilot_manager();
@@ -317,7 +322,7 @@ int tinyap_parse_as_grammar(tinyap_t t) {
 	return t->error;
 }
 
-int tinyap_parsed_ok(const tinyap_t t) { return t->error; }
+int tinyap_parsed_ok(const tinyap_t t) { return t->error||(t->toktext->ofs!=t->source_buffer_sz); }
 
 ast_node_t tinyap_get_output(const tinyap_t t) { return t->output; }
 
@@ -389,6 +394,11 @@ int tinyap_node_get_col(const ast_node_t n) {
 }
 
 
+ast_node_t tinyap_make_ast(const wast_t n) {
+	return make_ast((wast_t)n);
+}
+
+
 wast_t tinyap_make_wast(const ast_node_t n) {
 	return make_wast((ast_node_t)n);
 }
@@ -401,4 +411,47 @@ void tinyap_free_wast(const wast_t w) {
 void* tinyap_walk(const wast_t subtree, const char* pilot_name, void* pilot_init_data) {
 	return do_walk(subtree,pilot_name,pilot_init_data);
 }
+
+
+
+void tinyap_plug(tinyap_t parser, const char*plugin, const char*plug) {
+	ast_node_t pin = newPair(newPair(newAtom("NT",0,0),
+					 newPair(newAtom(plugin,0,0),
+						 NULL,0,0),0,0),
+				 NULL,0,0);
+	ast_node_t p = find_nterm(parser->grammar,plug);
+	ast_node_t alt/*,left*/,right;
+	const char*tag;
+	//assert(p);
+	//assert(tinyap_node_get_operand_count(p)==3);
+	if(p) {
+		if(tinyap_node_get_operand_count(p)==2) {
+			alt=tinyap_list_get_element(p,2);
+			tag=tinyap_node_get_operator(alt);
+			//assert(!strcmp(tag,"Alt"));
+			if(!strcmp(tag,"Alt")) {
+				/* now for the hack : alt <- cons(cadr(alt), cons(pin, cons(cddr(alt)))) */
+				//left = Cdr(alt);
+				//left = alt;
+				right = Cdr(alt);
+				pin->pair._cdr=right;
+				alt->pair._cdr=pin;
+			} else {
+				fprintf(stderr,"tinyap: can't plug %s into %s : the right hand side element in %s has to be an alternative.\n",plugin,plug,plug);
+			}
+		} else {
+			fprintf(stderr,"tinyap: can't plug %s into %s : %s should have 1 right hand side element and not %i.\n",plugin,plug,plug,tinyap_node_get_operand_count(p)-1);
+		}
+	} else {
+		fprintf(stderr,"tinyap: can't plug %s into %s : %s doesn't exist.\n",plugin,plug,plug);
+	}
+}
+
+
+void tinyap_append_grammar(tinyap_t parser, ast_node_t supp) {
+	/* yet another little hack */
+	Append(parser->grammar->pair._car,supp->pair._cdr);
+}
+
+
 

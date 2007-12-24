@@ -17,6 +17,7 @@ wast_t wa_opd(wast_t,const unsigned int);
 void wa_add(wast_t,wast_t);
 
 wast_t make_wast(ast_node_t a);
+ast_node_t make_ast(wast_t a);
 
 typedef enum {
 	Up,

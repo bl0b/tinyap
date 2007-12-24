@@ -17,6 +17,7 @@
  */
 #include "config.h"
 
+#include "ast.h"
 #include "tinyape.h"
 #include <stdlib.h>
 #include <string.h>
@@ -92,10 +93,15 @@ void wa_add(wast_t f,wast_t s) {
 	}
 }
 
+
+
 wast_t make_wast(ast_node_t a) {
 	wast_t ret;
 	int i;
 	int max;
+	if(!a) {
+		return NULL;
+	}
 	if(tinyap_node_is_string(a)) {
 		ret = wa_new(tinyap_node_get_string(a));
 	} else {
@@ -107,5 +113,23 @@ wast_t make_wast(ast_node_t a) {
 	}
 	return ret;
 }
+
+
+ast_node_t make_ast(wast_t t) {
+	int i;
+	ast_node_t ret=NULL;
+	if(!t) {
+		return NULL;
+	}
+	if(wa_opd_count(t)==0) {
+		return newAtom(wa_op(t),0,0);
+	}
+	for(i=wa_opd_count(t)-1;i>=0;i-=1) {
+		ret = newPair( make_ast(wa_opd(t,i)), ret,0,0 );
+	}
+	ret = newPair( newAtom(wa_op(t),0,0), ret, 0,0);
+	return ret;
+}
+
 
 

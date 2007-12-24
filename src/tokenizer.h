@@ -54,10 +54,11 @@ ast_node_t token_produce_str(token_context_t*t,const char*token);
 
 regex_t*token_regcomp(const char*reg_expr);
 token_context_t*token_context_new(const char*src,const size_t length,const char*garbage_regex,ast_node_t greuh,size_t drapals);
-size_t token_context_peek(const token_context_t*t);
+/*size_t token_context_peek(const token_context_t*t);
 void token_context_push(token_context_t*t);
 void token_context_validate(token_context_t*t);
 void token_context_pop(token_context_t*t);
+*/
 void token_context_free(token_context_t*t);
 
 const char* parse_error(token_context_t*t);

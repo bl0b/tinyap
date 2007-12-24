@@ -238,6 +238,11 @@ extern "C" {
 	 */
 	wast_t		tinyap_make_wast(const ast_node_t);
 
+	/*! \brief make this walkable AST a serializable AST.
+	 * \return a serializable copy of the given tree.
+	 */
+	ast_node_t	tinyap_make_ast(const wast_t);
+
 	/*! \brief free this walkable AST.
 	 */
 	void		tinyap_free_wast(const wast_t);
@@ -252,8 +257,13 @@ extern "C" {
 	 */
 	void*		tinyap_walk(const wast_t subtree, const char* pilot_name, void* pilot_init_data);
 
+	/*! \brief plug (NT plugin) at head of (Alt) element of rule (* plug (Alt)). Plugs must have this form.
+	 */
+	void tinyap_plug(tinyap_t parser, const char*plugin, const char*plug);
 
-
+	/*! \brief append this grammar to the existing grammar.
+	 */
+	void tinyap_append_grammar(tinyap_t parser, ast_node_t supp);
 
 #ifdef __cplusplus
 }
