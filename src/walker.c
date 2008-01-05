@@ -30,7 +30,7 @@ void* walk(wast_t a, pilot_t p) {
 	WalkDirection d;
 	stack_t stack;
 	stack_t ofs_stack;
-	wast_t next;
+	wast_t next=NULL;
 	size_t opd=0;
 	void* result;
 //	int i;

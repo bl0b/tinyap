@@ -69,8 +69,10 @@ char*match2str(const char*src,const size_t start,const size_t end) {
 //		printf("match2str orig = \"%*.*s\"\n",(int)(end-start-ofs),(int)(end-start-ofs),rd);
 //		printf("              => \"%s\" %p %p %li\n",buf,rd,buf,ofs);
 		};
-		*wr = *rd;
-		wr += 1;
+		if(ofs==sz) {
+			*wr = *rd;
+			wr += 1;
+		}
 	}
 	*wr = 0;
 

@@ -414,13 +414,9 @@ void* tinyap_walk(const wast_t subtree, const char* pilot_name, void* pilot_init
 
 
 
-void tinyap_plug(tinyap_t parser, const char*plugin, const char*plug) {
-	ast_node_t pin = newPair(newPair(newAtom("NT",0,0),
-					 newPair(newAtom(plugin,0,0),
-						 NULL,0,0),0,0),
-				 NULL,0,0);
+void tinyap_plug_node(tinyap_t parser, ast_node_t pin, const char* plugin, const char* plug) {
 	ast_node_t p = find_nterm(parser->grammar,plug);
-	ast_node_t alt/*,left*/,right;
+	ast_node_t alt/*,left*/,right,tmp;
 	const char*tag;
 	//assert(p);
 	//assert(tinyap_node_get_operand_count(p)==3);
@@ -433,9 +429,18 @@ void tinyap_plug(tinyap_t parser, const char*plugin, const char*plug) {
 				/* now for the hack : alt <- cons(cadr(alt), cons(pin, cons(cddr(alt)))) */
 				//left = Cdr(alt);
 				//left = alt;
-				right = Cdr(alt);
-				pin->pair._cdr=right;
-				alt->pair._cdr=pin;
+				// assume that the node consists of (* [string]) nodes
+				tmp = Cdr(alt);
+				while(tmp&&strcmp(Value(Car(Cdr(Car(tmp)))),plugin)) {
+					tmp = Cdr(tmp);
+				}
+				if(!tmp) {
+					right = Cdr(alt);
+					pin->pair._cdr=right;
+					alt->pair._cdr=pin;
+				} else {
+					fprintf(stderr,"tinyap: can't plug %s into %s : alternative already exists in rule.\n",plugin,plug);
+				}
 			} else {
 				fprintf(stderr,"tinyap: can't plug %s into %s : the right hand side element in %s has to be an alternative.\n",plugin,plug,plug);
 			}
@@ -445,6 +450,14 @@ void tinyap_plug(tinyap_t parser, const char*plugin, const char*plug) {
 	} else {
 		fprintf(stderr,"tinyap: can't plug %s into %s : %s doesn't exist.\n",plugin,plug,plug);
 	}
+}
+
+void tinyap_plug(tinyap_t parser, const char*plugin, const char*plug) {
+	ast_node_t pin = newPair(newPair(newAtom("NT",0,0),
+					 newPair(newAtom(plugin,0,0),
+						 NULL,0,0),0,0),
+				 NULL,0,0);
+	tinyap_plug_node(parser,pin,plugin,plug);
 }
 
 

@@ -261,6 +261,10 @@ extern "C" {
 	 */
 	void tinyap_plug(tinyap_t parser, const char*plugin, const char*plug);
 
+	/*! \brief plug pin at head of (Alt) element of rule (* plug (Alt)). Plugs must have this form.
+	 */
+	void tinyap_plug_node(tinyap_t parser, ast_node_t pin, const char*plugin, const char* plug);
+
 	/*! \brief append this grammar to the existing grammar.
 	 */
 	void tinyap_append_grammar(tinyap_t parser, ast_node_t supp);
