@@ -28,6 +28,7 @@ typedef struct _stack_t {
 }* stack_t;
 
 stack_t new_stack();
+stack_t stack_dup(stack_t);
 void push(stack_t s, void* w);
 void* _pop(stack_t s);
 #define pop(__t,__s) ((__t)_pop(__s))

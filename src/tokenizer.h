@@ -18,6 +18,7 @@
 
 #include <regex.h>
 
+#include "stack.h"
 #include "node_cache.h"
 
 
@@ -34,6 +35,8 @@ typedef struct _token_context_t {
 	size_t ofstack[OFSTACK_SIZE];
 	size_t ofsp;
 	size_t farthest;
+	stack_t farthest_stack;
+	stack_t node_stack;
 	ast_node_t grammar;
 	struct {
 		int last_ofs;

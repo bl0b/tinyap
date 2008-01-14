@@ -55,4 +55,12 @@ void free_stack(stack_t s) {
 	free(s);
 }
 
+stack_t stack_dup(stack_t s) {
+	stack_t ret = new_stack();
+	ret->stack = malloc( s->sz*sizeof(void*));
+	memcpy(ret->stack,s->stack,s->sz*sizeof(void*));
+	ret->sp = s->sp;
+	ret->sz = s->sz;
+	return ret;
+}
 

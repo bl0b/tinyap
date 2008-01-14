@@ -21,8 +21,12 @@
 
 #include "ast.h"
 
-#define NODE_CACHE_SIZE 32749
-//#define NODE_CACHE_SIZE 8191		// Mersenne prime
+/*#define NODE_CACHE_SIZE 32768*/
+/*#define NODE_CACHE_SIZE 32749*/
+/*#define NODE_CACHE_SIZE 65533*/
+#define NODE_CACHE_SIZE 65521
+/*#define NODE_CACHE_SIZE 33333*/
+/*#define NODE_CACHE_SIZE 8191		// Mersenne prime*/
 
 typedef struct _node_cache_entry_t* node_cache_entry_t;
 

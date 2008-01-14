@@ -20,6 +20,9 @@
 #include "node_cache.h"
 
 
+static unsigned long int cache_collisions = 0;
+static unsigned long int cache_popu = 0;
+static unsigned long int cache_dup_keys = 0;
 
 
 struct _node_cache_entry_t {
@@ -39,6 +42,9 @@ void node_cache_init(node_cache_t cache) {
 	for(i=0;i<NODE_CACHE_SIZE;i++) {
 		cache[i] = NULL;
 	}
+	cache_popu = 0;
+	cache_dup_keys = 0;
+	cache_collisions = 0;
 }
 
 //void node_cache_clear_node(node_cache_t cache, ast_node_t n) {
@@ -73,16 +79,29 @@ void node_cache_flush(node_cache_t cache) {
 			free(q);
 		}
 	}
+	if(cache_popu) {
+		i = 1000 * (cache_popu-cache_collisions) / cache_popu;
+		fprintf(stderr,"node cache statistics :\n - maximum population : %lu\n - collision count : %lu\n - duplicate keys : %lu\n - optimal access probability : %3i.%1.1i\n",cache_popu, cache_collisions,cache_dup_keys,i/10,i%10);
+	}
 }
 
+
+/* sdbm function : hash(i) = hash(i - 1) * 65599 + str[i] */
+/* djb2 function : hash(i) = hash(i - 1) * 33 ^ str[i] */
 size_t cache_hash(int l, int c, const char*n) {
-	unsigned int accum=(l<<7)+c;
-	char*k=(char*)n;
-	while(*k) {
-		accum = (accum^(accum<<8))+*k;
+	unsigned long int accum=0;
+	unsigned char*k=(unsigned char*)n;
+	unsigned long int ch;
+	while((ch=*k)) {
+		/*accum = (ch<<mask) + (accum<<6) + (accum<<16) - accum;*/
+		accum = ch ^ ((accum<<6) + accum);
 		k += 1;
 	}
 //	printf("hashed %i:%i:\"%s\" to %i\n",l,c,n,((l<<7)+c+accum)%NODE_CACHE_SIZE);
+	/*accum ^= (l+1)*65599;*/
+	accum ^= (l+1)*6599;
+	/*accum ^= (c+1)*53747;*/
+	accum ^= (c+1)*573;
 	return accum%NODE_CACHE_SIZE;
 }
 
@@ -121,6 +140,23 @@ void node_cache_add(node_cache_t cache, int l, int c, const char* expr_op, ast_n
 	size_t ofs = cache_hash(l,c,expr_op);
 	nce = (node_cache_entry_t) malloc(sizeof(struct _node_cache_entry_t));
 	nce->next = cache[ofs];
+/*
+	if(nce->next) {
+		node_cache_entry_t tmp=nce;
+		cache_collisions+=1;
+		nce = cache[ofs];
+		while(nce&&!(l==nce->k_l&&c==nce->k_c&&(!strcmp(expr_op,nce->k_rule)))) {
+			nce = nce->next;
+		}
+		if(nce) {
+			cache_dup_keys += 1;
+		}
+		nce=tmp;
+		fprintf(stderr,"hash collision %i:%i:\"%s\" hashed to %i, but %i:%i:\"%s\" in slot\n",l,c,expr_op,ofs,
+			cache[ofs]->k_l,cache[ofs]->k_c,cache[ofs]->k_rule);
+	}
+	cache_popu+=1;
+// */
 	nce->k_rule=expr_op;
 	nce->k_l = l;
 	nce->k_c = c;

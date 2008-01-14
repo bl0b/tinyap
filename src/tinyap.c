@@ -279,6 +279,11 @@ void tinyap_set_source_buffer(tinyap_t t,const char* b,const unsigned int sz) {
 	t->source_buffer=(char*)malloc(sz+1);
 	strncpy(t->source_buffer,b,sz);
 	t->source_buffer[sz]=0;
+	/*printf("Tinyap is about to parse this buffer (%u characters long) :\n"*/
+		/*"================================================\n"*/
+		/*"%*.*s\n"*/
+		/*"================================================\n",*/
+		/*sz, sz, sz, t->source_buffer);*/
 	t->source_buffer_sz=sz;
 }
 
@@ -305,6 +310,7 @@ int tinyap_parse(tinyap_t t) {
 				t->start,
 				0)));
 
+	/*printf("TinyaP parsed %u of %u characters.\n",t->toktext->farthest,t->toktext->size);*/
 //	token_context_free(t->toktext);
 //	t->toktext=NULL;
 

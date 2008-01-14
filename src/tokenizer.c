@@ -102,6 +102,8 @@ token_context_t*token_context_new(const char*src,const size_t length,const char*
 	}
 	t->grammar=greuh;			/* grou la grammaire */
 	t->farthest=0;
+	t->farthest_stack = new_stack();
+	t->node_stack = new_stack();
 	t->pos_cache.last_ofs=0;
 	t->pos_cache.last_nlofs=0;
 	t->pos_cache.row=1;
@@ -122,9 +124,10 @@ static inline size_t token_context_peek(const token_context_t*t) {
 
 
 
-static inline void token_context_push(token_context_t*t) {
+static inline void token_context_push(token_context_t*t, const char*tag) {
 	t->ofstack[t->ofsp]=t->ofs;
 	t->ofsp+=1;
+	push(t->node_stack,(void*)tag);
 }
 
 
@@ -132,12 +135,18 @@ static inline void token_context_push(token_context_t*t) {
 static inline void token_context_validate(token_context_t*t) {
 	/* TODO : implement node caching here */
 	t->ofsp-=1;		/* release space on stack, don't update t->ofs */
-	t->farthest=t->ofs;
+	if(t->farthest<t->ofs) {
+		t->farthest=t->ofs;
+		free_stack(t->farthest_stack);
+		t->farthest_stack = stack_dup(t->node_stack);
+	}
+	_pop(t->node_stack);
 }
 
 
 
 static inline void token_context_pop(token_context_t*t) {
+	_pop(t->node_stack);
 	if(!t->ofsp)
 		return;
 	t->ofsp-=1;
@@ -151,6 +160,8 @@ void token_context_free(token_context_t*t) {
 		regfree(t->garbage);
 		free(t->garbage);
 	}
+	free_stack(t->node_stack);
+	free_stack(t->farthest_stack);
 	node_cache_flush(t->cache);
 	free(t->source);
 	free(t);
@@ -454,6 +465,7 @@ ast_node_t token_produce_any(token_context_t*t,ast_node_t expr,int strip_T) {
 	static int rec_lvl=0;
 	char*tag;
 	char*key=NULL;
+	char*err_tag=NULL;
 	ast_node_t ret=NULL, pfx=NULL;
 	int typ=0;
 	int r,c;
@@ -485,9 +497,11 @@ ast_node_t token_produce_any(token_context_t*t,ast_node_t expr,int strip_T) {
 		typ = OP_ALT;
 	} else if(!strcmp(tag,"RE")) {
 		typ = OP_RE;
-//		key = Value(Car(Cdr(expr)));
+		err_tag = Value(Car(Cdr(expr)));
+		key = Value(Car(Cdr(expr)));
 	} else if(!strcmp(tag,"T")) {
 		typ = OP_T;
+		err_tag = Value(Car(Cdr(expr)));
 //		key = Value(Car(Cdr(expr)));
 	} else if(!strcmp(tag,"NT")) {
 		typ = OP_NT;
@@ -501,6 +515,7 @@ ast_node_t token_produce_any(token_context_t*t,ast_node_t expr,int strip_T) {
 //		key = node_tag(Cdr(expr));
 	} else if(!strcmp(tag,"OperatorRule")) {
 		typ = OP_ROP;
+		err_tag = node_tag(Cdr(expr));
 //		key = node_tag(Cdr(expr));
 	} else if(!strcmp(tag,"EOF")) {
 		typ = OP_EOF;
@@ -508,16 +523,16 @@ ast_node_t token_produce_any(token_context_t*t,ast_node_t expr,int strip_T) {
 		return newPair(NULL,NULL,0,0);
 	}
 
-//	debug_write("--debug[% 4.4i]-- produce %s ",rec_lvl,tag);
-//	dump_node(getCdr(expr));
-//	printf("\n");
-//	fprintf(stderr,"\tsource = %10.10s%s\n",t->source+t->ofs,t->ofs<(strlen(t->source)-10)?"...":"");
+	/*debug_write("--debug[% 4.4i]-- produce %s ",rec_lvl,tag);*/
+	/*dump_node(getCdr(expr));*/
+	/*printf("\n");*/
+	/*fprintf(stderr,"\tsource = %10.10s%s\n",t->source+t->ofs,t->ofs<(strlen(t->source)-10)?"...":"");*/
 
 
 
 //*
 	if(key&&node_cache_retrieve(t->cache, row, col, key, &ret,&t->ofs)) {
-//		printf("found %s at %i:%i %s\n",key,row, col,tinyap_serialize_to_string(ret));
+		/*fprintf(stderr,"found %s at %i:%i %s\n",key,row, col,tinyap_serialize_to_string(ret));*/
 		update_pos_cache(t);
 		return copy_node(ret);
 	}
@@ -525,7 +540,7 @@ ast_node_t token_produce_any(token_context_t*t,ast_node_t expr,int strip_T) {
 
 	rec_lvl+=1;
 
-	token_context_push(t);
+	token_context_push(t,err_tag);
 
 	switch(typ) {
 	case OP_SEQ:
@@ -681,7 +696,7 @@ ast_node_t token_produce_any(token_context_t*t,ast_node_t expr,int strip_T) {
 	if(ret) {
 		/* add to node cache */
 		if(key) {
-//			printf("add to cache [ %i:%i:%s ] %s\n", row, col, key, tinyap_serialize_to_string(ret));
+			/*fprintf(stderr,"add to cache [ %i:%i:%s ] %s\n", row, col, key, tinyap_serialize_to_string(ret));*/
 			node_cache_add(t->cache,row,col,key,ret,t->ofs);
 		}
 		//dump_node(ret);
@@ -882,9 +897,12 @@ void update_pos_cache(token_context_t*t) {
 
 
 const char* parse_error(token_context_t*t) {
-	static char err_buf[1024];
+	static char err_buf[4096];
 	size_t last_nlofs=0;
 	size_t next_nlofs=0;
+	size_t tab_adjust=0;
+	int i;
+	char*sep,*k;
 
 	t->ofs=t->farthest;
 	update_pos_cache(t);
@@ -892,16 +910,34 @@ const char* parse_error(token_context_t*t) {
 	
 	next_nlofs=last_nlofs;
 	while(t->source[next_nlofs]&&t->source[next_nlofs]!='\n') {
+		if(t->source[next_nlofs]=='\t') {
+			tab_adjust+=8;	/* tabsize */
+		}
 		next_nlofs+=1;
 	}
+
+	err_buf[0]=0;
+
+	sep = " In context ";
+
+	for(i=0;i<=t->farthest_stack->sp;i+=1) {
+		k=(char*)t->farthest_stack->stack[i];
+		if(k) {
+			strcat(err_buf,sep);
+			strcat(err_buf,k);
+			sep=".";
+		}
+	}
+
+	strcat(err_buf,",\n");
 	
 //	sprintf(err_buf,"parse error at line %i :\n%*.*s\n%*.*s^\n",
-	sprintf(err_buf,"%*.*s\n%*.*s^\n",
+	sprintf(err_buf+strlen(err_buf),"%*.*s\n%*.*s^\n",
 		(int)(next_nlofs-last_nlofs),
 		(int)(next_nlofs-last_nlofs),
 		t->source+last_nlofs,
-		(int)(t->farthest-last_nlofs),
-		(int)(t->farthest-last_nlofs),
+		(int)(t->farthest-last_nlofs+tab_adjust),
+		(int)(t->farthest-last_nlofs+tab_adjust),
 		""
 	);
 	return err_buf;
