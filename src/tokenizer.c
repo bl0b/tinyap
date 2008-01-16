@@ -918,18 +918,20 @@ const char* parse_error(token_context_t*t) {
 
 	err_buf[0]=0;
 
-	sep = " In context ";
+	if((long)t->farthest_stack->sp>=0) {
+		sep = " In context ";
 
-	for(i=0;i<=(long)t->farthest_stack->sp;i+=1) {
-		k=(char*)t->farthest_stack->stack[i];
-		if(k) {
-			strcat(err_buf,sep);
-			strcat(err_buf,k);
-			sep=".";
+		for(i=0;i<=(long)t->farthest_stack->sp;i+=1) {
+			k=(char*)t->farthest_stack->stack[i];
+			if(k) {
+				strcat(err_buf,sep);
+				strcat(err_buf,k);
+				sep=".";
+			}
 		}
-	}
 
-	strcat(err_buf,",\n");
+		strcat(err_buf,",\n");
+	}
 	
 //	sprintf(err_buf,"parse error at line %i :\n%*.*s\n%*.*s^\n",
 	sprintf(err_buf+strlen(err_buf),"%*.*s\n%*.*s^\n",
