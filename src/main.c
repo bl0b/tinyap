@@ -169,19 +169,25 @@ void print_rule_elem(ast_node_t e) {
 		printf("%s = ",id);
 		print_rule_elem(tinyap_node_get_operand(e,1));
 		printf(".\n");
-	} else if(!strcmp(tag,"Prefix")) {
-		const char*id=tinyap_node_get_string(tinyap_node_get_operand(e,0));
-		printf("[");
+	} else if(!strcmp(tag,"Postfix")) {
+		/*const char*id=tinyap_node_get_string(tinyap_node_get_operand(e,0));*/
+		printf("{");
+		print_rule_elem(tinyap_node_get_operand(e,0));
+		printf("} ");
 		print_rule_elem(tinyap_node_get_operand(e,1));
+	} else if(!strcmp(tag,"Prefix")) {
+		/*const char*id=tinyap_node_get_string(tinyap_node_get_operand(e,0));*/
+		printf("[");
+		print_rule_elem(tinyap_node_get_operand(e,0));
 		printf("] ");
-		print_rule_elem(tinyap_node_get_operand(e,2));
+		print_rule_elem(tinyap_node_get_operand(e,1));
 	} else if(!strcmp(tag,"Seq")) {
 		int n=tinyap_node_get_operand_count(e);
 		int i;
 		for(i=0;i<n;i++) {
 			print_rule_elem(tinyap_node_get_operand(e,i));
 		}
-		printf(" ");
+		/*printf(" ");*/
 	} else if(!strcmp(tag,"Alt")) {
 		int n=tinyap_node_get_operand_count(e);
 		int i;
@@ -208,6 +214,8 @@ void print_rule_elem(ast_node_t e) {
 			printf("\"%s\" ",esc);
 		}
 		//free((char*)esc);
+	} else if(!strcmp(tag,"epsilon")) {
+		printf("epsilon ");
 	} else if(!strcmp(tag,"EOF")) {
 		printf("EOF ");
 	} else {

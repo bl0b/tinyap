@@ -920,7 +920,7 @@ const char* parse_error(token_context_t*t) {
 
 	sep = " In context ";
 
-	for(i=0;i<=t->farthest_stack->sp;i+=1) {
+	for(i=0;i<=(long)t->farthest_stack->sp;i+=1) {
 		k=(char*)t->farthest_stack->stack[i];
 		if(k) {
 			strcat(err_buf,sep);
