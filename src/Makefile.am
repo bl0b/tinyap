@@ -1,5 +1,5 @@
 include_HEADERS = tinyap.h tinyape.h bootstrap.h
-noinst_HEADERS = ast.h pilot_manager.h pilot_cache.h hashtab.h node_cache.h tokenizer.h stack.h walker.h
+noinst_HEADERS = ast.h pilot_manager.h pilot_cache.h hashtab.h node_cache.h tokenizer.h stack.h walker.h tutorial.h
 
 #bin_PROGRAMS = tinyap_static
 #bin_PROGRAMS = tinyap tinyap_static
