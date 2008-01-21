@@ -420,6 +420,11 @@ int check_trivial_left_rec(ast_node_t node) {
 /* 	la règle doit être de la forme (Alt (Seq (NT règle) ...) (?)) avec (?) ne commençant pas par (NT règle) */
 	//printf("check lefty %s\n",tinyap_serialize_to_string(node));
 	ast_node_t elems=Car(Cdr(Cdr(node)));
+
+	if(isAtom(elems)) {
+		return 0;
+	}
+
 	//printf("\t%s\n",node_tag(elems));
 	if(!strcmp(node_tag(elems),"Alt")) {
 		alt=elems;
@@ -911,7 +916,7 @@ const char* parse_error(token_context_t*t) {
 	next_nlofs=last_nlofs;
 	while(t->source[next_nlofs]&&t->source[next_nlofs]!='\n') {
 		if(t->source[next_nlofs]=='\t') {
-			tab_adjust+=8;	/* tabsize */
+			tab_adjust+=7;	/* tabsize-1 */
 		}
 		next_nlofs+=1;
 	}

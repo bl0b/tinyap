@@ -21,10 +21,10 @@
 
 #include "ast.h"
 
-/*#define NODE_CACHE_SIZE 32768*/
+#define NODE_CACHE_SIZE (1<<16)
 /*#define NODE_CACHE_SIZE 32749*/
 /*#define NODE_CACHE_SIZE 65533*/
-#define NODE_CACHE_SIZE 65521
+/*#define NODE_CACHE_SIZE 65521*/
 /*#define NODE_CACHE_SIZE 33333*/
 /*#define NODE_CACHE_SIZE 8191		// Mersenne prime*/
 

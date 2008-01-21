@@ -68,7 +68,7 @@ void node_cache_init(node_cache_t cache) {
 void delete_node(node_cache_t cache, ast_node_t n);
 
 void node_cache_flush(node_cache_t cache) {
-	int i;
+	int i,j;
 	node_cache_entry_t q;
 //	printf("node_cache_flush\n");
 	for(i=0;i<NODE_CACHE_SIZE;i+=1) {
@@ -81,28 +81,57 @@ void node_cache_flush(node_cache_t cache) {
 	}
 	if(cache_popu) {
 		i = 1000 * (cache_popu-cache_collisions) / cache_popu;
-		fprintf(stderr,"node cache statistics :\n - maximum population : %lu\n - collision count : %lu\n - duplicate keys : %lu\n - optimal access probability : %3i.%1.1i\n",cache_popu, cache_collisions,cache_dup_keys,i/10,i%10);
+		j = 1000 * (cache_popu-cache_collisions) / NODE_CACHE_SIZE;
+		fprintf(stderr,"node cache statistics :\n - maximum population : %lu\n - collision count : %lu\n - duplicate keys : %lu\n - optimal access probability : %3i.%1.1i%%\n - cache usage : %3i.%1.1i%%\n",cache_popu, cache_collisions,cache_dup_keys,i/10,i%10,j/10,j%10);
 	}
 }
 
 
+
+
+#include <stdint.h>     /* defines uint32_t etc */
+
+uint32_t hashlittle( const void *key, size_t length, uint32_t initval);
+
+#define _h_(_accum,_ch) ( (_ch) ^ (((_accum)<<6) + (_accum)) )
+/*#define _h_(_accum,_ch) ( (_ch) + (_accum<<6) + (_accum<<16) + _accum )*/
+
 /* sdbm function : hash(i) = hash(i - 1) * 65599 + str[i] */
 /* djb2 function : hash(i) = hash(i - 1) * 33 ^ str[i] */
 size_t cache_hash(int l, int c, const char*n) {
-	unsigned long int accum=0;
-	unsigned char*k=(unsigned char*)n;
+	unsigned long int accum=c+(l<<15);
+	accum = hashlittle(n,strlen(n)+1,accum);
+	/*return accum&(NODE_CACHE_SIZE-1);*/
+	/*return accum%NODE_CACHE_SIZE;*/
+	/*unsigned long int accum=0;*/
+/*	unsigned char*k=(unsigned char*)n;
 	unsigned long int ch;
+	l+=1;
+	c+=1;
+
 	while((ch=*k)) {
-		/*accum = (ch<<mask) + (accum<<6) + (accum<<16) - accum;*/
-		accum = ch ^ ((accum<<6) + accum);
+		accum = ch + (accum<<6) + (accum<<16) - accum;
+		accum = _h_(accum,ch);
 		k += 1;
 	}
+
+	accum = _h_(accum,'_');
+	// simulate char keys for l and c, as in <l>_<c>_<n>
+	while(l) { accum = _h_(accum,(l&3)+31); l>>=2; }
+	accum = _h_(accum,'_');
+
+	while(c) { accum = _h_(accum,(c&3)+37); c>>=2; }
+// */
+
+	/*accum^=hash_int(c);*/
+	/*accum+=(l<<13)-l+c;*/
 //	printf("hashed %i:%i:\"%s\" to %i\n",l,c,n,((l<<7)+c+accum)%NODE_CACHE_SIZE);
 	/*accum ^= (l+1)*65599;*/
-	accum ^= (l+1)*6599;
+	/*accum ^= (l+1)*6599;*/
 	/*accum ^= (c+1)*53747;*/
-	accum ^= (c+1)*573;
-	return accum%NODE_CACHE_SIZE;
+	/*accum ^= (c+1)*573;*/
+	/*return accum%NODE_CACHE_SIZE;*/
+	return (accum>>16)^(accum&0xFFFF);
 }
 
 

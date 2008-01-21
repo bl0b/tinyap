@@ -29,12 +29,15 @@ struct _walkable_ast_t {
 	unsigned int opd_count;
 	wast_t* operands;
 	ast_node_t*node;
+	int l,c;
 };
 
-wast_t wa_new(const char* op) {
+wast_t wa_new(const char* op, int l, int c) {
 	wast_t ret = (wast_t)malloc(sizeof(struct _walkable_ast_t));
 	memset(ret,0,sizeof(struct _walkable_ast_t));
 	ret->label = strdup(op);
+	ret->l = l;
+	ret->c = c;
 	return ret;
 }
 
@@ -50,6 +53,14 @@ void wa_del(wast_t w) {
 		free((char*)w->label);
 	}
 	free(w);
+}
+
+int wa_row(wast_t w) {
+	return w->l;
+}
+
+int wa_col(wast_t w) {
+	return w->c;
 }
 
 wast_t wa_father(wast_t w) {
@@ -103,9 +114,9 @@ wast_t make_wast(ast_node_t a) {
 		return NULL;
 	}
 	if(tinyap_node_is_string(a)) {
-		ret = wa_new(tinyap_node_get_string(a));
+		ret = wa_new(tinyap_node_get_string(a),tinyap_node_get_row(a), tinyap_node_get_col(a));
 	} else {
-		ret = wa_new(tinyap_node_get_operator(a));
+		ret = wa_new(tinyap_node_get_operator(a),tinyap_node_get_row(a), tinyap_node_get_col(a));
 		max=tinyap_node_get_operand_count(a);
 		for(i=0;i<max;i+=1) {
 			wa_add(ret,make_wast(tinyap_node_get_operand(a,i)));
