@@ -199,21 +199,16 @@ void print_rule_elem(ast_node_t e) {
 		}
 		printf(") ");
 	} else if(!strcmp(tag,"RE")) {
-		const char*esc=tinyap_node_get_string(tinyap_node_get_operand(e,0));
+		const char*esc=tinyap_serialize_to_string(tinyap_node_get_operand(e,0));
 		printf("/%s/ ",esc);
-		//free((char*)esc);
+		free((char*)esc);
 	} else if(!strcmp(tag,"NT")) {
 		const char*esc=tinyap_node_get_string(tinyap_node_get_operand(e,0));
 		printf("<%s> ",esc);
-		//free((char*)esc);
 	} else if(!strcmp(tag,"T")) {
-		const char*esc=tinyap_node_get_string(tinyap_node_get_operand(e,0));
-		if(!strcmp(esc,"\"")) {
-			fputs("\"\\\"\" ",stdout);
-		} else {
-			printf("\"%s\" ",esc);
-		}
-		//free((char*)esc);
+		const char*esc=tinyap_serialize_to_string(tinyap_node_get_operand(e,0));
+		printf("\"%s\" ",esc);
+		free((char*)esc);
 	} else if(!strcmp(tag,"epsilon")) {
 		printf("epsilon ");
 	} else if(!strcmp(tag,"EOF")) {

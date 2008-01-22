@@ -1,66 +1,18 @@
 number ::= /[0-9]+(\.[0-9]*)?/.
 
-m_expr ::= ( <m_add>
-	   | <m_sub>
-	   | <m_mul>
-	   | <m_div>
-	   | <m_minus>
-	   | <number>
-	   ).
+m_expr ::= <expr4>.
 
-m_minus ::= "-" <m_atom>.
+m_minus ::= "-" <number>.
+m_div ::= ( <m_div> "/" <expr0> | <expr0> "/" <expr0> ).
+m_mul ::= ( <m_mul> "*" <expr1> | <expr1> "*" <expr1> ).
+m_sub ::= ( <m_sub> "-" <expr2> | <expr2> "-" <expr2> ).
+m_add ::= ( <m_add> "+" <expr3> | <expr3> "+" <expr3> ).
 
-m_add  ::= <m_add_l> "+" <m_add_r>.
-m_sub  ::= <m_sub_l> "-" <m_sub_r>.
-
-m_mul  ::= <m_mul_l> "*" <m_mul_r>.
-m_div  ::= <m_div_l> "/" <m_div_r>.
-
-
-
-m_atom = ( <number>
-	 | <m_minus>
-	 | "(" <m_expr> ")"
-	 ).
-
-
-m_add_l = ( <m_sub>
-	  | <m_mul>
-	  | <m_div>
-	  | <m_atom>
-	  ).
-
-m_add_r = ( <m_add>
-	  | <m_sub>
-	  | <m_mul>
-	  | <m_div>
-	  | <m_atom>
-	  ).
-
-
-m_sub_l = ( <m_mul>
-	  | <m_div>
-	  | <m_atom>
-	  ).
-
-m_sub_r = ( <m_mul>
-	  | <m_div>
-          | <m_atom>
-	  ).
-
-
-m_mul_l = ( <m_div>
-	  | <m_atom>
-	  ).
-
-m_mul_r = ( <m_mul>
-	  | <m_div>
-	  | <m_atom>
-	  ).
-
-m_div_l = <m_atom>.
-
-m_div_r = <m_atom>.
+expr0 = ( <m_minus> | <number> | "(" <m_expr> ")" ).
+expr1 = ( <m_div> | <expr0> ).
+expr2 = ( <m_mul> | <expr1> ).
+expr3 = ( <m_sub> | <expr2> ).
+expr4 = ( <m_add> | <expr3> ).
 
 _expr = <m_expr> ";".
 

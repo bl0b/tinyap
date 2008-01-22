@@ -39,6 +39,7 @@
  * You may wish to read the \ref Tutorial "Tutorial" if it's your first time with tinyap.
  *
  * \ref tinyap.h "Parser API"
+ *
  * \ref tinyape.h "Ape API"
  *
  */
