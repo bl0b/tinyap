@@ -1,4 +1,6 @@
 /*! \page Tutorial First steps with Tinyap
+ * Author : Damien &ldquo;bl0b&rdquo; Leroux (damien <em>dot</em> leroux <em>at</em> gmail <em>dot</em> com)
+ *
  * This page explains how to fetch, install, run, and use tinyap.
  * \section t_toc  Contents
  * <div style="background-color:#E8E8E8; border:solid 1px #808080; width:300px; padding:6px;">
@@ -159,7 +161,9 @@ $ LD_LIBRARY_PATH=. tinyap -i math.gram -pag -i test2.math -p -w tinycalc \endve
  * - Error : evaluation failed.
  *
  * Each method of an evaluator must be named as follows :
- * \code ape_<em>evaluator_name</em>_<em>method</em> \endcode
+ *
+ * \b ape_ \em evaluator_name \b _ \em method
+ *
  * <em>method</em> is \c init, \c term, \c result, \c default, or an operator label.
  *
  * Tinyap handles the actual walking depending on evaluator's direction returns, and invokes the proper evaluator's visit method at each step.
