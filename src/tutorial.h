@@ -13,7 +13,7 @@
  * \endsection
  * 
  * \section t_intr Introduction
- * <div align="center"><em>&ldquo;One build to parse them all.&rdquo;</em></div>
+ * <div align="center" style="margin:16px;"><em>&ldquo;One build to parse them all.&rdquo;</em></div>
  *
  * Basically, tinyap is a <a href="http://en.wikipedia.org/wiki/Recursive_descent_parser">recursive descent parser with backup</a>. Thus, it's able to recognize any LL(k) language.
  * When a parse is successful, tinyap outputs an <a href="http://en.wikipedia.org/wiki/Abstract_syntax_tree">Abstract Syntax Tree (AST)</a> that represents the input text in a structured manner.
@@ -59,6 +59,7 @@
  * \endsection
  *
  * \section t_gram II. Meta-Grammar
+ * <div align="center" style="margin:16px;"><em>&ldquo;The language is that of BNF, which I will not utter here. In the common tongue it says...&rdquo;</em></div>
  *
  * The way the parser produces its output is driven by the grammar it uses. A grammar is a set of production rules, each rule associates
  * a symbolic name and one or more elements that the rule will produce. Each element successfully parsed is converted in an AST node and the
@@ -105,6 +106,7 @@
  * \endsection
  *
  * \section t_usag III. Usage
+ * <div align="center" style="margin:16px;"><em>&ldquo;First shalt thou take out the Holy Command Line, then shalt thou count to three, no more, no less.<br/>Three shall be the number thou shalt count, and the number of the counting shall be three.&rdquo;</em></div>
  *
  * When invoked, tinyap executes each of its command-line arguments from left to right.
  *
@@ -135,25 +137,44 @@ $ LD_LIBRARY_PATH=. tinyap -i math.gram -pag -i test2.math -p -w tinycalc \endve
  $ tinyap -i math.gram -p -o math.gram.srlz                 # parse and serialize math.gram
  $ tinyap -g math.gram.srlz -i test2.math -p -w tinycalc    # using math.gram, parse test2.math and evaluate the operations \endverbatim
  *
- * TODO : examples
+ * The \ref t_api "C API" provides more means to serialize and unserialize ASTs to/from files and buffers. Such interactions are pointless in command line.
  *
  * \endsection
  *
  * \section t_walk V. These apes are made for walking...
- * <div align="center"><em>&ldquo;...And that's just what they'll do : one of these days these apes are gonna walk 'ver the output.&rdquo;</em></div>
+ * <div align="center" style="margin:16px;"><em>&ldquo;...And that's just what they'll do : one of these days these apes are gonna walk 'ver the output.&rdquo;</em></div>
+ * Tinyap provides an interface to easily write AST evaluators (thus the name, tinyap evaluator -> tinyape -> ape).
  *
- * Walk the parser output
+ * An evaluator has to provide four functions :
+ * - init : receives data under the form of a \c void* and has to initialize the ape.
+ * - term : terminate the ape.
+ * - result : has to return the result of the ape's evaluation.
+ * - default : this visit method is called whenever no specific visit method has been defined for an operator node.
  *
- * TODO : examples
+ * Visit methods take the current node as an argument and return the direction for the next step in walk. Directions can be :
+ * - Up : to parent node
+ * - Down : walk on each child node (operands)
+ * - Next : walk to next sibling node (or is equivalent to "Up-Next" on the last child of a node)
+ * - Done : evaluation is over and successful.
+ * - Error : evaluation failed.
  *
- * Write a brand new walker
+ * Each method of an evaluator must be named as follows :
+ * \code ape_<em>evaluator_name</em>_<em>method</em> \endcode
+ * <em>method</em> is \c init, \c term, \c result, \c default, or an operator label.
  *
- * TODO : examples
+ * Tinyap handles the actual walking depending on evaluator's direction returns, and invokes the proper evaluator's visit method at each step.
+ *
+ * Here is the code for the pretty-printer (invoke it in command line with "-w prettyprint") : \include "src/ape_prettyprint.c"
+ *
+ * And here is the code for the tiny calculator "tinycalc" (seen in the examples above) : \include "examples/ape_tinycalc.c"
  *
  * \endsection
  *
  * \section t_api VI. C API
- * * \see tinyap.h
+ * 
+ * \see tinyap.h
+ * \see tinyape.h
+ *
  * \endsection
  *
  * \endpage
