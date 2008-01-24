@@ -105,7 +105,7 @@ int do_args(int argc,char*argv[]) {
 			printf("\t\t\"" GRAMMAR_EXPLICIT "\"\t(default) selects explicit variant\n");
 			printf("\t\t\"" GRAMMAR_CAMELCASING "\"\tselects CamelCasing variant\n");
 			printf("\t\tany other string is a filename to read grammar from\n");
-			printf("\n\t--print-grammar,-pg name\toutput the grammar in explicit dialect of Blob's Noise-Filtering Form\n");
+			printf("\n\t--print-grammar,-pg\toutput the current grammar in `explicit' dialect\n");
 			printf("\t\targument is the same as above\n");
 			printf("\n\t--input,-i name \ttext source to use\n");
 			printf("\t\t- (default)\tselects standard input\n");
