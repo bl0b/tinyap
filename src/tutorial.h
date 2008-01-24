@@ -145,7 +145,7 @@ $ LD_LIBRARY_PATH=. tinyap -i math.gram -pag -i test2.math -p -w tinycalc \endve
  *
  * \section t_walk V. These apes are made for walking...
  * <div align="center" style="margin:16px;"><em>&ldquo;...And that's just what they'll do : one of these days these apes are gonna walk 'ver the output.&rdquo;</em></div>
- * Tinyap provides an interface to easily write AST evaluators (thus the name, tinyap evaluator -> tinyape -> ape).
+ * Tinyap provides an interface to easily write AST evaluators (hence the name, tinyap evaluator -> tinyape -> ape).
  *
  * An evaluator has to provide four functions :
  * - init : receives data under the form of a \c void* and has to initialize the ape.
