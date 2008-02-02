@@ -99,8 +99,21 @@ uint32_t hashlittle( const void *key, size_t length, uint32_t initval);
 /* sdbm function : hash(i) = hash(i - 1) * 65599 + str[i] */
 /* djb2 function : hash(i) = hash(i - 1) * 33 ^ str[i] */
 size_t cache_hash(int l, int c, const char*n) {
-	unsigned long int accum=c+(l<<15);
-	accum = hashlittle(n,strlen(n)+1,accum);
+	unsigned long int accum=0;
+	unsigned long int slen = strlen(n);
+	/*accum = hashlittle(n,strlen(n),accum);*/
+	/*c=~(0x7FFFFFFFl/(1+c));*/
+	/*l=~(0x7FFFFFFFl/(1+l));*/
+	accum = hashlittle(&l,4,accum);
+	accum = hashlittle(&c,4,accum);
+	/*accum = hashlittle(n,slen,accum);*/
+	accum = hashlittle(n,slen,accum*accum);
+	/*accum = hashlittle(n,slen,accum);*/
+	return accum&0xFFFF;
+	/*return accum%NODE_CACHE_SIZE;*/
+	/*accum = hashlittle(n,strlen(n),hashword(&l,1,hashword(&c,1,0)));*/
+	/*accum = hashlittle(n,strlen(n),accum);*/
+	/*return hashlittle(n,strlen(n),accum)&0xFFFF;*/
 	/*return accum&(NODE_CACHE_SIZE-1);*/
 	/*return accum%NODE_CACHE_SIZE;*/
 	/*unsigned long int accum=0;*/
@@ -131,7 +144,7 @@ size_t cache_hash(int l, int c, const char*n) {
 	/*accum ^= (c+1)*53747;*/
 	/*accum ^= (c+1)*573;*/
 	/*return accum%NODE_CACHE_SIZE;*/
-	return (accum>>16)^(accum&0xFFFF);
+	/*return (accum>>16)^(accum&0xFFFF);*/
 }
 
 

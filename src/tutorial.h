@@ -38,17 +38,17 @@
  * <p>First, get the source code.</p>
  * <ul>
  * <li><b>download a tarball</b> :
- * (version 1.1 in used the example below, you can download the latest at http://code.google.com/p/tinyap/downloads/list).
+ * (version 1.1-1 in used the example below, you can download the latest at http://code.google.com/p/tinyap/downloads/list).
  * \code
- * $ wget http://tinyap.googlecode.com/files/tinyap-1.1.tar.gz
- * $ tar xzf tinyap-1.1.tag.gz
+ * $ wget http://tinyap.googlecode.com/files/tinyap-1.1-1.tar.gz
+ * $ tar xzf tinyap-1.1-1.tar.gz
  * \endcode
  * <li><b>using SVN</b> :
  * \code
  * $ svn checkout http://tinyap.googlecode.com/svn/trunk/ tinyap-read-only
  * \endcode
  * </ul>
- * <p>Now you have your tinyaml source distribution at hands, build it.</p>
+ * <p>Now you have your tinyap source distribution at hands, build it.</p>
  * \code
  * $ cd tinyap
  * $ CFLAGS=-O3 ./configure -C --prefix=/my/install/prefix/if/not/slash/usr
@@ -77,6 +77,7 @@
  * - \c \<non-terminal\> : the parser will try to produce the rule named "non-terminal", and append the result to output.
  * - \c "terminal" : the parser will try to produce the string "terminal" at its current position, and discard it from output.
  * - \c /reg-exp/ : the parser will search for a match at its current position, and append the match string to output.
+ * - \c /reg-exp/replacement/ : same as above, but the match will be replaced by the \c replacement string. Numbers from 0 to 9 prefixed by a backslash \ reference submatches (and \\0 is the whole match).
  *
  * Expressions
  * - Sequence \code expression expression... \endcode produce all children from left to right

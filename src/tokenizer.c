@@ -42,7 +42,7 @@ void update_pos_cache(token_context_t*t);
 
 /* prepends a ^ to reg_expr and returns the compiled extended POSIX regexp */
 regex_t*token_regcomp(const char*reg_expr) {
-	static char buf[256];
+	static char buf[1024];
 	regex_t*initiatur=(regex_t*)malloc(sizeof(regex_t));
 	sprintf(buf,"^%s",reg_expr);
 	regcomp(initiatur,buf,REG_EXTENDED);
@@ -190,6 +190,68 @@ ast_node_t token_produce_re(token_context_t*t,const regex_t*expr) {
 //		debug_write("debug-- matched token [%s]\n",lbl);
 		update_pos_cache(t);
 		ret = newPair(newAtom(lbl,t->pos_cache.row,t->pos_cache.col),NULL,r,c);
+		free(lbl);
+		//return newAtom(lbl,t->pos_cache.row,t->pos_cache.col);
+//	} else {
+//		debug_write("debug-- no good token\n");
+	}
+	return ret;
+}
+
+
+/*
+ * basic production rule from regexp+replacement : [garbage]token_regexp
+ * return NULL on no match
+ */
+
+ast_node_t token_produce_rpl(token_context_t*t,const regex_t*expr, const char*rplc) {
+	static char rbuf[1024];
+	char*buf=rbuf;
+	regmatch_t tokens[10];
+	char*lbl;
+	int r,c,i,j,mat_i;
+	ast_node_t ret=NULL;
+	/* perform some preventive garbage filtering */
+	_filter_garbage(t);
+	update_pos_cache(t);
+	r=t->pos_cache.row;
+	c=t->pos_cache.col;
+	if(regexec(expr,t->source+t->ofs,10,tokens,0)!=REG_NOMATCH&&(*tokens).rm_so==0) {
+		lbl=match2str(t->source+t->ofs,0,tokens[0].rm_eo);
+		/*printf("matched \"%s\" / replace \"%s\"\n",lbl,rplc);*/
+		t->ofs+=(*tokens).rm_eo;
+		for(i=0,j=strlen(rplc);i<j;i+=1) {
+			/*printf("rplc:: %i %c \t<< %-*s >>\n",i,rplc[i],buf-rbuf,rbuf);*/
+			if(rplc[i]=='\\') {
+				if(rplc[i+1]>='0'&&rplc[i+1]<='9') {
+					int n = rplc[i+1]-'0';
+					if(tokens[n].rm_so!=-1) {
+						for(mat_i=tokens[n].rm_so;mat_i<tokens[n].rm_eo;mat_i+=1) {
+							*buf=lbl[mat_i];
+							buf+=1;
+						}
+					/*} else {*/
+						/*printf(" /!\\ empty match #%i !\n",n);*/
+					}
+				} else {
+					switch(rplc[i+1]) {
+					case 't' :	*buf='\t'; buf+=1; break;
+					case 'r' :	*buf='\r'; buf+=1; break;
+					case 'n' :	*buf='\n'; buf+=1; break;
+					case '\\' :	*buf='\\'; buf+=1; break;
+					default :	*buf=rplc[i]; buf+=1; *buf=rplc[i+1]; buf+=1; break;
+					};
+				}
+				i+=1;
+			} else {
+				*buf=rplc[i];
+				buf+=1;
+			}
+		}
+		*buf=0;
+		/*debug_write("debug-- replaced to %s [%s]\n",rplc,rbuf);*/
+		update_pos_cache(t);
+		ret = newPair(newAtom(rbuf,t->pos_cache.row,t->pos_cache.col),NULL,r,c);
 		free(lbl);
 		//return newAtom(lbl,t->pos_cache.row,t->pos_cache.col);
 //	} else {
@@ -462,6 +524,7 @@ int check_trivial_left_rec(ast_node_t node) {
 #define OP_SEQ 8
 #define OP_ALT 9
 #define OP_POSTFX 10
+#define OP_RPL 11
 
 
 
@@ -502,6 +565,9 @@ ast_node_t token_produce_any(token_context_t*t,ast_node_t expr,int strip_T) {
 		typ = OP_ALT;
 	} else if(!strcmp(tag,"RE")) {
 		typ = OP_RE;
+		err_tag = Value(Car(Cdr(expr)));
+	} else if(!strcmp(tag,"RPL")) {
+		typ = OP_RPL;
 		err_tag = Value(Car(Cdr(expr)));
 		key = Value(Car(Cdr(expr)));
 	} else if(!strcmp(tag,"T")) {
@@ -554,17 +620,26 @@ ast_node_t token_produce_any(token_context_t*t,ast_node_t expr,int strip_T) {
 	case OP_ALT:
 		ret=token_produce_alt(t,getCdr(expr));
 		break;
-	case OP_RE:		
+	case OP_RE:
 		re = getCar(getCdr(expr));
 		if(!re->raw._p2) {
 			/* take advantage of unused atom field to implement regexp cache */
 //			assert(isAtom(re));
 //			printf("prit %i %s\n",prit+=1,Value(re));
 			re->raw._p2=token_regcomp(Value(re));
-			/* FIXME : need call to regfree() on delete, should implement that in token_regcomp */
 		}
 		key = Value(re);
 		ret=token_produce_re(t,re->raw._p2);
+		break;
+	case OP_RPL:
+		re = getCar(getCdr(expr));
+		if(!re->raw._p2) {
+			/* take advantage of unused atom field to implement regexp cache */
+			re->raw._p2=token_regcomp(Value(re));
+		}
+		key = Value(re);
+		/*printf("match \"%s\" / replace \"%s\"\n",key,Value(Car(Cdr(Cdr(expr)))));*/
+		ret=token_produce_rpl(t,re->raw._p2,Value(getCar(getCdr(getCdr(expr)))));
 		break;
 	case OP_T:
 		ret=token_produce_str(t,Value(getCar(getCdr(expr))));

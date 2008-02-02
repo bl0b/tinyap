@@ -104,7 +104,7 @@ void node_pool_flush() {
 
 
 void node_pool_term() {
-//	printf("node_pool_term\n");
+	/*printf("node_pool_term\n"); fflush(stdout);*/
 	node_pool_flush();
 	free_stack(node_stack);
 	node_stack = NULL;
