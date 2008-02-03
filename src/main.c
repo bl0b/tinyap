@@ -202,6 +202,12 @@ void print_rule_elem(ast_node_t e) {
 		const char*esc=tinyap_serialize_to_string(tinyap_node_get_operand(e,0));
 		printf("/%s/ ",esc);
 		free((char*)esc);
+	} else if(!strcmp(tag,"RPL")) {
+		const char*esc=tinyap_serialize_to_string(tinyap_node_get_operand(e,0));
+		const char*esc2=tinyap_serialize_to_string(tinyap_node_get_operand(e,1));
+		printf("/%s/%s/ ",esc,esc2);
+		free((char*)esc);
+		free((char*)esc2);
 	} else if(!strcmp(tag,"NT")) {
 		const char*esc=tinyap_node_get_string(tinyap_node_get_operand(e,0));
 		printf("<%s> ",esc);

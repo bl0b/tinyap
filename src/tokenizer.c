@@ -49,6 +49,31 @@ regex_t*token_regcomp(const char*reg_expr) {
 	return initiatur;
 }
 
+void escape_ncpy(char**dest, char**src, int count) {
+	const char* base=*src;
+	while( (*src-base) < count) {
+		unescape_chr(src,dest);
+	}
+}
+
+char* match2str_rpl(const char*repl, const char* match, int n_tok, regmatch_t* tokens) {
+	char rbuf[1024];
+	char*dest=rbuf;
+	char*src=repl,*subsrc;
+
+	while(*src) {
+		if(*src=='\\'&& *(src+1)>='0' && *(src+1)<='9') {
+			int n = *(src+1)-'0';
+			subsrc = match+tokens[n].rm_so;
+			escape_ncpy(&dest,&subsrc, tokens[n].rm_eo-tokens[n].rm_so);
+			src+=2;
+		} else {
+			unescape_chr(&src,&dest);
+		}
+	}
+	*dest=0;
+	return strdup(rbuf);
+}
 
 
 
@@ -205,11 +230,9 @@ ast_node_t token_produce_re(token_context_t*t,const regex_t*expr) {
  */
 
 ast_node_t token_produce_rpl(token_context_t*t,const regex_t*expr, const char*rplc) {
-	static char rbuf[1024];
-	char*buf=rbuf;
 	regmatch_t tokens[10];
 	char*lbl;
-	int r,c,i,j,mat_i;
+	int r,c;
 	ast_node_t ret=NULL;
 	/* perform some preventive garbage filtering */
 	_filter_garbage(t);
@@ -217,42 +240,12 @@ ast_node_t token_produce_rpl(token_context_t*t,const regex_t*expr, const char*rp
 	r=t->pos_cache.row;
 	c=t->pos_cache.col;
 	if(regexec(expr,t->source+t->ofs,10,tokens,0)!=REG_NOMATCH&&(*tokens).rm_so==0) {
-		lbl=match2str(t->source+t->ofs,0,tokens[0].rm_eo);
-		/*printf("matched \"%s\" / replace \"%s\"\n",lbl,rplc);*/
-		t->ofs+=(*tokens).rm_eo;
-		for(i=0,j=strlen(rplc);i<j;i+=1) {
-			/*printf("rplc:: %i %c \t<< %-*s >>\n",i,rplc[i],buf-rbuf,rbuf);*/
-			if(rplc[i]=='\\') {
-				if(rplc[i+1]>='0'&&rplc[i+1]<='9') {
-					int n = rplc[i+1]-'0';
-					if(tokens[n].rm_so!=-1) {
-						for(mat_i=tokens[n].rm_so;mat_i<tokens[n].rm_eo;mat_i+=1) {
-							*buf=lbl[mat_i];
-							buf+=1;
-						}
-					/*} else {*/
-						/*printf(" /!\\ empty match #%i !\n",n);*/
-					}
-				} else {
-					switch(rplc[i+1]) {
-					case 't' :	*buf='\t'; buf+=1; break;
-					case 'r' :	*buf='\r'; buf+=1; break;
-					case 'n' :	*buf='\n'; buf+=1; break;
-					case '\\' :	*buf='\\'; buf+=1; break;
-					default :	*buf=rplc[i]; buf+=1; *buf=rplc[i+1]; buf+=1; break;
-					};
-				}
-				i+=1;
-			} else {
-				*buf=rplc[i];
-				buf+=1;
-			}
-		}
-		*buf=0;
-		/*debug_write("debug-- replaced to %s [%s]\n",rplc,rbuf);*/
-		update_pos_cache(t);
-		ret = newPair(newAtom(rbuf,t->pos_cache.row,t->pos_cache.col),NULL,r,c);
+		lbl=match2str_rpl(rplc,t->source+t->ofs,10,tokens);
+		ret = newPair(newAtom(lbl,t->pos_cache.row,t->pos_cache.col),NULL,r,c);
+		/*debug_write("debug-- replaced to %s [%s]\n",rplc,lbl);*/
 		free(lbl);
+		t->ofs+=(*tokens).rm_eo;
+		update_pos_cache(t);
 		//return newAtom(lbl,t->pos_cache.row,t->pos_cache.col);
 //	} else {
 //		debug_write("debug-- no good token\n");
