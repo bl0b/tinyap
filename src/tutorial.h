@@ -77,7 +77,7 @@
  * - \c \<non-terminal\> : the parser will try to produce the rule named "non-terminal", and append the result to output.
  * - \c "terminal" : the parser will try to produce the string "terminal" at its current position, and discard it from output.
  * - \c /reg-exp/ : the parser will search for a match at its current position, and append the match string to output.
- * - \c /reg-exp/replacement/ : same as above, but the match will be replaced by the \c replacement string. Numbers from 0 to 9 prefixed by a backslash \ reference submatches (and \\0 is the whole match).
+ * - \c //reg-exp/replacement/ : same as above, but the match will be replaced by the \c replacement string. Numbers from 0 to 9 prefixed by a backslash \ reference submatches (and \\0 is the whole match).
  *
  * Expressions
  * - Sequence \code expression expression... \endcode produce all children from left to right
