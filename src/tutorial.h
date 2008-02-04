@@ -38,10 +38,10 @@
  * <p>First, get the source code.</p>
  * <ul>
  * <li><b>download a tarball</b> :
- * (version 1.1-1 in used the example below, you can download the latest at http://code.google.com/p/tinyap/downloads/list).
+ * (version 1.2-1 in used the example below, you can download the latest at http://code.google.com/p/tinyap/downloads/list).
  * \code
- * $ wget http://tinyap.googlecode.com/files/tinyap-1.1-1.tar.gz
- * $ tar xzf tinyap-1.1-1.tar.gz
+ * $ wget http://tinyap.googlecode.com/files/tinyap-1.2-1.tar.gz
+ * $ tar xzf tinyap-1.2-1.tar.gz
  * \endcode
  * <li><b>using SVN</b> :
  * \code

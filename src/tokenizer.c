@@ -544,13 +544,32 @@ ast_node_t token_produce_any(token_context_t*t,ast_node_t expr,int strip_T) {
 		return replacement;
 	}
 
-	tag=node_tag(expr);
-
 	_filter_garbage(t);
 	update_pos_cache(t);
 
 	row = t->pos_cache.row;
 	col = t->pos_cache.col;
+
+	if(isAtom(expr)) {
+		if(!strcmp(Value(expr),"epsilon")) {
+			return newPair(newAtom("strip.me",0,0),NULL,row,col);
+		} else if(!strcmp(Value(expr),"EOF")) {
+			_filter_garbage(t);
+			if(t->ofs<t->size) {
+				//debug_writeln("EOF not matched at #%u (against #%u)",t->ofs,t->size);
+				ret=NULL;
+			} else {
+				//debug_writeln("EOF matched at #%u (against #%u)",t->ofs,t->size);
+				update_pos_cache(t);
+				ret=newPair(newAtom("strip.me",t->pos_cache.row,t->pos_cache.col),NULL,t->pos_cache.row,t->pos_cache.col);
+			}
+			return ret;
+		/*} else {*/
+			/*printf("%s\n",tinyap_serialize_to_string(expr));*/
+		}
+	}
+
+	tag=node_tag(expr);
 
 	if(!strcmp(tag,"Seq")) {
 		typ = OP_SEQ;
@@ -584,7 +603,7 @@ ast_node_t token_produce_any(token_context_t*t,ast_node_t expr,int strip_T) {
 	} else if(!strcmp(tag,"EOF")) {
 		typ = OP_EOF;
 	} else if(!strcmp(tag,"epsilon")) {
-		return newPair(NULL,NULL,0,0);
+		return newPair(newAtom("strip.me",0,0),NULL,row,col);
 	}
 
 	/*debug_write("--debug[% 4.4i]-- produce %s ",rec_lvl,tag);*/
