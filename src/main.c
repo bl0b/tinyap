@@ -78,14 +78,14 @@ int do_args(int argc,char*argv[]) {
 			} else {
 				fprintf(stderr,"parse error at line %i, column %i\n%s\n",tinyap_get_error_row(parser),tinyap_get_error_col(parser),tinyap_get_error(parser));
 			}
-		} else if(cmp_param(1,"--parse","-p")) {
+		} else if(cmp_param(0,"--parse","-p")) {
 			tinyap_parse(parser);
 			if(tinyap_parsed_ok(parser)&&tinyap_get_output(parser)) {
 				tinyap_serialize_to_file(tinyap_get_output(parser),argv[i]);
 			} else {
 				fprintf(stderr,"parse error at line %i, column %i\n%s\n",tinyap_get_error_row(parser),tinyap_get_error_col(parser),tinyap_get_error(parser));
 			}
-		} else if(cmp_param(1,"--parse-as-grammar","-pag")) {
+		} else if(cmp_param(0,"--parse-as-grammar","-pag")) {
 			tinyap_parse_as_grammar(parser);
 			if(tinyap_parsed_ok(parser)&&tinyap_get_grammar_ast(parser)) {
 				tinyap_serialize_to_file(tinyap_get_output(parser),argv[i]);
@@ -205,7 +205,7 @@ void print_rule_elem(ast_node_t e) {
 	} else if(!strcmp(tag,"RPL")) {
 		const char*esc=tinyap_serialize_to_string(tinyap_node_get_operand(e,0));
 		const char*esc2=tinyap_serialize_to_string(tinyap_node_get_operand(e,1));
-		printf("/%s/%s/ ",esc,esc2);
+		printf("//%s/%s/ ",esc,esc2);
 		free((char*)esc);
 		free((char*)esc2);
 	} else if(!strcmp(tag,"NT")) {

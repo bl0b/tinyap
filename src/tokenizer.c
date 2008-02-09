@@ -59,12 +59,12 @@ void escape_ncpy(char**dest, char**src, int count) {
 char* match2str_rpl(const char*repl, const char* match, int n_tok, regmatch_t* tokens) {
 	char rbuf[1024];
 	char*dest=rbuf;
-	char*src=repl,*subsrc;
+	char*src=(char*)repl,*subsrc;
 
 	while(*src) {
 		if(*src=='\\'&& *(src+1)>='0' && *(src+1)<='9') {
 			int n = *(src+1)-'0';
-			subsrc = match+tokens[n].rm_so;
+			subsrc = (char*) (match+tokens[n].rm_so);
 			escape_ncpy(&dest,&subsrc, tokens[n].rm_eo-tokens[n].rm_so);
 			src+=2;
 		} else {
@@ -518,6 +518,9 @@ int check_trivial_left_rec(ast_node_t node) {
 #define OP_ALT 9
 #define OP_POSTFX 10
 #define OP_RPL 11
+#define OP_REP_0N 12
+#define OP_REP_01 13
+#define OP_REP_1N 14
 
 
 
@@ -527,7 +530,7 @@ ast_node_t token_produce_any(token_context_t*t,ast_node_t expr,int strip_T) {
 	char*tag;
 	char*key=NULL;
 	char*err_tag=NULL;
-	ast_node_t ret=NULL, pfx=NULL;
+	ast_node_t ret=NULL, pfx=NULL, tmp=NULL;
 	int typ=0;
 	int r,c;
 	size_t dummy;
@@ -573,6 +576,12 @@ ast_node_t token_produce_any(token_context_t*t,ast_node_t expr,int strip_T) {
 
 	if(!strcmp(tag,"Seq")) {
 		typ = OP_SEQ;
+	} else if(!strcmp(tag,"Rep0N")) {
+		typ = OP_REP_0N;
+	} else if(!strcmp(tag,"Rep1N")) {
+		typ = OP_REP_1N;
+	} else if(!strcmp(tag,"Rep01")) {
+		typ = OP_REP_01;
 	} else if(!strcmp(tag,"Alt")) {
 		typ = OP_ALT;
 	} else if(!strcmp(tag,"RE")) {
@@ -718,6 +727,59 @@ ast_node_t token_produce_any(token_context_t*t,ast_node_t expr,int strip_T) {
 			tag=node_tag(expr);
 
 			ret=token_produce_any(t,getCar(getCdr(expr)),t->flags&STRIP_TERMINALS);
+		}
+		break;
+	case OP_REP_01:
+		pfx = token_produce_any(t,getCar(getCdr(expr)),t->flags&STRIP_TERMINALS);
+		if(pfx!=NULL) {
+			ret = pfx;
+		} else {
+			ret = newPair(newAtom("strip.me",0,0), NULL,t->pos_cache.row,t->pos_cache.col);
+		}
+		break;
+	case OP_REP_1N:
+		pfx = token_produce_any(t,getCar(getCdr(expr)),t->flags&STRIP_TERMINALS);
+		if(pfx!=NULL) {
+			unsigned long last_ofs = t->ofs;
+			char*stmp = tinyap_serialize_to_string(expr);
+			char*stmp2 = tinyap_serialize_to_string(pfx);
+			update_pos_cache(t);
+			/*printf("got prefix for rep 1,N for expr %s at %i,%i : %s\n",stmp,t->pos_cache.row,t->pos_cache.col,stmp2);*/
+			free(stmp);
+			free(stmp2);
+			ret = pfx;
+			while( (tmp = token_produce_any(t,getCar(getCdr(expr)),t->flags&STRIP_TERMINALS))
+						 &&
+					last_ofs!=t->ofs ) {
+				last_ofs=t->ofs;
+				stmp = tinyap_serialize_to_string(tmp);
+				/*printf("    continue for rep 1,N at %i,%i : %s\n",t->pos_cache.row,t->pos_cache.col,stmp);*/
+				free(stmp);
+				while(pfx->pair._cdr) {
+					pfx=pfx->pair._cdr;
+				}
+				pfx->pair._cdr = tmp;
+				pfx = tmp;
+			}
+		}
+		break;
+	case OP_REP_0N:
+		pfx = token_produce_any(t,getCar(getCdr(expr)),t->flags&STRIP_TERMINALS);
+		if(pfx!=NULL) {
+			unsigned long last_ofs = t->ofs;
+			ret = pfx;
+			while( (tmp = token_produce_any(t,getCar(getCdr(expr)),t->flags&STRIP_TERMINALS))
+						 &&
+					last_ofs!=t->ofs  ) {
+				last_ofs=t->ofs;
+				while(pfx->pair._cdr) {
+					pfx=pfx->pair._cdr;
+				}
+				pfx->pair._cdr = tmp;
+				pfx = tmp;
+			}
+		} else {
+			ret = newPair(newAtom("strip.me",0,0), NULL,t->pos_cache.row,t->pos_cache.col);
 		}
 		break;
 	case OP_PREFX:
@@ -1003,7 +1065,7 @@ const char* parse_error(token_context_t*t) {
 	next_nlofs=last_nlofs;
 	while(t->source[next_nlofs]&&t->source[next_nlofs]!='\n') {
 		if(t->source[next_nlofs]=='\t') {
-			tab_adjust+=7;	/* tabsize-1 */
+			tab_adjust+=8-((next_nlofs-last_nlofs)&7);	/* snap to tabsize 8 */
 		}
 		next_nlofs+=1;
 	}
@@ -1030,8 +1092,8 @@ const char* parse_error(token_context_t*t) {
 		(int)(next_nlofs-last_nlofs),
 		(int)(next_nlofs-last_nlofs),
 		t->source+last_nlofs,
-		(int)(t->farthest-last_nlofs+tab_adjust),
-		(int)(t->farthest-last_nlofs+tab_adjust),
+		(int)(t->farthest-last_nlofs+tab_adjust-1),
+		(int)(t->farthest-last_nlofs+tab_adjust-1),
 		""
 	);
 	return err_buf;

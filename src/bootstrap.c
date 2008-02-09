@@ -35,23 +35,60 @@ ast_node_t  ast_unserialize(const char*input);
  */
 /* TODO : think of a more BNF-like syntax (like specific case for OPR rules, and pseudo-nonterminals like _identifier or _number */
 
-const char*explicit_bnff_rules = "((Grammar\n"
+const char*short_rules = "((Grammar\n"
 "(TransientRule	elem		(RE [_a-zA-Z][0-9a-zA-Z_]*))\n"
 "(OperatorRule	T		(RPL \\\"\\(\\([^\\\"\\\\]|[\\\\][\\\"\\ trnb]\\)*\\)\\\" \\1))" /* (Alt (Seq (T \\\") (T \\\\) (RE [\\\"]) (T \\\")) (Seq (T \\\") (RE [^\"]+) (T \\\"))))\n"*/
-"(OperatorRule	NT		(Seq (T <) (NT elem) (T >)))\n"
-"(OperatorRule	RE		(Seq (T /) (RE \\(\\(\\\\[[^\\\\\\\\]]*\\(\\\\]\\)?[^\\\\]]*]\\)|[^/]\\)*) (T /)))\n"
-"(OperatorRule	RPL		(Seq (T //) (RE \\(\\(\\\\[[^\\\\\\\\]]*\\(\\\\]\\)?[^\\\\]]*]\\)|[^/]\\)*) (T /) (RE \\([^\\r\\n\\\\\\\\/]+|\\\\\\\\[\\\\\\\\/0-9]\\)+) (T /)))\n"
+"(OperatorRule	NT		(NT elem))\n"
+/*"(OperatorRule	RE		(Seq (T /) (RE \\(\\(\\\\[[^\\\\\\\\]]*\\(\\\\]\\)?[^\\\\]]*]\\)|[^/]\\)*) (T /)))\n"*/
+/*"(TransientRule	re_re		(RE \\(\\(\\\\[\\([^\\\\\\]]|\\\\\\]\\)*\\\\]\\)|[^\\/]\\)*))\n"*/
+"(TransientRule	re_re		(RE \\([^\\\\/]|[\\\\][][\\\\/\\ <>trnb\"]\\)*))\n"
+"(OperatorRule	RE		(Seq (T /) (NT re_re) (T /)))\n"
+"(OperatorRule	RPL		(Seq (T //) (NT re_re) (T /) (RE \\([^\\r\\n\\\\\\\\/]+|\\\\\\\\[\\\\\\\\/0-9]\\)+) (T /)))\n"
 "(TransientRule	rule		(Alt (NT OperatorRule) (NT TransientRule)))\n"
 "(OperatorRule	OperatorRule	(Seq (NT elem) (T ::=) (NT rule_expr) (T .)))\n"
 "(OperatorRule	TransientRule	(Seq (NT elem) (T =) (NT rule_expr) (T .)))\n"
 "(TransientRule	rule_expr	(Alt (NT Alt) (NT Seq) (NT rule_elem)))\n"
-"(OperatorRule	Prefix		(Seq (T [) (NT rule_expr) (T ]) (NT rule_elem)))\n"
-"(OperatorRule	Postfix		(Seq (T {) (NT rule_expr) (T }) (NT rule_elem)))\n"
+"(OperatorRule	Prefix		(Seq (T [) (NT rule_expr) (T ]) (NT rule_elem_atom)))\n"
+"(OperatorRule	Postfix		(Seq (T {) (NT rule_expr) (T }) (NT rule_elem_atom)))\n"
 "(OperatorRule	Seq		(Seq (NT rule_elem) (NT seq_expr)))\n"
 "(OperatorRule	Alt		(Seq (T \\() (NT alt_expr) (T \\))))\n"
 "(TransientRule	seq_expr	(Alt (Seq (NT rule_elem) (NT seq_expr)) (NT rule_elem)))\n"
 "(TransientRule	alt_expr	(Alt (Seq (NT rule_elem) (T |) (NT alt_expr)) (Seq (NT Seq) (T |) (NT alt_expr)) (NT Seq) (NT rule_elem)))\n"
-"(TransientRule	rule_elem	(Alt (NT T) (NT NT) (NT RPL) (NT RE) (NT Alt) (NT EOF) (NT epsilon) (NT Prefix) (NT Postfix)))\n"
+"(TransientRule	rule_elem	(Alt (NT Rep) (NT rule_elem_atom)))\n"
+"(TransientRule rule_elem_atom	(Alt (NT EOF) (NT epsilon) (NT T) (NT NT) (NT RPL) (NT RE) (NT Alt) (NT Prefix) (NT Postfix)))\n"
+"(TransientRule	_start		(NT Grammar))\n"
+"(OperatorRule	Grammar		(NT _loop))\n"
+"(TransientRule	_loop		(Alt (EOF) (Seq (NT rule) (NT _loop))))\n"
+"(OperatorRule	EOF		(T _EOF))\n"
+"(OperatorRule	epsilon		(T _epsilon))\n"
+//"(TransientRule	_whitespace	(RE \\([ \r\n\t]|#[^\r\n]*[\r\n]+\\)+))"
+"(TransientRule _whitespace	(RE \\([\\ \\r\\n\\t]|#[^\\r\\n]*[\\r\\n]+\\)+))\n"
+"(OperatorRule Rep1N		(Seq (NT rule_elem_atom) (T +)))\n"
+"(OperatorRule Rep0N		(Seq (NT rule_elem_atom) (T *)))\n"
+"(OperatorRule Rep01		(Seq (NT rule_elem_atom) (T ?)))\n"
+"(TransientRule Rep		(Alt (NT Rep1N) (NT Rep0N) (NT Rep01)))\n"
+"))\n";
+
+
+const char*explicit_bnff_rules = "((Grammar\n"
+"(TransientRule	elem		(RE [_a-zA-Z][0-9a-zA-Z_]*))\n"
+"(OperatorRule	T		(RPL \\\"\\(\\([^\\\"\\\\]|[\\\\][\\\"\\ trnb]\\)*\\)\\\" \\1))" /* (Alt (Seq (T \\\") (T \\\\) (RE [\\\"]) (T \\\")) (Seq (T \\\") (RE [^\"]+) (T \\\"))))\n"*/
+"(OperatorRule	NT		(Seq (T <) (NT elem) (T >)))\n"
+"(TransientRule	re_re		(RE \\([^\\\\/]|[\\\\][][\\\\/\\ <>trnb\"]\\)*))\n"
+"(OperatorRule	RE		(Seq (T /) (NT re_re) (T /)))\n"
+"(OperatorRule	RPL		(Seq (T //) (NT re_re) (T /) (RE \\([^\\r\\n\\\\\\\\/]+|\\\\\\\\[\\\\\\\\/0-9]\\)+) (T /)))\n"
+"(TransientRule	rule		(Alt (NT OperatorRule) (NT TransientRule)))\n"
+"(OperatorRule	OperatorRule	(Seq (NT elem) (T ::=) (NT rule_expr) (T .)))\n"
+"(OperatorRule	TransientRule	(Seq (NT elem) (T =) (NT rule_expr) (T .)))\n"
+"(TransientRule	rule_expr	(Alt (NT Alt) (NT Seq) (NT rule_elem)))\n"
+"(OperatorRule	Prefix		(Seq (T [) (NT rule_expr) (T ]) (NT rule_elem_atom)))\n"
+"(OperatorRule	Postfix		(Seq (T {) (NT rule_expr) (T }) (NT rule_elem_atom)))\n"
+"(OperatorRule	Seq		(Seq (NT rule_elem) (NT seq_expr)))\n"
+"(OperatorRule	Alt		(Seq (T \\() (NT alt_expr) (T \\))))\n"
+"(TransientRule	seq_expr	(Alt (Seq (NT rule_elem) (NT seq_expr)) (NT rule_elem)))\n"
+"(TransientRule	alt_expr	(Alt (Seq (NT rule_elem) (T |) (NT alt_expr)) (Seq (NT Seq) (T |) (NT alt_expr)) (NT Seq) (NT rule_elem)))\n"
+"(TransientRule	rule_elem	(Alt (NT Rep) (NT rule_elem_atom)))\n"
+"(TransientRule rule_elem_atom	(Alt (NT EOF) (NT epsilon) (NT T) (NT NT) (NT RPL) (NT RE) (NT Alt) (NT Prefix) (NT Postfix)))\n"
 "(TransientRule	_start		(NT Grammar))\n"
 "(OperatorRule	Grammar	(NT _loop))\n"
 "(TransientRule	_loop		(Alt (EOF) (Seq (NT rule) (NT _loop))))\n"
@@ -59,33 +96,45 @@ const char*explicit_bnff_rules = "((Grammar\n"
 "(OperatorRule	epsilon		(T epsilon))\n"
 //"(TransientRule	_whitespace	(RE \\([ \r\n\t]|#[^\r\n]*[\r\n]+\\)+))"
 "(TransientRule _whitespace (RE \\([\\ \\r\\n\\t]|#[^\\r\\n]*[\\r\\n]+\\)+))"
+"(OperatorRule Rep1N		(Seq (NT rule_elem_atom) (T +)))\n"
+"(OperatorRule Rep0N		(Seq (NT rule_elem_atom) (T *)))\n"
+"(OperatorRule Rep01		(Seq (NT rule_elem_atom) (T ?)))\n"
+"(TransientRule Rep		(Alt (NT Rep1N) (NT Rep0N) (NT Rep01)))\n"
 "))\n";
 
 
 const char*CamelCased_bnff_rules = "((Grammar\n"
 "(TransientRule	camelIdent	(RE [A-Z][0-9a-z]*\\([A-Z][0-9a-z]*\\)*))\n"
 "(TransientRule	elem		(RE [_a-z][0-9a-zA-Z_]*))\n"
-"(OperatorRule	T		(Alt (Seq (T \\\") (T \\\\) (RE [\\\"]) (T \\\")) (Seq (T \\\") (RE [^\"]+) (T \\\"))))\n"
+"(OperatorRule	T		(RPL \\\"\\(\\([^\\\"\\\\]|[\\\\][\\\"\\ trnb]\\)*\\)\\\" \\1))" /* (Alt (Seq (T \\\") (T \\\\) (RE [\\\"]) (T \\\")) (Seq (T \\\") (RE [^\"]+) (T \\\"))))\n"*/
+/*"(OperatorRule	T		(Alt (Seq (T \\\") (T \\\\) (RE [\\\"]) (T \\\")) (Seq (T \\\") (RE [^\"]+) (T \\\"))))\n"*/
 "(OperatorRule	NT		(Seq (T <) (Alt (NT camelIdent) (NT elem)) (T >)))\n"
-"(OperatorRule	RE		(Seq (T /) (RE \\(\\(\\\\[[^\\\\\\\\]]*\\(\\\\]\\)?[^\\\\]]*]\\)|[^/]\\)*) (T /)))\n"
-"(OperatorRule	RPL		(Seq (T //) (RE \\(\\(\\\\[[^\\\\\\\\]]*\\(\\\\]\\)?[^\\\\]]*]\\)|[^/]\\)*) (T /) (RE \\([^\\r\\n\\\\\\\\/]+|\\\\\\\\[\\\\\\\\/0-9]\\)+) (T /)))\n"
+"(TransientRule	re_re		(RE \\([^\\\\/]|[\\\\][][\\\\/\\ <>trnb\"]\\)*))\n"
+"(OperatorRule	RE		(Seq (T /) (NT re_re) (T /)))\n"
+"(OperatorRule	RPL		(Seq (T //) (NT re_re) (T /) (RE \\([^\\r\\n\\\\\\\\/]+|\\\\\\\\[\\\\\\\\/0-9]\\)+) (T /)))\n"
 "(TransientRule	rule		(Alt (NT OperatorRule) (NT TransientRule)))\n"
 "(OperatorRule	OperatorRule	(Seq (NT camelIdent) (T ::=) (NT rule_expr) (T .)))\n"
 "(OperatorRule	TransientRule	(Seq (NT elem) (T ::=) (NT rule_expr) (T .)))\n"
 "(TransientRule	rule_expr	(Alt (NT Alt) (NT Seq) (NT rule_elem)))\n"
-"(OperatorRule	Prefix		(Seq (T [) (NT rule_expr) (T ]) (NT rule_elem)))\n"
-"(OperatorRule	Postfix		(Seq (T {) (NT rule_expr) (T }) (NT rule_elem)))\n"
+"(OperatorRule	Prefix		(Seq (T [) (NT rule_expr) (T ]) (NT rule_elem_atom)))\n"
+"(OperatorRule	Postfix		(Seq (T {) (NT rule_expr) (T }) (NT rule_elem_atom)))\n"
 "(OperatorRule	Seq		(Seq (NT rule_elem) (NT seq_expr)))\n"
 "(OperatorRule	Alt		(Seq (T \\() (NT alt_expr) (T \\))))\n"
 "(TransientRule	seq_expr	(Alt (Seq (NT rule_elem) (NT seq_expr)) (NT rule_elem)))\n"
 "(TransientRule	alt_expr	(Alt (Seq (NT Seq) (T |) (NT alt_expr)) (Seq (NT rule_elem) (T |) (NT alt_expr)) (NT Seq) (NT rule_elem)))\n"
-"(TransientRule	rule_elem	(Alt (NT T) (NT NT) (NT RPL) (NT RE) (NT Alt) (NT EOF) (NT epsilon) (NT Prefix) (NT Postfix)))\n"
+"(TransientRule	rule_elem	(Alt (NT Rep) (NT rule_elem_atom)))\n"
+"(TransientRule rule_elem_atom	(Alt (NT EOF) (NT epsilon) (NT T) (NT NT) (NT RPL) (NT RE) (NT Alt) (NT Prefix) (NT Postfix)))\n"
 "(TransientRule	_start		(NT Grammar))\n"
 "(OperatorRule	Grammar		(NT _loop))\n"
 "(TransientRule	_loop		(Alt (EOF) (Seq (NT rule) (NT _loop))))\n"
 "(OperatorRule	EOF		(T EOF))\n"
 "(OperatorRule	epsilon		(T epsilon))\n"
 //"(TransientRule	_whitespace	(RE \\([ \\\\r\\\\n\\\\t]|#[^\\\\r\\\\n]*[\\\\r\\\\n]+\\\)+))"
+"(TransientRule _whitespace	(RE \\([\\ \\r\\n\\t]|#[^\\r\\n]*[\\r\\n]+\\)+))"
+"(OperatorRule Rep1N		(Seq (NT rule_elem_atom) (T +)))\n"
+"(OperatorRule Rep0N		(Seq (NT rule_elem_atom) (T *)))\n"
+"(OperatorRule Rep01		(Seq (NT rule_elem_atom) (T ?)))\n"
+"(TransientRule Rep		(Alt (NT Rep1N) (NT Rep0N) (NT Rep01)))\n"
 "))\n";
 
 
@@ -106,6 +155,8 @@ ast_node_t  tinyap_get_ruleset(const char*name) {
 		ret=ast_unserialize(explicit_bnff_rules);
 	} else if(!strcmp(name,GRAMMAR_CAMELCASING)) {
 		ret=ast_unserialize(CamelCased_bnff_rules);
+	} else if(!strcmp(name,GRAMMAR_SHORT)) {
+		ret=ast_unserialize(short_rules);
 	} else if(!stat(name,&st)) {
 		/* unserialize from file */
 		FILE*f=fopen(name,"r");

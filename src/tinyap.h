@@ -21,7 +21,7 @@
 
 /*! \brief arbitrary and totally meaningless version string
  */
-#define TINYAP_VERSION "1.0"
+#define TINYAP_VERSION PACKAGE_VERSION
 
 /*!
  * \mainpage tinyap
