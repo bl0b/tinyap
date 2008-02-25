@@ -741,8 +741,8 @@ ast_node_t token_produce_any(token_context_t*t,ast_node_t expr,int strip_T) {
 		pfx = token_produce_any(t,getCar(getCdr(expr)),t->flags&STRIP_TERMINALS);
 		if(pfx!=NULL) {
 			unsigned long last_ofs = t->ofs;
-			char*stmp = tinyap_serialize_to_string(expr);
-			char*stmp2 = tinyap_serialize_to_string(pfx);
+			char*stmp = (char*) tinyap_serialize_to_string(expr);
+			char*stmp2 = (char*)tinyap_serialize_to_string(pfx);
 			update_pos_cache(t);
 			/*printf("got prefix for rep 1,N for expr %s at %i,%i : %s\n",stmp,t->pos_cache.row,t->pos_cache.col,stmp2);*/
 			free(stmp);
@@ -752,7 +752,7 @@ ast_node_t token_produce_any(token_context_t*t,ast_node_t expr,int strip_T) {
 						 &&
 					last_ofs!=t->ofs ) {
 				last_ofs=t->ofs;
-				stmp = tinyap_serialize_to_string(tmp);
+				stmp = (char*) tinyap_serialize_to_string(tmp);
 				/*printf("    continue for rep 1,N at %i,%i : %s\n",t->pos_cache.row,t->pos_cache.col,stmp);*/
 				free(stmp);
 				while(pfx->pair._cdr) {
@@ -789,13 +789,26 @@ ast_node_t token_produce_any(token_context_t*t,ast_node_t expr,int strip_T) {
 
 		pfx=token_produce_any(t,getCar(expr),t->flags&STRIP_TERMINALS);
 		if(pfx!=NULL) {
-			//printf("have prefix %s\n",tinyap_serialize_to_string(pfx));
+			/*printf("have prefix %s\n",tinyap_serialize_to_string(pfx));*/
 			ret=token_produce_any(t,getCar(getCdr(expr)),t->flags&STRIP_TERMINALS);
 			if(ret&&ret->pair._car) {
+				ast_node_t tail;
+				/* these copies are necessary because of structural hack.
+				 * Not copying botches the node cache.
+				 */
+				ret=copy_node(ret);
+				pfx=copy_node(pfx);
+
+				tail=pfx;
+				/*printf("have expr %s\n",tinyap_serialize_to_string(ret));*/
+				//ret->pair._car->pair._cdr = Append(pfx,ret->pair._car->pair._cdr);
 				/* FIXME ? Dirty hack. */
-				//printf("have expr %s\n",tinyap_serialize_to_string(ret));
-				ret->pair._car->pair._cdr = Append(pfx,ret->pair._car->pair._cdr);
-				//printf("have merged into %s\n",tinyap_serialize_to_string(ret));
+				while(tail->pair._cdr) {
+					tail = tail->pair._cdr;
+				}
+				tail->pair._cdr = ret->pair._car->pair._cdr;
+				ret->pair._car->pair._cdr = pfx;
+				/*printf("\nhave merged into %s\n\n",tinyap_serialize_to_string(ret));*/
 			}
 		}
 		break;

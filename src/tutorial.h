@@ -38,10 +38,10 @@
  * <p>First, get the source code.</p>
  * <ul>
  * <li><b>download a tarball</b> :
- * (version 1.2-1 in used the example below, you can download the latest at http://code.google.com/p/tinyap/downloads/list).
+ * (version 1.3-0 in used the example below, you can download the latest at http://code.google.com/p/tinyap/downloads/list).
  * \code
- * $ wget http://tinyap.googlecode.com/files/tinyap-1.2-1.tar.gz
- * $ tar xzf tinyap-1.2-1.tar.gz
+ * $ wget http://tinyap.googlecode.com/files/tinyap-1.3-0.tar.gz
+ * $ tar xzf tinyap-1.3-0.tar.gz
  * \endcode
  * <li><b>using SVN</b> :
  * \code
@@ -61,7 +61,7 @@
  * \endsection
  *
  * \section t_gram II. Meta-Grammar
- * <div align="center" style="margin:16px;"><em>&ldquo;The language is that of BNF, which I will not utter here. In the common tongue it says...&rdquo;</em></div>
+ * <div align="center" style="margin:16px;"><em>&ldquo;The language is that of EBNF, which I will not utter here. In the common tongue it says...&rdquo;</em></div>
  *
  * The way the parser produces its output is driven by the grammar it uses. A grammar is a set of production rules, each rule associates
  * a symbolic name and one or more elements that the rule will produce. Each element successfully parsed is converted in an AST node and the
@@ -81,9 +81,13 @@
  *
  * Expressions
  * - Sequence \code expression expression... \endcode produce all children from left to right
- * - Selection \code ( expression | expression | ... ) \endcode try all children from left to right until successful
+ * - Selection \code ( expression | expression | ... ) \endcode try all children from left to right until successful. It is allowed to have only one sub-expression inside parenthesis.
  * - Prefix \code [ expression ] <non-terminal> \endcode produce expression, produce non-terminal, insert expression at head of non-terminal's children, evaluate to non-terminal
  * - Postfix (much useless) \code { expression } <non-terminal> \endcode same as prefix, but insert expression at tail of non-terminal's children
+ * - Repetition operators \code
+ * expression*   # match expression zero or more times (behaves like expr_loop = ( <expression> <expr_loop> | epsilon ). )
+ * expression?   # match expression zero or one time (behaves like opt_expr = ( <expression> | epsilon ). )
+ * expression+   # match expression one or more times (behaves like expr = <expression> <expr_loop>. ) \endcode
  *
  * Rules
  * - Operator rules \code symbol ::= expression . \endcode produce an operator node labeled "symbol"
@@ -102,6 +106,16 @@
  * - Grammar plugins \code plugin_rule = ( <A> | <B> | ... ). \endcode tinyap can plug new alternatives in rules where the right-hand side expression is a selection (see \ref t_api).
  *
  * Here is the full grammar description language expressed with itself : \include ".explicit.grammar"
+ *
+ * Tinyap features two other dialects to describe grammars which feature minor differences from the basic \c explicit dialect. You can look at
+ * their full description in \c explicit dialect by running \code tinyap -g dialectName -pg \endcode, where \c dialectName is one of :
+ * - CamelCasing
+ *   All rules use the "::=" notation. Rule names that obey CamelCasing are operator rules, other rules are transient rules.
+ * - short
+ *   New and sexier dialect. Same as explicit but for non-terminals : the &lt; and &gt; symbols are stripped. The \c epsilon and \c EOF symbols both get a leading \c _ . \code i.e. the rule :
+ *     foobar ::= "foo" epsilon <bar>+ EOF.
+ *   becomes
+ *     foobar ::= "foo" _epsilon bar+ _EOF. \endcode
  *
  * Below is a condensed grammar to parse arithmetic expressions. It will be used in the following examples : \include "examples/math.gram"
  * Notice that number, m_expr, m_mul, m_sub, m_add, m_div are operator rules. These are the labels we'll have in the nodes of the parse results.

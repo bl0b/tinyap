@@ -170,7 +170,7 @@ int node_cache_retrieve(node_cache_t cache, int l, int c, const char* rule, ast_
 		if(l==nce->k_l&&c==nce->k_c&&(!strcmp(rule,nce->k_rule))) {
 //			*node_p = copy_node(nce->v_node);
 			*node_p = nce->v_node;
-//			printf("node_cache_retrieve has found %s\n",tinyap_serialize_to_string(*node_p));
+			/*printf("At %i:%i for %s, node_cache_retrieve has found %s\n",nce->k_l,nce->k_c,nce->k_rule,tinyap_serialize_to_string(*node_p));*/
 			*ofs_p = nce->v_ofs;
 			return 1;
 		} else {
