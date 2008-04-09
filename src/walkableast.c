@@ -19,6 +19,7 @@
 
 #include "ast.h"
 #include "tinyape.h"
+#include "stack.h"
 #include <stdlib.h>
 #include <string.h>
 
