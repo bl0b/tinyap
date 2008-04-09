@@ -32,6 +32,7 @@ struct _walkable_ast_t {
 	int l,c;
 };
 
+
 wast_t wa_new(const char* op, int l, int c) {
 	wast_t ret = (wast_t)malloc(sizeof(struct _walkable_ast_t));
 	memset(ret,0,sizeof(struct _walkable_ast_t));
@@ -143,4 +144,98 @@ ast_node_t make_ast(wast_t t) {
 }
 
 
+
+
+
+struct _wast_iter_t {
+	wast_t  root;
+	wast_t  parent;
+	size_t  child;
+	stack_t pstack;
+	stack_t cstack;
+};
+
+
+wast_iterator_t tinyap_wi_new(const wast_t root) {
+	wast_iterator_t ret = (wast_iterator_t) malloc(sizeof(struct _wast_iter_t));
+	ret->root = root;
+	ret->parent = NULL;
+	ret->child = 0;
+	ret->pstack = new_stack();
+	ret->cstack = new_stack();
+	return ret;
+}
+
+void tinyap_wi_delete(wast_iterator_t wi) {
+	free_stack(wi->pstack);
+	free_stack(wi->cstack);
+	free(wi);
+}
+
+wast_t tinyap_wi_node(wast_iterator_t wi) {
+	if(wi->parent) {
+		return wa_opd(wi->parent, wi->child);
+	} else {
+		return wi->root;
+	}
+}
+
+wast_iterator_t tinyap_wi_up(wast_iterator_t wi) {
+	if(wi->parent) {
+		wast_t cur = wi->parent;
+		wi->parent = wa_father(wi->parent);
+		wi->child  = 0;
+		if(wi->parent) {
+			while(cur!=tinyap_wi_node(wi)) {
+				tinyap_wi_next(wi);
+			}
+		}
+	}
+	return wi;
+}
+
+wast_iterator_t tinyap_wi_down(wast_iterator_t wi) {
+	if(!tinyap_wi_on_leaf(wi)) {
+		wi->parent = tinyap_wi_node(wi);
+		wi->child  = 0;
+	}
+	return wi;
+}
+
+wast_iterator_t tinyap_wi_next(wast_iterator_t wi) {
+	if(tinyap_wi_has_next(wi)) {
+		wi->child += 1;
+	}
+	return wi;
+}
+
+int tinyap_wi_on_root(wast_iterator_t wi) {
+	return !wi->parent;
+}
+
+int tinyap_wi_on_leaf(wast_iterator_t wi) {
+	return !wa_opd_count(tinyap_wi_node(wi));
+}
+
+int tinyap_wi_has_next(wast_iterator_t wi) {
+	return wi->child < wa_opd_count(tinyap_wi_node(wi));
+}
+
+wast_iterator_t	tinyap_wi_backup(wast_iterator_t wi) {
+	push(wi->pstack, (void*) wi->parent);
+	push(wi->pstack, (void*) wi->child);
+	return wi;
+}
+
+wast_iterator_t	tinyap_wi_restore(wast_iterator_t wi) {
+	wi->parent = (wast_t) _pop(wi->pstack);
+	wi->child = (size_t) _pop(wi->cstack);
+	return wi;
+}
+
+wast_iterator_t	tinyap_wi_validate(wast_iterator_t wi) {
+	_pop(wi->pstack);
+	_pop(wi->cstack);
+	return wi;
+}
 

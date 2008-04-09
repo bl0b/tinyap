@@ -53,10 +53,14 @@ extern "C" {
 	typedef struct _tinyap_t* tinyap_t;
 #ifndef _WAST_DEFINED
 	typedef struct _walkable_ast_t* wast_t;
+	typedef struct _wast_iter_t* wast_iterator_t;
 	#define _WAST_DEFINED
 #endif
 
 #include "bootstrap.h"
+
+/*! \weakgroup api_parser Parser API */
+/*@{*/
 
 	/*! \brief initialize the tinyap environment. */
 	void tinyap_init();
@@ -132,6 +136,20 @@ extern "C" {
 	 */
 	void		tinyap_delete(tinyap_t);
 
+	/*! \brief plug (NT plugin) at head of (Alt) element of rule (* plug (Alt)). Plugs must have this form.
+	 */
+	void tinyap_plug(tinyap_t parser, const char*plugin, const char*plug);
+
+	/*! \brief plug pin at head of (Alt) element of rule (* plug (Alt)). Plugs must have this form.
+	 */
+	void tinyap_plug_node(tinyap_t parser, ast_node_t pin, const char*plugin, const char* plug);
+
+	/*! \brief append this grammar to the existing grammar.
+	 */
+	void tinyap_append_grammar(tinyap_t parser, ast_node_t supp);
+/*@}*/
+/*! \weakgroup api_ast AST API */
+/*@{*/
 	/*! \brief predicate "this node is nil"
 	 * \return 1 if node pointer is NULL, 0 otherwise
 	 */
@@ -191,6 +209,54 @@ extern "C" {
 	 */
 	void		tinyap_free_wast(const wast_t);
 
+	/*! \brief create an iterator on this AST.
+	 */
+	wast_iterator_t	tinyap_wi_new(const wast_t);
+
+	/*! \brief destroy an iterator on an AST.
+	 */
+	void		tinyap_wi_delete(wast_iterator_t);
+
+	/*! \brief get node under iterator
+	 */
+	wast_t		tinyap_wi_node(wast_iterator_t);
+
+	/*! \brief iterator jumps to parent
+	 */
+	wast_iterator_t	tinyap_wi_up(wast_iterator_t);
+
+	/*! \brief iterator jumps to first child
+	 */
+	wast_iterator_t	tinyap_wi_down(wast_iterator_t);
+
+	/*! \brief iterator jumps to next sibling
+	 */
+	wast_iterator_t	tinyap_wi_next(wast_iterator_t);
+
+	/*! \brief backup iterator state
+	 */
+	wast_iterator_t	tinyap_wi_backup(wast_iterator_t);
+
+	/*! \brief restore iterator state
+	 */
+	wast_iterator_t	tinyap_wi_restore(wast_iterator_t);
+
+	/*! \brief forget previous backup
+	 */
+	wast_iterator_t	tinyap_wi_validate(wast_iterator_t);
+
+	/*! \brief predicate "iterator is on root", i.e. "NOT (node has a parent)"
+	 */
+	int		tinyap_wi_on_root(wast_iterator_t);
+
+	/*! \brief predicate "iterator is on a leaf", i.e. "NOT (node has children)"
+	 */
+	int		tinyap_wi_on_leaf(wast_iterator_t);
+
+	/*! \brief predicate "iterator has a next sibling", i.e. "NOT (node is last child)"
+	 */
+	int		tinyap_wi_has_next(wast_iterator_t);
+
 	/*! \brief walk the current output using this named pilot with this init data.
 	 * \return whatever the pilot evaluated to
 	 */
@@ -200,18 +266,7 @@ extern "C" {
 	 * \return whatever the pilot evaluated to
 	 */
 	void*		tinyap_walk(const wast_t subtree, const char* pilot_name, void* pilot_init_data);
-
-	/*! \brief plug (NT plugin) at head of (Alt) element of rule (* plug (Alt)). Plugs must have this form.
-	 */
-	void tinyap_plug(tinyap_t parser, const char*plugin, const char*plug);
-
-	/*! \brief plug pin at head of (Alt) element of rule (* plug (Alt)). Plugs must have this form.
-	 */
-	void tinyap_plug_node(tinyap_t parser, ast_node_t pin, const char*plugin, const char* plug);
-
-	/*! \brief append this grammar to the existing grammar.
-	 */
-	void tinyap_append_grammar(tinyap_t parser, ast_node_t supp);
+/*@}*/
 
 #ifdef __cplusplus
 }
