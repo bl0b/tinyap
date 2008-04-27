@@ -212,50 +212,62 @@ extern "C" {
 	/*! \brief create an iterator on this AST.
 	 */
 	wast_iterator_t	tinyap_wi_new(const wast_t);
+	#define wi_new tinyap_wi_new
 
 	/*! \brief destroy an iterator on an AST.
 	 */
 	void		tinyap_wi_delete(wast_iterator_t);
+	#define wi_delete tinyap_wi_delete
 
 	/*! \brief get node under iterator
 	 */
 	wast_t		tinyap_wi_node(wast_iterator_t);
+	#define wi_node tinyap_wi_node
 
 	/*! \brief iterator jumps to parent
 	 */
 	wast_iterator_t	tinyap_wi_up(wast_iterator_t);
+	#define wi_up tinyap_wi_up
 
 	/*! \brief iterator jumps to first child
 	 */
 	wast_iterator_t	tinyap_wi_down(wast_iterator_t);
+	#define wi_down tinyap_wi_down
 
 	/*! \brief iterator jumps to next sibling
 	 */
 	wast_iterator_t	tinyap_wi_next(wast_iterator_t);
+	#define wi_next tinyap_wi_next
 
 	/*! \brief backup iterator state
 	 */
 	wast_iterator_t	tinyap_wi_backup(wast_iterator_t);
+	#define wi_backup tinyap_wi_backup
 
 	/*! \brief restore iterator state
 	 */
 	wast_iterator_t	tinyap_wi_restore(wast_iterator_t);
+	#define wi_restore tinyap_wi_restore
 
 	/*! \brief forget previous backup
 	 */
 	wast_iterator_t	tinyap_wi_validate(wast_iterator_t);
+	#define wi_validate tinyap_wi_validate
 
 	/*! \brief predicate "iterator is on root", i.e. "NOT (node has a parent)"
 	 */
 	int		tinyap_wi_on_root(wast_iterator_t);
+	#define wi_on_root tinyap_wi_on_root
 
 	/*! \brief predicate "iterator is on a leaf", i.e. "NOT (node has children)"
 	 */
 	int		tinyap_wi_on_leaf(wast_iterator_t);
+	#define wi_on_leaf tinyap_wi_on_leaf
 
 	/*! \brief predicate "iterator has a next sibling", i.e. "NOT (node is last child)"
 	 */
 	int		tinyap_wi_has_next(wast_iterator_t);
+	#define wi_has_next tinyap_wi_has_next
 
 	/*! \brief walk the current output using this named pilot with this init data.
 	 * \return whatever the pilot evaluated to

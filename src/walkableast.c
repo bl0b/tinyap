@@ -196,10 +196,10 @@ wast_iterator_t tinyap_wi_up(wast_iterator_t wi) {
 }
 
 wast_iterator_t tinyap_wi_down(wast_iterator_t wi) {
-	if(!tinyap_wi_on_leaf(wi)) {
+	/*if(!tinyap_wi_on_leaf(wi)) {*/
 		wi->parent = tinyap_wi_node(wi);
 		wi->child  = 0;
-	}
+	/*}*/
 	return wi;
 }
 
@@ -219,12 +219,16 @@ int tinyap_wi_on_leaf(wast_iterator_t wi) {
 }
 
 int tinyap_wi_has_next(wast_iterator_t wi) {
-	return wi->child < wa_opd_count(tinyap_wi_node(wi));
+	if(wi->parent) {
+		return wi->child < wa_opd_count(wi->parent);
+	} else {
+		return 0;
+	}
 }
 
 wast_iterator_t	tinyap_wi_backup(wast_iterator_t wi) {
 	push(wi->pstack, (void*) wi->parent);
-	push(wi->pstack, (void*) wi->child);
+	push(wi->cstack, (void*) wi->child);
 	return wi;
 }
 

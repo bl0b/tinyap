@@ -1,4 +1,4 @@
-include_HEADERS = tinyap.h tinyape.h bootstrap.h
+pkginclude_HEADERS = tinyap.h tinyape.h bootstrap.h
 noinst_HEADERS = ast.h pilot_manager.h pilot_cache.h hashtab.h node_cache.h tokenizer.h stack.h walker.h tutorial.h
 
 #bin_PROGRAMS = tinyap_static
@@ -10,7 +10,7 @@ tinyap_SOURCES = main.c
 tinyap_LDADD = -ldl libtinyap.la
 tinyap_LDFLAGS = -Wl,--export-dynamic
 
-libtinyap_la_SOURCES = ast.c tokenizer.c ape_prettyprint.c node_cache.c pilot_cache.c pilot_manager.c stack.c tinyap.c walkableast.c walker.c serialize.c bootstrap.c 3rd_party/lookup3.c
+libtinyap_la_SOURCES = ast.c tokenizer.c ape_prettyprint.c node_cache.c pilot_cache.c pilot_manager.c stack.c tinyap.c walkableast.c walker.c serialize.c bootstrap.c unparser.c 3rd_party/lookup3.c
 
 
 #tinyap_static_SOURCES = $(libtinyap_la_SOURCES) $(tinyap_SOURCES)
