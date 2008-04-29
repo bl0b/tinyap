@@ -152,19 +152,32 @@ struct _wast_iter_t {
 	wast_t  root;
 	wast_t  parent;
 	size_t  child;
-	stack_t pstack;
-	stack_t cstack;
+	tinyap_stack_t pstack;
+	tinyap_stack_t cstack;
 };
 
 
 wast_iterator_t tinyap_wi_new(const wast_t root) {
 	wast_iterator_t ret = (wast_iterator_t) malloc(sizeof(struct _wast_iter_t));
+	memset(ret, 0, sizeof(struct _wast_iter_t));
 	ret->root = root;
-	ret->parent = NULL;
-	ret->child = 0;
 	ret->pstack = new_stack();
 	ret->cstack = new_stack();
 	return ret;
+}
+
+wast_iterator_t tinyap_wi_reset(wast_iterator_t wi) {
+	wi->parent = NULL;
+	wi->child = 0;
+	if(wi->pstack) {
+		free_stack(wi->pstack);
+	}
+	if(wi->cstack) {
+		free_stack(wi->cstack);
+	}
+	wi->pstack = new_stack();
+	wi->cstack = new_stack();
+	return wi;
 }
 
 void tinyap_wi_delete(wast_iterator_t wi) {
@@ -204,9 +217,9 @@ wast_iterator_t tinyap_wi_down(wast_iterator_t wi) {
 }
 
 wast_iterator_t tinyap_wi_next(wast_iterator_t wi) {
-	if(tinyap_wi_has_next(wi)) {
+	/*if(tinyap_wi_has_next(wi)) {*/
 		wi->child += 1;
-	}
+	/*}*/
 	return wi;
 }
 
@@ -220,7 +233,7 @@ int tinyap_wi_on_leaf(wast_iterator_t wi) {
 
 int tinyap_wi_has_next(wast_iterator_t wi) {
 	if(wi->parent) {
-		return wi->child < wa_opd_count(wi->parent);
+		return ((int)wi->child) < ((int)(wa_opd_count(wi->parent)-1));
 	} else {
 		return 0;
 	}

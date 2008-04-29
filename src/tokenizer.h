@@ -35,8 +35,8 @@ typedef struct _token_context_t {
 	size_t ofstack[OFSTACK_SIZE];
 	size_t ofsp;
 	size_t farthest;
-	stack_t farthest_stack;
-	stack_t node_stack;
+	tinyap_stack_t farthest_stack;
+	tinyap_stack_t node_stack;
 	ast_node_t grammar;
 	struct {
 		int last_ofs;

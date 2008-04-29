@@ -25,16 +25,16 @@ typedef struct _stack_t {
 	size_t sz;
 	size_t sp;
 	void** stack;
-}* stack_t;
+}* tinyap_stack_t;
 
-stack_t new_stack();
-stack_t stack_dup(stack_t);
-void push(stack_t s, void* w);
-void* _pop(stack_t s);
+tinyap_stack_t new_stack();
+tinyap_stack_t stack_dup(tinyap_stack_t);
+void push(tinyap_stack_t s, void* w);
+void* _pop(tinyap_stack_t s);
 #define pop(__t,__s) ((__t)_pop(__s))
-void* _peek(stack_t s);
+void* _peek(tinyap_stack_t s);
 #define peek(__t,__s) ((__t)_peek(__s))
-void free_stack(stack_t s);
+void free_stack(tinyap_stack_t s);
 
 #define is_empty(_s) (_s->sp==-1)
 #define not_empty(_s) (_s->sp!=-1)

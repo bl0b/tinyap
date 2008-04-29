@@ -28,8 +28,8 @@
 void* walk(wast_t a, pilot_t p) {
 	pilot_cache_elem_t pce;
 	WalkDirection d;
-	stack_t stack;
-	stack_t ofs_stack;
+	tinyap_stack_t stack;
+	tinyap_stack_t ofs_stack;
 	wast_t next=NULL;
 	size_t opd=0;
 	void* result;

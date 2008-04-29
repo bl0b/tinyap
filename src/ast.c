@@ -28,7 +28,7 @@ volatile ast_node_t node_pool = NULL;
 
 #define _node(_tag,_contents) Cons(Atom(_tag),(_contents))
 
-static stack_t node_stack;
+static tinyap_stack_t node_stack;
 
 void node_pool_init() {
 	node_stack = new_stack();
@@ -72,7 +72,7 @@ void delete_node(ast_node_t);
 void node_pool_flush() {
 	ast_node_t n;
 
-	stack_t tmp_stack = new_stack();
+	tinyap_stack_t tmp_stack = new_stack();
 
 /*
 	while(node_pool) {

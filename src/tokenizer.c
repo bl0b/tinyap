@@ -436,7 +436,7 @@ ast_node_t token_produce_leftrec(token_context_t*t,ast_node_t expr,int strip_T,i
 		alt1 = Car(tmp),
 		alt2 = Car(Cdr(tmp));
 
-//	printf("alt1 = %s\nalt2 = %s\n",tinyap_serialize_to_string(alt1),tinyap_serialize_to_string(alt2));
+	/*printf("alt1 = %s\nalt2 = %s\n",tinyap_serialize_to_string(alt1),tinyap_serialize_to_string(alt2));*/
 	tmp = token_produce_any(t,alt2,strip_T);
 	if(tmp&&isOp) {
 		tmp=newPair(newPair(newAtom(tag,0,0),tmp,0,0),NULL,0,0);
@@ -450,7 +450,7 @@ ast_node_t token_produce_leftrec(token_context_t*t,ast_node_t expr,int strip_T,i
 			if(tmp&&isOp) {
 				tmp=newPair(newPair(newAtom(tag,0,0),tmp,0,0),NULL,0,0);
 			}
-			//printf("prout %s\n",tinyap_serialize_to_string(tmp));
+			/*printf("prout %s\n",tinyap_serialize_to_string(tmp));*/
 		} while(tmp);
 		tmp = replacement;
 		blacklisted=NULL;

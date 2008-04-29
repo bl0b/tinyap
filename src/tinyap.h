@@ -214,6 +214,11 @@ extern "C" {
 	wast_iterator_t	tinyap_wi_new(const wast_t);
 	#define wi_new tinyap_wi_new
 
+	/*! \brief reset an iterator to its initial state (on root, backup cleared).
+	 */
+	wast_iterator_t	tinyap_wi_reset(wast_iterator_t);
+	#define wi_reset tinyap_wi_reset
+
 	/*! \brief destroy an iterator on an AST.
 	 */
 	void		tinyap_wi_delete(wast_iterator_t);
