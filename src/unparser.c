@@ -1,0 +1,398 @@
+/* Tinya(J)P : this is not yet another (Java) parser.
+ * Copyright (C) 2007 Damien Leroux
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+ */
+#include "config.h"
+
+#include "tinyap.h"
+#include "ast.h"
+#include "tokenizer.h"
+
+#define _BIN_SZ 4096
+
+static char* _buf=NULL;
+static tinyap_stack_t _buf_st=NULL;
+static size_t _buf_sz=0;
+static size_t _buf_res=0;
+
+#ifndef strndup
+static char* strndup(const char* src, size_t n) {
+	size_t slen = strlen(src);
+	size_t max = slen > n ? slen : n;
+	char* ret = (char*) malloc(max+1);
+	memcpy(ret, src, max);
+	ret[max] = 0;
+	return ret;
+}
+
+#endif
+
+static void _buf_deinit() {
+	if(_buf) {
+		free(_buf);
+	}
+	if(_buf_st) {
+		free_stack(_buf_st);
+	}
+}
+
+static void _buf_init() {
+	_buf_deinit();
+	_buf_st = new_stack();
+	_buf_res = _BIN_SZ;
+	_buf_sz = 0;
+	_buf = (char*) malloc(_buf_res);
+	memset(_buf, 0, _buf_res);
+}
+
+static void _buf_realloc() {
+	char * old_buf = _buf, * new_buf;
+	while(_buf_sz > _buf_res) {
+		_buf_res += _BIN_SZ;
+	}
+	new_buf = (char*) realloc(_buf, _buf_res);
+	if(new_buf != old_buf) {
+		memset(_buf, _buf_sz, _buf_res-_buf_sz);
+	}
+}
+
+static void _buf_backup() {
+	push(_buf_st, (void*)_buf_sz);
+}
+
+static void _buf_validate() {
+	_pop(_buf_st);
+}
+
+static void _buf_restore() {
+	_buf_sz = (size_t) _pop(_buf_st);
+}
+
+static void _buf_append(const char* s) {
+	size_t slen = strlen(s);
+	size_t bsz  = _buf_sz;
+	_buf_sz += slen;
+	if(_buf_sz > _buf_res) {
+		_buf_realloc();
+	}
+	strcpy(_buf+bsz, s);
+}
+
+
+
+
+const char* wi_op(wast_iterator_t wi) {
+	return wa_op(tinyap_wi_node(wi));
+}
+
+const char* wi_string(wast_iterator_t wi, size_t n) {
+	return wa_op(wa_opd(tinyap_wi_node(wi), n));
+}
+
+
+int wig_goto_rule(wast_iterator_t ig, char* name) {
+	int match;
+	wi_reset(ig);
+	wi_down(ig);
+	printf("rule name match ? %s / %s (%s)\n", wi_string(ig, 0), name, wi_has_next(ig)?"has next":"is last");
+	match=!strcmp(wi_string(ig, 0), name);
+	while(match==0 && tinyap_wi_has_next(ig)) {
+		tinyap_wi_next(ig);
+	printf("rule name match ? %s / %s (%s)\n", wi_string(ig, 0), name, wi_has_next(ig)?"has next":"is last");
+		match=!strcmp(wi_string(ig, 0), name);
+	}
+	if(match) {
+		printf("found rule '%s' at %p %s %s\n", name, wi_node(ig), wi_op(ig), wi_string(ig, 0));
+		/*tinyap_wi_down(ig);*/
+		return 1;
+	} else {
+		printf("didn't find rule '%s'\n", name);
+	}
+	return 0;
+}
+
+
+/* Behaviour :
+ * start : unproduce(rule, ast) or fail with rule="_start"
+ * unproduce : 
+ * - if rule is transient :
+ *   	enter = ok
+ * - if rule is operator :
+ *   	enter = (ast op == rule name)
+ *
+ *   		
+ *   		
+ *   	
+ *
+ */
+#define __brv(_op) do { /*printf("DEBUG : " #_op "\n");*/ _buf_##_op(); wi_##_op(expr); wi_##_op(ast); } while(0)
+
+#define BACKUP __brv(backup)
+#define RESTORE do { /*printf("BUF WAS : %s\n", _buf);*/ __brv(restore); /*printf("BUF RESTORED TO : %s\n", _buf);*/ } while(0)
+#define VALIDATE do { __brv(validate); printf("CURRENT BUF : %s\n", _buf); } while(0)
+
+int unproduce(wast_iterator_t expr, wast_iterator_t ast, int* next);
+
+int wa_check_lefty(wast_t rule) {
+	wast_t expr = wa_opd(rule, 1);
+	if(!strcmp(wa_op(expr), "Alt")) {
+		wast_t seq = wa_opd(expr, 0);
+		if(!strcmp(wa_op(seq), "Seq")) {
+			wast_t nt = wa_opd(seq, 0);
+			if(!strcmp(wa_op(nt), "NT")) {
+				return !strcmp(wa_op(wa_opd(nt, 0)), wa_op(wa_opd(rule, 0)));
+			}
+		}
+	}
+	return 0;
+}
+
+wast_t wa_dump(wast_t wa) {
+	ast_node_t a = make_ast(wa);
+	const char* str = tinyap_serialize_to_string(a);
+	fputs(str, stdout);
+	free(str);
+	free(a);
+	return wa;
+}
+
+wast_t wa_bl = NULL;
+
+int unproduce_rule(wast_iterator_t expr, wast_iterator_t ast) {
+	int status;
+	int next=0;
+	BACKUP;
+	/*if(wi_node(ast)==NULL) {*/
+		/*return 0;*/
+	/*}*/
+	/*printf("ON rule %s\n", wi_op(expr));*/
+	if(!strcmp(wi_op(expr), "TransientRule")) {
+		if(wa_check_lefty(wi_node(expr))) {
+			printf("entering transient L-rec rule (%s).\n", wi_string(expr, 0));
+			wast_t alt = wa_opd(wa_dump(wi_node(expr)), 1);
+			wast_t alt1 = wa_opd(alt, 0);
+			wast_t alt2 = wa_opd(alt, 1);
+			wast_iterator_t wi1, wi2;
+			wi2 = wi_new(wa_dump(alt2));
+			wa_dump(ast);
+			status = unproduce(wi2, ast, &next);
+			if(status) {
+				if(next) {
+					wi_next(ast);
+					next=0;
+				}
+				wa_bl = wa_opd(alt1, 0);
+				wi1 = wi_new(alt1);
+				while(unproduce(wi1, ast, &next)) {
+					if(next) {
+						wi_next(ast);
+						next=0;
+					}
+					wi_delete(wi1);
+					wi1 = wi_new(alt1);
+				}
+				wi_delete(wi1);
+				wa_bl = NULL;
+			}
+
+			/*printf("TODO : handle transient leftrecs properly.\n");*/
+			/*status = 0;*/
+		} else {
+			wi_down(expr);
+			wi_next(expr);
+			status = unproduce(expr, ast, &next);
+		}
+	} else if(!strcmp(wi_op(expr), "OperatorRule")) {
+		status = !strcmp(wi_string(expr, 0), wi_op(ast));
+		if(status) {
+			printf("operator match (%s).\n", wi_op(ast));
+			wi_down(ast);
+			wi_down(expr);
+			wi_next(expr);
+			status = unproduce(expr, ast, &next);
+			wi_up(ast);
+			if(!next) {
+				wi_next(ast);
+			}
+		} else {
+			printf("operator mismatch (%s, %s).\n", wi_string(expr,0), wi_op(ast));
+		}
+	} else {
+		printf("Not supposed to handle '%s' rule type.\n", wi_op(expr));
+		status = 1/0;
+		status = 0;
+	}
+	if(status) {
+		VALIDATE;
+	} else {
+		RESTORE;
+	}
+	return status;
+}
+
+
+int unproduce(wast_iterator_t expr, wast_iterator_t ast, int* next) {
+	static int _rec = 0;
+	int status=0;
+	ast_node_t a;
+	char* s;
+	*next = 0;
+	printf(" - - unproduce - - %s %p\n", s=tinyap_serialize_to_string(a=make_ast(wi_node(expr))), wi_node(ast));
+	free(s);
+	if(wi_node(expr)==NULL) {
+		return 0;
+	}
+	if(wi_node(expr)==wa_bl) {
+		return 1;
+	}
+	if(!strcmp(wi_op(expr),		"T")) {
+		_buf_append(wi_string(expr,0));
+		return 1;
+	}
+	BACKUP;
+	_rec += 1;
+	if(!strcmp(wi_op(expr),		"Rep0N")) {
+		/*printf("Rep0N\n");*/
+		_rec += 1;
+		wi_down(expr);
+		while(unproduce(expr, ast, next)) {
+			if(*next) {
+				wi_next(ast);
+			}
+			*next=0;
+		}
+		wi_up(expr);
+		_rec -= 1;
+		/*wi_next(expr);*/
+		status = 1;
+	} else if(!strcmp(wi_op(expr),	"Rep01")) {
+		wi_down(expr);
+		unproduce(expr, ast, next);
+		wi_up(expr);
+		status = 1;
+	} else if(!strcmp(wi_op(expr),	"Seq")) {
+		wi_down(expr);
+		while(unproduce(expr, ast, next) && wi_has_next(expr)) {
+			wi_next(expr);
+			if(*next) {
+				wi_next(ast);
+				*next=0;
+			}
+			/*printf("seq now on %p (%s)\n", wi_node(expr), wi_node(expr)?wi_op(expr):"null");*/
+		}
+		printf("after seq : %p %i\n", wi_node(expr), wi_has_next(expr));
+		/*status = !wi_node(expr);*/
+		status = !wi_has_next(expr);
+		wi_up(expr);
+	} else if(!strcmp(wi_op(expr),	"Alt")) {
+		wi_down(expr);
+		while( (!(status = unproduce(expr, ast, next))) && wi_has_next(expr) ) {
+			wi_next(expr);
+		}
+		wi_up(expr);
+	} else if(!strcmp(wi_op(expr),	"epsilon")) {
+		status = 1;
+	} else if(!strcmp(wi_op(expr),	"EOF")) {
+		status = !wi_has_next(ast);
+	} else if(!strcmp(wi_op(expr),	"NT")) {
+		wi_backup(expr);
+		wig_goto_rule(expr, (char*) wi_string(expr, 0));
+		status = unproduce_rule(expr, ast);
+		wi_restore(expr);
+
+	}else if(wi_node(ast)!=NULL) {
+
+		/*printf("ON g:%s a:%s [%i]\n", wi_op(expr), wi_op(ast), _rec);*/
+		
+		if(!strcmp(wi_op(expr),	"RE")) {
+			if(wi_on_leaf(ast)) {
+				_buf_append(wi_op(ast));
+				status = 1;
+				/*wi_next(ast);*/
+				*next = 1;
+			}
+		} else if(!strcmp(wi_op(expr),	"RPL")) {
+			/* FIXME : can't undo a replacement from regexp match */
+			if(wi_on_leaf(ast)) {
+				_buf_append(wi_op(ast));
+				status = 1;
+				/*wi_next(ast);*/
+				*next = 1;
+			}
+		} else if(!strcmp(wi_op(expr),	"Prefix")) {
+			/* TODO */
+			printf("TODO : Prefix\n");
+			status = 0;
+		} else if(!strcmp(wi_op(expr),	"Postfix")) {
+			/* TODO */
+			printf("TODO : Postfix\n");
+			status = 0;
+		} else if(!strcmp(wi_op(expr),	"Rep1N")) {
+			status = unproduce(wi_down(expr), ast, next);
+			/*printf("Rep1N status = %i\n", status);*/
+			if(status) {
+				if(*next) {
+					wi_next(ast);
+					*next=0;
+				}
+				while(unproduce(expr, ast, next)) {
+					if(*next) {
+						wi_next(ast);
+						*next=0;
+					}
+				}
+			}
+			wi_up(expr);
+		}
+	}
+	if(status) {
+		VALIDATE;
+		printf("SUCCESS [%i]\n", _rec);
+		if(*next) {
+			wi_next(ast);
+			*next=0;
+		}
+	} else {
+		RESTORE;
+		printf("FAILURE [%i]\n", _rec);
+	}
+	_rec -= 1;
+	return status;
+}
+
+
+
+const char* tinyap_unparse(wast_t grammar, wast_t ast) {
+	char* ret;
+	wast_iterator_t
+		ig = tinyap_wi_new(grammar),
+		ia = tinyap_wi_new(ast);
+	_buf_init();
+	wig_goto_rule(ig, "_start");
+	/*wi_backup(ig);*/
+	/*wi_backup(ia);*/
+	/*wi_down(ia);*/
+	if(unproduce_rule(ig, ia)) {
+		ret = strndup(_buf, _buf_sz);
+	} else {
+		ret = NULL;
+	}
+	tinyap_wi_delete(ig);
+	tinyap_wi_delete(ia);
+	_buf_deinit();
+	return ret;
+}
+
