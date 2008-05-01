@@ -24,12 +24,17 @@ char* unrepl(const char* re, const char* repl, const char* token) {
 
 	n_sub = 0;
 
+	/* clear everything */
+	memset(sub_re_str, 0, 10240);
+	memset(sub_str, 0, 10240);
+	memset(sub_ofs, 0, 20*sizeof(size_t));
+
 	/* init group offsets */
 
 	sub_ofs[0][0] = p_re-re;
 	sub_ofs[0][1] = strlen(re)-1;
 
-	printf("got regex \"%s\" replacement \"%s\" token \"%s\"\n", re, repl, token);
+	/*printf("got regex \"%s\" replacement \"%s\" token \"%s\"\n", re, repl, token);*/
 
 	while(*p_re) {
 		if(*p_re=='(') {
@@ -51,7 +56,6 @@ char* unrepl(const char* re, const char* repl, const char* token) {
 	for(base=1;base<n_sub;base+=1) {
 		strncpy(sub_re_str[base], re+sub_ofs[base][0], sub_ofs[base][1]-sub_ofs[base][2]+1);
 		sub_re[base] = token_regcomp(sub_re_str[base]);
-		sub_str[base][0] = 0;
 	}
 
 	/* parse repl string */
@@ -91,6 +95,7 @@ char* unrepl(const char* re, const char* repl, const char* token) {
 			p_re += 1;
 		}
 	}
+	*p_repl = 0;
 
 	return buffy;
 }
