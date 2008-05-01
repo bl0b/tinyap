@@ -121,6 +121,7 @@ wast_t make_wast(ast_node_t a) {
 		ret = wa_new(tinyap_node_get_operator(a),tinyap_node_get_row(a), tinyap_node_get_col(a));
 		max=tinyap_node_get_operand_count(a);
 		for(i=0;i<max;i+=1) {
+			/* FIXME : quadratic complexity in the AST size instead of linear complexity, it suxx. recursion over cdr(a) would perform better. */
 			wa_add(ret,make_wast(tinyap_node_get_operand(a,i)));
 		}
 	}
@@ -138,9 +139,9 @@ ast_node_t make_ast(wast_t t) {
 		return newAtom(wa_op(t),0,0);
 	}
 	for(i=wa_opd_count(t)-1;i>=0;i-=1) {
-		ret = newPair( make_ast(wa_opd(t,i)), ret,0,0 );
+		ret = newPair( make_ast(wa_opd(t,i)), ret, wa_row(wa_opd(t,i)), wa_col(wa_opd(t,i)) );
 	}
-	ret = newPair( newAtom(wa_op(t),0,0), ret, 0,0);
+	ret = newPair( newAtom(wa_op(t), wa_row(t), wa_col(t)), ret, wa_row(t), wa_col(t));
 	return ret;
 }
 
@@ -163,6 +164,13 @@ wast_iterator_t tinyap_wi_new(const wast_t root) {
 	ret->root = root;
 	ret->pstack = new_stack();
 	ret->cstack = new_stack();
+	return ret;
+}
+
+wast_iterator_t tinyap_wi_dup(const wast_iterator_t src) {
+	wast_iterator_t ret = wi_new(wi_root(src));
+	ret->child = src->child;
+	ret->parent = src->parent;
 	return ret;
 }
 
@@ -190,8 +198,12 @@ wast_t tinyap_wi_node(wast_iterator_t wi) {
 	if(wi->parent) {
 		return wa_opd(wi->parent, wi->child);
 	} else {
-		return wi->root;
+		return wi->child?NULL:wi->root;
 	}
+}
+
+wast_t tinyap_wi_root(wast_iterator_t wi) {
+	return wi->root;
 }
 
 wast_iterator_t tinyap_wi_up(wast_iterator_t wi) {

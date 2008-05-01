@@ -29,16 +29,17 @@
 const struct {
 	char escaped;
 	char unescaped;
+	int  lisp;
 } escape_characters[] = {
-	{'n','\n'},
-	{'t','\t'},
-	{'r','\r'},
-	{'\\','\\'},
-	{'(','('},
-	{')',')'},
-	{'"','"'},
-	{' ',' '},
-	{0,0}
+	{'n','\n',0},
+	{'t','\t',0},
+	{'r','\r',0},
+	{'\\','\\',1},
+	{'(','(',1},
+	{')',')',1},
+	{'"','"',1},
+	{' ',' ',1},
+	{0,0,0}
 };
 
 
@@ -72,6 +73,7 @@ void unescape_chr(char**src,char**dest) {
 
 
 
+static inside_lisp = 0;
 
 
 /* escape first character in *src, put it in *dest, and advance pointers */
@@ -89,7 +91,9 @@ void escape_chr(char**src,int(*func)(int,void*),void*param) {
 		i+=1;
 	}
 
-	if(escape_characters[i].unescaped!=0) {
+	#define lisp_ok(_ec_) ( ((_ec_).lisp & inside_lisp) == (_ec_).lisp )
+
+	if(escape_characters[i].unescaped!=0 && lisp_ok(escape_characters[i])) {
 		/* have to escape character, two bytes will be pushed onto *dest */
 		func('\\',param);
 		func(escape_characters[i].escaped,param);
@@ -195,11 +199,13 @@ ast_node_t  _qlp_elem(token_context_t*t) {
 
 
 ast_node_t  ast_unserialize(const char*input) {
+	ast_node_t ret;
 	token_context_t toktext;/*=token_context_new(input,"[\t\n\r ]*",NULL,0);*/
 	toktext.ofs=0;
 	toktext.source=(char*)input;
-	return _qlp_elem(&toktext);	/* symbol is anything but parenthesis or whitespace */
+	ret = _qlp_elem(&toktext);	/* symbol is anything but parenthesis or whitespace */
 
+	return ret;
 }
 
 
@@ -249,6 +255,7 @@ void ast_ser_list(const ast_node_t ast,int(*func)(int,void*),void*param) {
 void ast_serialize(const ast_node_t ast,int(*func)(int,void*),void*param) {
 	char*srcptr;
 	/* if ast is nil, output '()' */
+	inside_lisp = 1;
 	if(!ast) {
 		func('(',param);
 		func(')',param);
@@ -266,6 +273,7 @@ void ast_serialize(const ast_node_t ast,int(*func)(int,void*),void*param) {
 /*		*output+=strlen(getAtom(ast));*/
 	}
 	func('\0',param);
+	inside_lisp = 0;
 }
 
 

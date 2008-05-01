@@ -17,6 +17,7 @@
  */
 #include "config.h"
 #include "tinyap.h"
+#include "tinyape.h"
 //#include "bootstrap.h"
 //#include "tokenizer.h"
 
@@ -93,8 +94,20 @@ int do_args(int argc,char*argv[]) {
 				fprintf(stderr,"parse error at line %i, column %i\n%s\n",tinyap_get_error_row(parser),tinyap_get_error_col(parser),tinyap_get_error(parser));
 			}
 		} else if(cmp_param(0,"--print-grammar","-pg")) {
-			print_rules(tinyap_get_grammar_ast(parser));
-			fputc('\n',stdout);
+			/*print_rules(tinyap_get_grammar_ast(parser));*/
+			/*fputc('\n',stdout);*/
+
+			wast_t grammar;
+			const char* up;
+
+			grammar = make_wast(tinyap_list_get_element(tinyap_get_grammar_ast(parser), 0));
+			up = tinyap_unparse(grammar, grammar);
+			if(up) {
+				fputs(up, stdout);
+			}
+			free((char*)up);
+			wa_del(grammar);
+
 		} else if(cmp_param(0,"--version","-v")) {
 			printf(TINYAP_ABOUT);
 			printf("version " TINYAP_VERSION "\n" );

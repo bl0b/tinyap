@@ -259,6 +259,21 @@ extern "C" {
 	wast_iterator_t	tinyap_wi_validate(wast_iterator_t);
 	#define wi_validate tinyap_wi_validate
 
+	/*! \brief get iterator's root.
+	 */
+	wast_t		tinyap_wi_root(wast_iterator_t);
+	#define wi_root tinyap_wi_root
+
+	/*! \brief get iterator's current parent.
+	 */
+	wast_t		tinyap_wi_parent(wast_iterator_t);
+	#define wi_root tinyap_wi_root
+
+	/*! \brief predicate "iterator is on root", i.e. "NOT (node has a parent)"
+	 */
+	wast_iterator_t	tinyap_wi_dup(const wast_iterator_t);
+	#define wi_dup tinyap_wi_dup
+
 	/*! \brief predicate "iterator is on root", i.e. "NOT (node has a parent)"
 	 */
 	int		tinyap_wi_on_root(wast_iterator_t);
@@ -273,6 +288,10 @@ extern "C" {
 	 */
 	int		tinyap_wi_has_next(wast_iterator_t);
 	#define wi_has_next tinyap_wi_has_next
+
+	/*! \brief Render the text buffer that generated the AST \c ast when parsed using \c grammar.
+	 */
+	const char*	tinyap_unparse(wast_t grammar, wast_t ast);
 
 	/*! \brief walk the current output using this named pilot with this init data.
 	 * \return whatever the pilot evaluated to

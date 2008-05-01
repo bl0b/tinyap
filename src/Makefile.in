@@ -59,7 +59,7 @@ libtinyap_la_LIBADD =
 am_libtinyap_la_OBJECTS = ast.lo tokenizer.lo ape_prettyprint.lo \
 	node_cache.lo pilot_cache.lo pilot_manager.lo stack.lo \
 	tinyap.lo walkableast.lo walker.lo serialize.lo bootstrap.lo \
-	unparser.lo lookup3.lo
+	unparser.lo unrepl.lo lookup3.lo
 libtinyap_la_OBJECTS = $(am_libtinyap_la_OBJECTS)
 binPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
 PROGRAMS = $(bin_PROGRAMS)
@@ -200,7 +200,7 @@ lib_LTLIBRARIES = libtinyap.la
 tinyap_SOURCES = main.c
 tinyap_LDADD = -ldl libtinyap.la
 tinyap_LDFLAGS = -Wl,--export-dynamic
-libtinyap_la_SOURCES = ast.c tokenizer.c ape_prettyprint.c node_cache.c pilot_cache.c pilot_manager.c stack.c tinyap.c walkableast.c walker.c serialize.c bootstrap.c unparser.c 3rd_party/lookup3.c
+libtinyap_la_SOURCES = ast.c tokenizer.c ape_prettyprint.c node_cache.c pilot_cache.c pilot_manager.c stack.c tinyap.c walkableast.c walker.c serialize.c bootstrap.c unparser.c unrepl.c 3rd_party/lookup3.c
 all: all-am
 
 .SUFFIXES:
@@ -314,6 +314,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tinyap.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tokenizer.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/unparser.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/unrepl.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/walkableast.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/walker.Plo@am__quote@
 
