@@ -7,7 +7,7 @@
 #include "tinyape.h"
 
 static char sub_re_str[10][1024];
-static regex_t* sub_re[10];
+static regex_t* sub_re[10] = { NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL };
 static char sub_str[10][1024];
 static size_t sub_ofs[10][2];
 static size_t n_sub;
@@ -22,7 +22,7 @@ char* unrepl(const char* re, const char* repl, const char* token) {
 	char* p_repl = (char*) repl;
 	char* p_tok = (char*) token;
 
-	n_sub = 0;
+	n_sub = 1;
 
 	/* clear everything */
 	memset(sub_re_str, 0, 10240);
@@ -33,6 +33,14 @@ char* unrepl(const char* re, const char* repl, const char* token) {
 
 	sub_ofs[0][0] = p_re-re;
 	sub_ofs[0][1] = strlen(re)-1;
+
+	/*for(base=0;base<10;base+=1) {*/
+		/*if(sub_re[base]) {*/
+			/*regfree(sub_re[base]);*/
+			/*sub_re[base]=NULL;*/
+		/*}*/
+	/*}*/
+
 
 	/*printf("got regex \"%s\" replacement \"%s\" token \"%s\"\n", re, repl, token);*/
 
@@ -53,9 +61,12 @@ char* unrepl(const char* re, const char* repl, const char* token) {
 
 	/* init sub regex'es */
 
-	for(base=1;base<n_sub;base+=1) {
-		strncpy(sub_re_str[base], re+sub_ofs[base][0], sub_ofs[base][1]-sub_ofs[base][2]+1);
+	for(base=1;base<=n_sub;base+=1) {
+		strncpy(sub_re_str[base], re+sub_ofs[base][0], sub_ofs[base][1]-sub_ofs[base][0]);
 		sub_re[base] = token_regcomp(sub_re_str[base]);
+		if(sub_re[base] == NULL) {
+			printf("regex compilation failed : %s\n", sub_re_str[base]);
+		}
 	}
 
 	/* parse repl string */
@@ -63,12 +74,15 @@ char* unrepl(const char* re, const char* repl, const char* token) {
 	while(*p_repl&&*p_tok) {
 		if(*p_repl=='\\') {
 			regmatch_t match;
+			match.rm_so=match.rm_eo=0;
 			p_repl += 1;
 			base = *p_repl - '0';
 			p_repl += 1;
+			/*printf("exec re /%s/ against %s", sub_re_str[base], p_tok);*/
 			if(regexec(sub_re[base], p_tok, 1, &match, 0)!=REG_NOMATCH && match.rm_so==0) {
 				strncpy(sub_str[base], p_tok, match.rm_eo+1);
 				p_tok += match.rm_eo+1;
+				/*printf("matched ! end ofs = %u\n", match.rm_eo);*/
 			}
 		} else {
 			assert(*p_repl==*p_tok);
@@ -96,6 +110,14 @@ char* unrepl(const char* re, const char* repl, const char* token) {
 		}
 	}
 	*p_repl = 0;
+
+	for(base=1;base<=n_sub;base+=1) {
+		if(sub_re[base]) {
+			regfree(sub_re[base]);
+			free(sub_re[base]);
+			sub_re[base]=NULL;
+		}
+	}
 
 	return buffy;
 }

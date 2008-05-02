@@ -28,6 +28,13 @@ static tinyap_stack_t _buf_st=NULL;
 static size_t _buf_sz=0;
 static size_t _buf_res=0;
 
+static char
+	* _buf_space = " ",
+	* _buf_newline = "\n",
+	* _buf_indent = "\t";
+
+size_t _buf_indent_lvl = 0;
+
 #ifndef strndup
 static char* strndup(const char* src, size_t n) {
 	size_t slen = strlen(src);
@@ -39,6 +46,42 @@ static char* strndup(const char* src, size_t n) {
 }
 
 #endif
+
+static int _buf_endswith(char* str) {
+	size_t slen = strlen(str);
+	if(slen>_buf_sz) {
+		return 0;
+	}
+	return !strcmp(str, _buf+_buf_sz-slen);
+}
+
+static void _buf_append(const char* s);
+
+static void _buf_append_space() {
+	if(!_buf_endswith(_buf_space)) {
+		_buf_append(_buf_space);
+	}
+}
+
+static void _buf_append_newline() {
+	int i;
+	_buf_append(_buf_newline);
+	for(i=0;i<_buf_indent_lvl;i+=1) {
+		_buf_append(_buf_indent);
+	}
+}
+
+static void _buf_do_indent() {
+	_buf_indent_lvl += 1;
+	_buf_append(_buf_indent);
+}
+
+static void _buf_do_dedent() {
+	_buf_indent_lvl -= 1;
+	if(_buf_endswith(_buf_indent)) {
+		_buf_sz -= strlen(_buf_indent);
+	}
+}
 
 static void _buf_deinit() {
 	if(_buf) {
@@ -60,13 +103,14 @@ static void _buf_init() {
 
 static void _buf_realloc() {
 	char * old_buf = _buf, * new_buf;
-	while(_buf_sz > _buf_res) {
+	while((_buf_sz+1) >= _buf_res) {
 		_buf_res += _BIN_SZ;
 	}
 	new_buf = (char*) realloc(_buf, _buf_res);
-	if(new_buf != old_buf) {
-		memset(_buf, _buf_sz, _buf_res-_buf_sz);
-	}
+	/*if(new_buf != old_buf) {*/
+		/*strcpy(new_buf, old_buf);*/
+		_buf = new_buf;
+	/*}*/
 }
 
 static void _buf_backup() {
@@ -85,7 +129,7 @@ static void _buf_append(const char* s) {
 	size_t slen = strlen(s);
 	size_t bsz  = _buf_sz;
 	_buf_sz += slen;
-	if(_buf_sz > _buf_res) {
+	if( (_buf_sz+1) >= _buf_res) {
 		_buf_realloc();
 	}
 	strcpy(_buf+bsz, s);
@@ -112,7 +156,9 @@ wast_iterator_t wig_goto_rule(wast_iterator_t grammar, char* name) {
 	while(match==0 && tinyap_wi_has_next(grammar)) {
 		tinyap_wi_next(grammar);
 	/*printf("rule name match ? %s / %s (%s)\n", wi_string(grammar, 0), name, wi_has_next(grammar)?"has next":"is last");*/
-		match=!strcmp(wi_string(grammar, 0), name);
+		if(strcmp(wi_op(grammar), "_comment")) {
+			match=!strcmp(wi_string(grammar, 0), name);
+		}
 	}
 	if(match) {
 		wast_iterator_t ret = wi_dup(grammar);
@@ -176,11 +222,12 @@ wast_t wa_bl_ast = NULL;
 int unproduce_rule(wast_iterator_t grammar, wast_iterator_t expr, wast_iterator_t ast) {
 	int status;
 	/*int next=0;*/
-	BACKUP;
 	/*if(wi_node(ast)==NULL) {*/
 		/*return 0;*/
 	/*}*/
 	/*printf("ON rule %s\n", wi_op(expr));*/
+	BACKUP;
+
 	if(!strcmp(wi_op(expr), "TransientRule")) {
 		if(wa_check_lefty(wi_node(expr))) {
 			/*printf("entering transient L-rec rule (%s).\n", wi_string(expr, 0));*/
@@ -250,6 +297,8 @@ int _str_escape_hlpr(int c, void* context) {
 	return 0;
 }
 
+void escape_chr(char**src,int(*func)(int,void*),void*param);
+
 char* str_escape(char* str) {
 	static char buffy[4096];
 	char* ptr = buffy;
@@ -271,11 +320,7 @@ int unproduce(wast_iterator_t grammar, wast_iterator_t expr, wast_iterator_t ast
 	int next=0;
 	/*ast_node_t a;*/
 	/**next = 0;*/
-	/*printf("\n[%i] - - unproduce - - expr = ", _rec);*/
-	/*wa_dump(wi_node(expr));*/
-	/*printf(" ast = ");*/
-	/*wa_dump(wi_node(ast));*/
-	/*printf("\n");*/
+	/*printf("\n[%i] - - unproduce - - expr = ", _rec); wa_dump(wi_node(expr)); printf(" ast = "); wa_dump(wi_node(ast)); printf("\n");*/
 	if(wi_node(expr)==NULL) {
 		return 0;
 	}
@@ -285,6 +330,23 @@ int unproduce(wast_iterator_t grammar, wast_iterator_t expr, wast_iterator_t ast
 	if(wi_node(expr)==wa_bl_expr) {
 		return 1;
 	}
+	/*if(wi_node(ast) && !strcmp(wi_op(ast), "_comment")) {*/
+		/*wast_iterator_t wic = wig_goto_rule(grammar, "_comment");*/
+		/*wi_down(wic);*/
+		/*wi_next(wic);*/
+		/*do {*/
+			/*printf("comment !\n");*/
+			/*wi_backup(wic);*/
+			/*wi_down(ast);*/
+			/*unproduce(grammar, wic, ast);*/
+			/*printf("_buf => %s --\n", _buf);*/
+			/*wi_up(ast);*/
+			/*wi_next(ast);*/
+			/*wi_restore(wic);*/
+		/*} while(wi_node(ast) && !strcmp(wi_op(ast), "_comment"));*/
+		/*wi_delete(wic);*/
+		/*printf("AST now : "); wa_dump(wi_node(ast)); printf("\n");*/
+	/*}*/
 	if(!strcmp(wi_op(expr),		"T")) {
 		_buf_append(wi_string(expr,0));
 		return 1;
@@ -328,13 +390,28 @@ int unproduce(wast_iterator_t grammar, wast_iterator_t expr, wast_iterator_t ast
 		/*printf("\n");*/
 		status = !wi_node(ast);
 	} else if(!strcmp(wi_op(expr),	"NT")) {
-		wast_iterator_t nt_expr = wig_goto_rule(grammar, (char*) wi_string(expr, 0));
-		status = unproduce_rule(grammar, nt_expr, ast);
-		wi_delete(nt_expr);
+		/* first check for special rules */
+		if(!strcmp(wi_string(expr, 0), "SPACE")) {
+			_buf_append_space();
+			status = 1;
+		} else if(!strcmp(wi_string(expr, 0), "NEWLINE")) {
+			_buf_append_newline();
+			status = 1;
+		} else if(!strcmp(wi_string(expr, 0), "INDENT")) {
+			_buf_do_indent();
+			status = 1;
+		} else if(!strcmp(wi_string(expr, 0), "DEDENT")) {
+			_buf_do_dedent();
+			status = 1;
+		} else {
+			wast_iterator_t nt_expr = wig_goto_rule(grammar, (char*) wi_string(expr, 0));
+			status = unproduce_rule(grammar, nt_expr, ast);
+			wi_delete(nt_expr);
+		}
 	} else if(wi_node(ast)!=NULL) {
 		if(!strcmp(wi_op(expr),	"RE")) {
 			if(wi_on_leaf(ast)) {
-				_buf_append(str_escape(wi_op(ast)));
+				_buf_append(str_escape((char*)wi_op(ast)));
 				status = 1;
 				next = 1;
 			}

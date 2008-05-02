@@ -57,7 +57,7 @@ void escape_ncpy(char**dest, char**src, int count) {
 }
 
 char* match2str_rpl(const char*repl, const char* match, int n_tok, regmatch_t* tokens) {
-	char rbuf[1024];
+	static char rbuf[16384];
 	char*dest=rbuf;
 	char*src=(char*)repl,*subsrc;
 
@@ -318,7 +318,7 @@ ast_node_t find_nterm(const ast_node_t ruleset,const char*ntermid) {
 	assert(!strcmp(Value(getCar((ast_node_t )root)),"Grammar"));	/* and be sure it made sense */
 //	dump_node(n);
 //	printf("\n");
-	while(n&&strcmp(node_tag(getCdr(getCar(n))),ntermid)) {	/* skip operator tag to fetch rule name */
+	while(n&&((!strcmp(node_tag(getCar(n)), "_comment"))||strcmp(node_tag(getCdr(getCar(n))),ntermid))) {	/* skip operator tag to fetch rule name */
 //		debug_writeln("skip rule ");
 //		dump_node(getCar(n));
 		n=getCdr(n);
@@ -832,17 +832,21 @@ ast_node_t token_produce_any(token_context_t*t,ast_node_t expr,int strip_T) {
 		break;
 	case OP_NT:
 		tag = Value(getCar(getCdr(expr)));
-		if(!node_cache_retrieve(t->cache,0,0,tag,&nt,&dummy)) {
-			nt=find_nterm(t->grammar,tag);
-			node_cache_add(t->cache,0,0,tag,nt,0);
-		}
-		
-		if(!nt) {
-			/* error, fail */
-			debug_write("FAIL-- couldn't find non-terminal `%s'\n", tag);
-			ret=NULL;
+		if(!(strcmp(tag, "SPACE") && strcmp(tag, "NEWLINE") && strcmp(tag, "INDENT") && strcmp(tag, "DEDENT"))) {
+			ret=newPair(newAtom("strip.me",t->pos_cache.row,t->pos_cache.col),NULL,t->pos_cache.row,t->pos_cache.col);
 		} else {
-			ret=token_produce_any(t,nt,0);
+			if(!node_cache_retrieve(t->cache,0,0,tag,&nt,&dummy)) {
+				nt=find_nterm(t->grammar,tag);
+				node_cache_add(t->cache,0,0,tag,nt,0);
+			}
+		
+			if(!nt) {
+				/* error, fail */
+				debug_write("FAIL-- couldn't find non-terminal `%s'\n", tag);
+				ret=NULL;
+			} else {
+				ret=token_produce_any(t,nt,0);
+			}
 		}
 		break;
 	case OP_EOF:
