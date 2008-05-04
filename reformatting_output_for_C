@@ -1,0 +1,1 @@
+tinyap -g short -i explicit.gram -p -o -|sed 's/(Tran\|(Oper\|(Comm/\n&/g' |sed -e 's/\\/\\\\/g'  -e 's/"/\\"/g' | sed 's/\(.*\) \?/"\1\\n"/g'

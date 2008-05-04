@@ -22,7 +22,7 @@
 #include "tokenizer.h"
 
 void ast_serialize(const ast_node_t ast,char**output);
-void unescape_chr(char**src,char**dest);
+void unescape_chr(char**src,char**dest, int context);
 void delete_node(ast_node_t n);
 ast_node_t copy_node(ast_node_t);
 
@@ -38,6 +38,8 @@ int dump_node(const ast_node_t n) {
 void update_pos_cache(token_context_t*t);
 
 
+#define _RE   2
+#define _T    4
 
 
 /* prepends a ^ to reg_expr and returns the compiled extended POSIX regexp */
@@ -49,10 +51,10 @@ regex_t*token_regcomp(const char*reg_expr) {
 	return initiatur;
 }
 
-void escape_ncpy(char**dest, char**src, int count) {
+void escape_ncpy(char**dest, char**src, int count, int context) {
 	const char* base=*src;
 	while( (*src-base) < count) {
-		unescape_chr(src,dest);
+		unescape_chr(src,dest, context);
 	}
 }
 
@@ -65,10 +67,10 @@ char* match2str_rpl(const char*repl, const char* match, int n_tok, regmatch_t* t
 		if(*src=='\\'&& *(src+1)>='0' && *(src+1)<='9') {
 			int n = *(src+1)-'0';
 			subsrc = (char*) (match+tokens[n].rm_so);
-			escape_ncpy(&dest,&subsrc, tokens[n].rm_eo-tokens[n].rm_so);
+			escape_ncpy(&dest,&subsrc, tokens[n].rm_eo-tokens[n].rm_so, _RE);
 			src+=2;
 		} else {
-			unescape_chr(&src,&dest);
+			unescape_chr(&src,&dest, -1);
 		}
 	}
 	*dest=0;
@@ -89,7 +91,7 @@ char*match2str(const char*src,const size_t start,const size_t end) {
 //		memset(buf,0,end-start);
 //	printf("              => \"%s\"\n",buf);
 		while(ofs<sz) {
-			unescape_chr(&rd, &wr);
+			unescape_chr(&rd, &wr, _RE);
 			ofs = rd-src-start;
 //		printf("match2str orig = \"%*.*s\"\n",(int)(end-start-ofs),(int)(end-start-ofs),rd);
 //		printf("              => \"%s\" %p %p %li\n",buf,rd,buf,ofs);
@@ -318,7 +320,7 @@ ast_node_t find_nterm(const ast_node_t ruleset,const char*ntermid) {
 	assert(!strcmp(Value(getCar((ast_node_t )root)),"Grammar"));	/* and be sure it made sense */
 //	dump_node(n);
 //	printf("\n");
-	while(n&&((!strcmp(node_tag(getCar(n)), "_comment"))||strcmp(node_tag(getCdr(getCar(n))),ntermid))) {	/* skip operator tag to fetch rule name */
+	while(n&&((!strcmp(node_tag(getCar(n)), "Comment"))||strcmp(node_tag(getCdr(getCar(n))),ntermid))) {	/* skip operator tag to fetch rule name */
 //		debug_writeln("skip rule ");
 //		dump_node(getCar(n));
 		n=getCdr(n);
@@ -832,7 +834,7 @@ ast_node_t token_produce_any(token_context_t*t,ast_node_t expr,int strip_T) {
 		break;
 	case OP_NT:
 		tag = Value(getCar(getCdr(expr)));
-		if(!(strcmp(tag, "SPACE") && strcmp(tag, "NEWLINE") && strcmp(tag, "INDENT") && strcmp(tag, "DEDENT"))) {
+		if(!(strcmp(tag, "Space") && strcmp(tag, "NewLine") && strcmp(tag, "Indent") && strcmp(tag, "Dedent"))) {
 			ret=newPair(newAtom("strip.me",t->pos_cache.row,t->pos_cache.col),NULL,t->pos_cache.row,t->pos_cache.col);
 		} else {
 			if(!node_cache_retrieve(t->cache,0,0,tag,&nt,&dummy)) {

@@ -35,6 +35,8 @@ static char
 
 size_t _buf_indent_lvl = 0;
 
+extern int unrepl_context;
+
 #ifndef strndup
 static char* strndup(const char* src, size_t n) {
 	size_t slen = strlen(src);
@@ -102,7 +104,7 @@ static void _buf_init() {
 }
 
 static void _buf_realloc() {
-	char * old_buf = _buf, * new_buf;
+	char /* * old_buf = _buf,*/ * new_buf;
 	while((_buf_sz+1) >= _buf_res) {
 		_buf_res += _BIN_SZ;
 	}
@@ -143,7 +145,11 @@ const char* wi_op(wast_iterator_t wi) {
 }
 
 const char* wi_string(wast_iterator_t wi, size_t n) {
-	return wa_op(wa_opd(tinyap_wi_node(wi), n));
+	const char* ret = wa_op(wa_opd(tinyap_wi_node(wi), n));
+	if(!ret) {
+		ret = "";
+	}
+	return ret;
 }
 
 
@@ -156,7 +162,7 @@ wast_iterator_t wig_goto_rule(wast_iterator_t grammar, char* name) {
 	while(match==0 && tinyap_wi_has_next(grammar)) {
 		tinyap_wi_next(grammar);
 	/*printf("rule name match ? %s / %s (%s)\n", wi_string(grammar, 0), name, wi_has_next(grammar)?"has next":"is last");*/
-		if(strcmp(wi_op(grammar), "_comment")) {
+		if(strcmp(wi_op(grammar), "Comment")) {
 			match=!strcmp(wi_string(grammar, 0), name);
 		}
 	}
@@ -297,13 +303,14 @@ int _str_escape_hlpr(int c, void* context) {
 	return 0;
 }
 
-void escape_chr(char**src,int(*func)(int,void*),void*param);
+void escape_chr(char**src,int(*func)(int,void*),void*param, int context);
 
 char* str_escape(char* str) {
 	static char buffy[4096];
 	char* ptr = buffy;
+	/*printf("str_escape(%s, %i)\n", str, unrepl_context);*/
 	while(*str) {
-		escape_chr(&str, _str_escape_hlpr, (void*)&ptr);
+		escape_chr(&str, _str_escape_hlpr, (void*)&ptr, unrepl_context);
 	}
 	_str_escape_hlpr(0, &ptr);
 	return buffy;
@@ -313,6 +320,8 @@ char* str_escape(char* str) {
 
 char* unrepl(const char* re, const char* repl, const char* token);
 
+#define _RE   2
+#define _T    4
 
 int unproduce(wast_iterator_t grammar, wast_iterator_t expr, wast_iterator_t ast/*, int* next*/) {
 	static int _rec = 0;
@@ -330,23 +339,6 @@ int unproduce(wast_iterator_t grammar, wast_iterator_t expr, wast_iterator_t ast
 	if(wi_node(expr)==wa_bl_expr) {
 		return 1;
 	}
-	/*if(wi_node(ast) && !strcmp(wi_op(ast), "_comment")) {*/
-		/*wast_iterator_t wic = wig_goto_rule(grammar, "_comment");*/
-		/*wi_down(wic);*/
-		/*wi_next(wic);*/
-		/*do {*/
-			/*printf("comment !\n");*/
-			/*wi_backup(wic);*/
-			/*wi_down(ast);*/
-			/*unproduce(grammar, wic, ast);*/
-			/*printf("_buf => %s --\n", _buf);*/
-			/*wi_up(ast);*/
-			/*wi_next(ast);*/
-			/*wi_restore(wic);*/
-		/*} while(wi_node(ast) && !strcmp(wi_op(ast), "_comment"));*/
-		/*wi_delete(wic);*/
-		/*printf("AST now : "); wa_dump(wi_node(ast)); printf("\n");*/
-	/*}*/
 	if(!strcmp(wi_op(expr),		"T")) {
 		_buf_append(wi_string(expr,0));
 		return 1;
@@ -391,22 +383,29 @@ int unproduce(wast_iterator_t grammar, wast_iterator_t expr, wast_iterator_t ast
 		status = !wi_node(ast);
 	} else if(!strcmp(wi_op(expr),	"NT")) {
 		/* first check for special rules */
-		if(!strcmp(wi_string(expr, 0), "SPACE")) {
+		if(!strcmp(wi_string(expr, 0), "Space")) {
 			_buf_append_space();
 			status = 1;
-		} else if(!strcmp(wi_string(expr, 0), "NEWLINE")) {
+		} else if(!strcmp(wi_string(expr, 0), "NewLine")) {
 			_buf_append_newline();
 			status = 1;
-		} else if(!strcmp(wi_string(expr, 0), "INDENT")) {
+		} else if(!strcmp(wi_string(expr, 0), "Indent")) {
 			_buf_do_indent();
 			status = 1;
-		} else if(!strcmp(wi_string(expr, 0), "DEDENT")) {
+		} else if(!strcmp(wi_string(expr, 0), "Dedent")) {
 			_buf_do_dedent();
 			status = 1;
 		} else {
+			int backup = unrepl_context;
+			if(!strcmp(wi_string(expr, 0), "T")) {
+				unrepl_context = _T;
+			} else if(!(strcmp(wi_string(expr, 0), "RE")&&strcmp(wi_string(expr, 0), "RPL"))) {
+				unrepl_context = _RE;
+			}
 			wast_iterator_t nt_expr = wig_goto_rule(grammar, (char*) wi_string(expr, 0));
 			status = unproduce_rule(grammar, nt_expr, ast);
 			wi_delete(nt_expr);
+			unrepl_context = backup;
 		}
 	} else if(wi_node(ast)!=NULL) {
 		if(!strcmp(wi_op(expr),	"RE")) {
@@ -419,7 +418,8 @@ int unproduce(wast_iterator_t grammar, wast_iterator_t expr, wast_iterator_t ast
 			/* FIXME : can't undo a replacement from regexp match */
 			if(wi_on_leaf(ast)) {
 				char* unrep = unrepl( wi_string(expr, 0), wi_string(expr, 1), wi_op(ast));
-				_buf_append(str_escape(unrep));
+				/*_buf_append(str_escape(unrep));*/
+				_buf_append(unrep);
 				status = 1;
 				next = 1;
 			}
@@ -494,6 +494,8 @@ const char* tinyap_unparse(wast_t grammar, wast_t ast) {
 		ia = tinyap_wi_new(ast);
 	_buf_init();
 	ig = wig_goto_rule(igrammar, "_start");
+	/*wa_dump(ast);*/
+	/*printf("\n");*/
 	if(unproduce_rule(igrammar, ig, ia)) {
 		ret = strndup(_buf, _buf_sz);
 	} else {

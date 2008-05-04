@@ -14,6 +14,12 @@ static size_t n_sub;
 
 static char buffy[4096];
 
+int unrepl_context = -1;
+
+#define _RE   2
+#define _T    4
+
+char* str_escape(char* str);
 
 char* unrepl(const char* re, const char* repl, const char* token) {
 	size_t base = 0;
@@ -28,6 +34,7 @@ char* unrepl(const char* re, const char* repl, const char* token) {
 	memset(sub_re_str, 0, 10240);
 	memset(sub_str, 0, 10240);
 	memset(sub_ofs, 0, 20*sizeof(size_t));
+	buffy[0] = 0;
 
 	/* init group offsets */
 
@@ -71,7 +78,7 @@ char* unrepl(const char* re, const char* repl, const char* token) {
 
 	/* parse repl string */
 
-	while(*p_repl&&*p_tok) {
+	while(*p_repl) {
 		if(*p_repl=='\\') {
 			regmatch_t match;
 			match.rm_so=match.rm_eo=0;
@@ -81,11 +88,14 @@ char* unrepl(const char* re, const char* repl, const char* token) {
 			/*printf("exec re /%s/ against %s", sub_re_str[base], p_tok);*/
 			if(regexec(sub_re[base], p_tok, 1, &match, 0)!=REG_NOMATCH && match.rm_so==0) {
 				strncpy(sub_str[base], p_tok, match.rm_eo+1);
+				/*printf("perform escaping of string \"%s\"\n", sub_str[base]);*/
+				strcpy(sub_str[base], str_escape(sub_str[base]));
 				p_tok += match.rm_eo+1;
 				/*printf("matched ! end ofs = %u\n", match.rm_eo);*/
 			}
 		} else {
 			assert(*p_repl==*p_tok);
+			/*printf("skip %c\n", *p_tok);*/
 			p_repl += 1;
 			p_tok += 1;
 		}
@@ -97,6 +107,7 @@ char* unrepl(const char* re, const char* repl, const char* token) {
 	p_repl = buffy;
 	p_re = (char*) re;
 	while(*p_re) {
+		/*printf("current buffy = %*s\n\ton %c\n", p_repl-buffy, buffy, *p_re);*/
 		if(*p_re == '(') {
 			size_t ofs = p_re - re;
 			for( base = 0 ; sub_ofs[base][0] != (ofs+1); base += 1 );
@@ -110,6 +121,7 @@ char* unrepl(const char* re, const char* repl, const char* token) {
 		}
 	}
 	*p_repl = 0;
+	/*printf("UNREPL : //%s/%s/ X %s -> %s\n", re, repl, token, buffy);*/
 
 	for(base=1;base<=n_sub;base+=1) {
 		if(sub_re[base]) {
@@ -118,6 +130,8 @@ char* unrepl(const char* re, const char* repl, const char* token) {
 			sub_re[base]=NULL;
 		}
 	}
+
+	/*printf("unreplaced to : %s\n", buffy);*/
 
 	return buffy;
 }

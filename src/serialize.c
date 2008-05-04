@@ -26,28 +26,51 @@
 
 #define MAX_SER_TOKEN_SIZE 16384	/* max 16k tokens */
 
+#define _LISP 1
+#define _RE   2
+#define _T    4
+
 const struct {
 	char escaped;
 	char unescaped;
-	int  lisp;
+	int  context;
 } escape_characters[] = {
-	{'n','\n',0},
-	{'t','\t',0},
-	{'r','\r',0},
-	{'/','/',0},
-	{'\\','\\',1},
-	{'(','(',1},
-	{')',')',1},
-	{'"','"',1},
-	{' ',' ',1},
+	{'n','\n', -1 },
+	{'t','\t', -1 },
+	{'r','\r', -1 },
+	{'\\','\\', -1 },
+	{'/','/', _RE },
+	{'"','"', _T },
+	{'(','(', _LISP },
+	{')',')', _LISP },
+	{' ',' ', _LISP },
 	{0,0,0}
 };
 
 
+const char* ctxt2str(int c) {
+	switch(c) {
+	case 0:	return "none";
+	case 1:	return "LISP";
+	case 2: return "RE";
+	case 3: return "LISP+RE";
+	case 4:	return "T";
+	case 5: return "LISP+T";
+	case 6: return "RE+T";
+	case 7: return "LISP+RE+T";
+	default:return "undef";
+	};
+}
+
+
+void dump_contexts(char c, int cc, int cg) {
+	printf("escape %c in contexts %s %s ? %s\n", c, ctxt2str(cc), ctxt2str(cg), (cc&cg)==cg?"OK.":"DON'T !");
+}
+
 /* unescape first character in *src, put it in *dest, and advance pointers */
-void unescape_chr(char**src,char**dest) {
+void unescape_chr(char**src,char**dest, int context) {
 	/* index to search for character escaping combination */
-	int i;
+	int i, c;
 	char ret=**src;
 	if(!ret) {
 		**dest=0;
@@ -60,7 +83,8 @@ void unescape_chr(char**src,char**dest) {
 		while(escape_characters[i].escaped!=0&&**src!=escape_characters[i].escaped) {
 			i+=1;
 		}
-		if(escape_characters[i].escaped) {
+		c = escape_characters[i].context;
+		if(escape_characters[i].escaped && (context&c)==context) {
 			/* if we do have an escaped character, swallow it before returning */
 //			debug_writeln("unescaping \\%c",escape_characters[i].escaped);
 			ret=escape_characters[i].unescaped;
@@ -74,13 +98,13 @@ void unescape_chr(char**src,char**dest) {
 
 
 
-static inside_lisp = 0;
+/*static inside_lisp = 0;*/
 
 
 /* escape first character in *src, put it in *dest, and advance pointers */
-void escape_chr(char**src,int(*func)(int,void*),void*param) {
+void escape_chr(char**src,int(*func)(int,void*),void*param, int context) {
 	/* index to search for character escaping combination */
-	int i=0;
+	int i=0, c;
 	char ret=**src;
 	if(!ret) {
 		func(0,param);
@@ -92,9 +116,12 @@ void escape_chr(char**src,int(*func)(int,void*),void*param) {
 		i+=1;
 	}
 
-	#define lisp_ok(_ec_) ( ((_ec_).lisp & inside_lisp) == (_ec_).lisp )
+	/*#define lisp_ok(_ec_) ( ((_ec_).lisp & inside_lisp) == (_ec_).lisp )*/
+	/*if(escape_characters[i].unescaped!=0 && lisp_ok(escape_characters[i])) {*/
 
-	if(escape_characters[i].unescaped!=0 && lisp_ok(escape_characters[i])) {
+	c = escape_characters[i].context;
+	if(escape_characters[i].unescaped!=0 && (context&c)==context) {
+		/*dump_contexts(escape_characters[i].unescaped, c, context);*/
 		/* have to escape character, two bytes will be pushed onto *dest */
 		func('\\',param);
 		func(escape_characters[i].escaped,param);
@@ -114,7 +141,7 @@ void escape_chr(char**src,int(*func)(int,void*),void*param) {
 
 
 
-char* usrlz_token(token_context_t*t,const char*whitespaces,const char*terminators) {
+char* usrlz_token(token_context_t*t,const char*whitespaces,const char*terminators, int context) {
 	static char buffer[MAX_SER_TOKEN_SIZE];
 
 	char*srcptr,*destptr=buffer;
@@ -141,7 +168,7 @@ char* usrlz_token(token_context_t*t,const char*whitespaces,const char*terminator
 		//debug_writeln("* %s PARENTHESIS",*srcptr=='('?"OPENING":"CLOSING"); /*)*/
 	} else {
 		do {
-			unescape_chr(&srcptr,&destptr);
+			unescape_chr(&srcptr,&destptr, context);
 			isTerminator=strchr(terminators,*srcptr)||strchr(whitespaces,*srcptr);
 		} while(*srcptr!=0 &&!isTerminator);
 		t->ofs+=(size_t)(srcptr-t->source-t->ofs);
@@ -181,7 +208,7 @@ ast_node_t  _qlp_elem(token_context_t*t) {
 
 	cur=t->source+t->ofs;
 
-	token=usrlz_token(t,"\n\r\t ","()");
+	token=usrlz_token(t,"\n\r\t ","()", _LISP);
 /*	t->ofs+=token_length;*/
 	if(token==OPEN_PAR) {
 		ret=_qlp_list(t);
@@ -256,7 +283,7 @@ void ast_ser_list(const ast_node_t ast,int(*func)(int,void*),void*param) {
 void ast_serialize(const ast_node_t ast,int(*func)(int,void*),void*param) {
 	char*srcptr;
 	/* if ast is nil, output '()' */
-	inside_lisp = 1;
+	/*inside_lisp = 1;*/
 	if(!ast) {
 		func('(',param);
 		func(')',param);
@@ -269,12 +296,12 @@ void ast_serialize(const ast_node_t ast,int(*func)(int,void*),void*param) {
 	} else if(isAtom(ast)) {
 		srcptr=getAtom(ast);
 		while(*srcptr!=0) {
-			escape_chr(&srcptr,func,param);
+			escape_chr(&srcptr,func,param, _LISP);
 		}
 /*		*output+=strlen(getAtom(ast));*/
 	}
 	func('\0',param);
-	inside_lisp = 0;
+	/*inside_lisp = 0;*/
 }
 
 
