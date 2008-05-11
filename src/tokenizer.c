@@ -556,7 +556,7 @@ ast_node_t token_produce_any(token_context_t*t,ast_node_t expr,int strip_T) {
 	col = t->pos_cache.col;
 
 	if(isAtom(expr)) {
-		if(!strcmp(Value(expr),"epsilon")) {
+		if(!strcmp(Value(expr),"Epsilon")) {
 			return newPair(newAtom("strip.me",0,0),NULL,row,col);
 		} else if(!strcmp(Value(expr),"EOF")) {
 			_filter_garbage(t);
@@ -613,7 +613,7 @@ ast_node_t token_produce_any(token_context_t*t,ast_node_t expr,int strip_T) {
 //		key = node_tag(Cdr(expr));
 	} else if(!strcmp(tag,"EOF")) {
 		typ = OP_EOF;
-	} else if(!strcmp(tag,"epsilon")) {
+	} else if(!strcmp(tag,"Epsilon")) {
 		return newPair(newAtom("strip.me",0,0),NULL,row,col);
 	}
 

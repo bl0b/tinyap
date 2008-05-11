@@ -374,7 +374,7 @@ int unproduce(wast_iterator_t grammar, wast_iterator_t expr, wast_iterator_t ast
 			wi_next(expr);
 		}
 		wi_up(expr);
-	} else if(!strcmp(wi_op(expr),	"epsilon")) {
+	} else if(!strcmp(wi_op(expr),	"Epsilon")) {
 		status = 1;
 	} else if(!strcmp(wi_op(expr),	"EOF")) {
 		/*printf("on EOF.... ast = ");*/

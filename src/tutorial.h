@@ -10,6 +10,7 @@
  *	\ref t_usag <br/>
  *	\ref t_srlz <br/>
  *	\ref t_walk <br/>
+ *	\ref t_uprs <br/>
  *	\ref t_api <br/>
  * </div>
  * \endsection
@@ -38,10 +39,10 @@
  * <p>First, get the source code.</p>
  * <ul>
  * <li><b>download a tarball</b> :
- * (version 1.3-0 in used the example below, you can download the latest at http://code.google.com/p/tinyap/downloads/list).
+ * (version 1.4-0 in used the example below, you can download the latest at http://code.google.com/p/tinyap/downloads/list).
  * \code
- * $ wget http://tinyap.googlecode.com/files/tinyap-1.3-0.tar.gz
- * $ tar xzf tinyap-1.3-0.tar.gz
+ * $ wget http://tinyap.googlecode.com/files/tinyap-1.4-0.tar.gz
+ * $ tar xzf tinyap-1.4-0.tar.gz
  * \endcode
  * <li><b>using SVN</b> :
  * \code
@@ -189,7 +190,67 @@ $ LD_LIBRARY_PATH=. tinyap -i math.gram -pag -i test2.math -p -w tinycalc \endve
  *
  * \endsection
  *
- * \section t_api VI. C API
+ * \section t_uprs VI. Unparsing
+ *
+ * With using a grammar and an AST, create back the text buffer that generated this AST when parsed with this grammar.
+ * 
+ * This can be useful for data (un)serialization, as well as syntax highlighting and source code reformatting.
+ *
+ * Tinyap recognizes the special pseudo-elements \c Space, \c Indent, \c Dedent, and \c NewLine. These elements are ignored
+ * when parsing text, and used to perform indentation when unparsing an AST. A special grammar rule indent may
+ * define the indentation string. Tinyap defaults to the tab character if this rule is not defined. Space is used
+ * to force a white space between similar tokens, or to ensure formatting. Many Space elements in a row will insert
+ * only one space.
+ *
+ * \note Note that the grammar used to unparse is not required to be the same grammar used for parsing. It is only required
+ * to define all the rules that match the AST labels.
+ *
+ * \note Since tinyap doesn't recover from parse errors yet, the unparsing feature can't be trivially used to format
+ * source code while it is edited. This should be handled in the next release (<b>Help wanted ! I haven't defined yet
+ * how to behave when encountering errors, since I'm busy by now it may take some time before tinyap is able to handle
+ * errors, unless people come to help with this feature</b>).
+ *
+ * Detailed pseudo-elements behaviour :
+ * - \c Space : insert one space into output text. More than one \c Space elements in a row will produce one single space character in the output text.
+ * - \c NewLine : insert a NewLine ('\n') character into output text, followed by as many \c _indent strings as the current indent level.
+ * - \c Indent : increment indent level and insert one \c _indent string into the output text.
+ * - \c Dedent : decrement indent level and remove the last \c _indent string from output text.
+ * 
+ * Quick output formatting how-to :
+ *
+ * It is quite straightforward to include formatting elements in a grammar, for instance to add color or typefaces to the
+ * output text, without interfering with parsing input text.
+ * 
+ * Using terminals and the \c ? operator, one can define optional elements that will be taken into account only at unparsing
+ * time. Example :
+ * \code
+ * 	_start = foobar.
+ * 	foobar ::= "<em>"? /(foo|bar|baz)+/ "</em>"?.
+ * \endcode
+ * The text "foobarbazfoo" will be recognized by this rule, because the \c ? operators allow the terminals to be omitted.
+ * The corresponding AST (foobar foobarbazfoo) will be unparsed to "<em>foobarbazfoo</em>" because unparsing always tries
+ * to produce optional elements.
+ * 
+ * Moreover, it is easy to define <b>configurable</b> formatters :
+ * \code
+ * 	_start = foobar.
+ * 	foo_prefix = ( "<em>" ).
+ * 	foo_suffix = ( "</em>" ).
+ * 	foobar ::= foo_prefix? /(foo|bar|baz)+/ foo_suffix?.
+ * \endcode
+ *
+ * Prefix and Suffix are defined as pluggable rules. Now, just plug a new formatting terminal in each rule. Unparsing will
+ * always use the last formatting terminal plugged in.
+ *
+ * For instance :
+ * - Unparsing (foobar foobarbazfoo) gives "<em>foobarbazfoo</em>".
+ * - Plug "PFX" into \c foo_prefix.
+ * - Plug "SFX" into \c foo_suffix.
+ * - Unparsing (foobar foobarbazfoo) now gives "PFXfoobarbazfooSFX".
+ *
+ * \endsection
+ *
+ * \section t_api VII. C API
  * 
  * \see tinyap.h
  * \see tinyape.h

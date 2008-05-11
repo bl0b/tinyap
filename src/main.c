@@ -35,7 +35,6 @@
 
 
 void ast_serialize(const ast_node_t ast,char**output);
-void print_rules(ast_node_t rs);
 
 ast_node_t grammar,ast;
 
@@ -150,108 +149,6 @@ extern volatile int _node_alloc_count;
 
 int main(int argc, char**argv) {
 	return do_args(argc,argv);
-}
-
-
-
-
-void print_rule_elem(ast_node_t e) {
-	const char*tag;
-	//ast_node_t t;
-
-	if(!e) {
-		return;
-	}
-
-	if(tinyap_node_is_string(e)) {
-		printf("[OUPS L'ATOME %s] ",tinyap_node_get_string(e));
-	}
-
-	assert(tinyap_node_is_list(e));
-
-	tag=tinyap_node_get_operator(e);
-
-	if(!strcmp(tag,"OperatorRule")) {
-		const char*id=tinyap_node_get_string(tinyap_node_get_operand(e,0));
-		
-		printf("%s ::= ",id);
-		print_rule_elem(tinyap_node_get_operand(e,1));
-		printf(".\n");
-	} else if(!strcmp(tag,"TransientRule")) {
-		const char*id=tinyap_node_get_string(tinyap_node_get_operand(e,0));
-		printf("%s = ",id);
-		print_rule_elem(tinyap_node_get_operand(e,1));
-		printf(".\n");
-	} else if(!strcmp(tag,"Postfix")) {
-		/*const char*id=tinyap_node_get_string(tinyap_node_get_operand(e,0));*/
-		printf("{");
-		print_rule_elem(tinyap_node_get_operand(e,0));
-		printf("} ");
-		print_rule_elem(tinyap_node_get_operand(e,1));
-	} else if(!strcmp(tag,"Prefix")) {
-		/*const char*id=tinyap_node_get_string(tinyap_node_get_operand(e,0));*/
-		printf("[");
-		print_rule_elem(tinyap_node_get_operand(e,0));
-		printf("] ");
-		print_rule_elem(tinyap_node_get_operand(e,1));
-	} else if(!strcmp(tag,"Seq")) {
-		int n=tinyap_node_get_operand_count(e);
-		int i;
-		for(i=0;i<n;i++) {
-			print_rule_elem(tinyap_node_get_operand(e,i));
-		}
-		/*printf(" ");*/
-	} else if(!strcmp(tag,"Alt")) {
-		int n=tinyap_node_get_operand_count(e);
-		int i;
-		printf("( ");
-		print_rule_elem(tinyap_node_get_operand(e,0));
-		for(i=1;i<n;i++) {
-			printf("| ");
-			print_rule_elem(tinyap_node_get_operand(e,i));
-		}
-		printf(") ");
-	} else if(!strcmp(tag,"RE")) {
-		const char*esc=tinyap_serialize_to_string(tinyap_node_get_operand(e,0));
-		printf("/%s/ ",esc);
-		free((char*)esc);
-	} else if(!strcmp(tag,"RPL")) {
-		const char*esc=tinyap_serialize_to_string(tinyap_node_get_operand(e,0));
-		const char*esc2=tinyap_serialize_to_string(tinyap_node_get_operand(e,1));
-		printf("//%s/%s/ ",esc,esc2);
-		free((char*)esc);
-		free((char*)esc2);
-	} else if(!strcmp(tag,"NT")) {
-		const char*esc=tinyap_node_get_string(tinyap_node_get_operand(e,0));
-		printf("<%s> ",esc);
-	} else if(!strcmp(tag,"T")) {
-		const char*esc=tinyap_serialize_to_string(tinyap_node_get_operand(e,0));
-		printf("\"%s\" ",esc);
-		free((char*)esc);
-	} else if(!strcmp(tag,"epsilon")) {
-		printf("epsilon ");
-	} else if(!strcmp(tag,"EOF")) {
-		printf("EOF ");
-	} else {
-		printf("[NOT IMPLEMENTED [%s]] ",tag);
-	}
-
-}
-
-
-void print_rules_sub(ast_node_t rs) {
-	int n=tinyap_node_get_operand_count(rs);
-	int i;
-	assert(!strcmp(tinyap_node_get_operator(rs),"Grammar"));
-	for(i=0;i<n;i++) {
-		print_rule_elem(tinyap_node_get_operand(rs,i));
-	}
-}
-
-void print_rules(ast_node_t rs) {
-	if(!rs) return;
-
-	print_rules_sub(tinyap_list_get_element(rs,0));
 }
 
 
