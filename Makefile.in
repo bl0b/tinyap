@@ -631,7 +631,7 @@ uninstall-am:
 tinyap.pc: tinyap.pc.in
 	./gen_pc.pl tinyap.pc.in "$(prefix)" "$(VERSION)"
 
-install: tinyap.pc
+install: install-recursive tinyap.pc
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:
