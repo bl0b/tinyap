@@ -37,7 +37,7 @@ AC_C_VOLATILE
 AC_FUNC_MALLOC
 AC_FUNC_REALLOC
 AC_FUNC_STAT
-AC_CHECK_FUNCS([atexit memset regcomp strchr strdup])
+AC_CHECK_FUNCS([atexit memset regcomp strchr strdup strndup])
 
 #AC_CONFIG_FILES([Java/Makefile
 #                 Makefile])
