@@ -37,7 +37,8 @@ size_t _buf_indent_lvl = 0;
 
 extern int unrepl_context;
 
-#ifndef strndup
+#ifndef _GNU_SOURCE
+
 static char* strndup(const char* src, size_t n) {
 	size_t slen = strlen(src);
 	size_t max = slen > n ? slen : n;

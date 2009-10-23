@@ -145,7 +145,7 @@ pilot_cache_elem_t new_pilot_cache_elem(const char* p_name) {
 	pilot_cache_elem_t ret;
 	void* handle;
 	void* sym;
-	char*tmp = (char*)malloc(strlen(p_name)+11);
+	char*tmp = (char*)malloc(strlen(p_name)+16);
 	sprintf(tmp,"libape_%s.so",p_name);
 //	strcpy(tmp,p_name);
 	/* try to open ape_[p_name].so */

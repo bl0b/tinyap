@@ -46,6 +46,10 @@ void* walk(wast_t a, pilot_t p) {
 
 	d = do_visit(p,a);
 
+	if(d==Error) {
+		fprintf(stderr, "Walking : Immediate error !\n");
+	}
+
 	while(d!=Done&&d!=Error) {
 //		printf(" ofs_stack : ");
 //		for(i=0;i<ofs_stack->sz;i++) {
@@ -54,12 +58,14 @@ void* walk(wast_t a, pilot_t p) {
 //		printf(" opd = %li\n",opd);
 		switch(d) {
 		case Down:
-//			puts("Down");
+/*			puts("Down");*/
+			fprintf(stderr, "Down\n");
 			push(stack,a);
 			push(ofs_stack,(void*)opd);
 			opd=-1;
 		case Next:
-//			puts("Next");
+/*			puts("Next");*/
+			fprintf(stderr, "Next\n");
 			opd += 1;
 			if(is_empty(stack)) {
 				d = Done;
@@ -71,7 +77,8 @@ void* walk(wast_t a, pilot_t p) {
 				//d=Up;
 			}
 		case Up:
-//			puts("Up");
+/*			puts("Up");*/
+			fprintf(stderr, "Up\n");
 			next=NULL;
 			/* either pop or go to father */
 			if(not_empty(stack)) {
@@ -82,6 +89,16 @@ void* walk(wast_t a, pilot_t p) {
 				//next = wa_father(a);
 				d = Done;
 			}
+			break;
+		case Done:
+			next=NULL;
+/*			puts("Done");*/
+			fprintf(stderr, "Done\n");
+			break;
+		case Error:
+			next=NULL;
+/*			puts("Error");*/
+			fprintf(stderr, "Error\n");
 			break;
 		default:;
 		};
