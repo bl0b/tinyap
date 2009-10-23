@@ -13,7 +13,9 @@ sub check_dir() {
 	return undef;
 }
 
-my $pkgconfigdir = &check_dir("/usr/local/lib/pkgconfig", "/usr/share/pkgconfig", "/usr/lib/pkgconfig") or die("Can't locate pkg-config install directory");
+my @env_pkgconfig=split(':',$ENV{'PKG_CONFIG_PATH'});
+
+my $pkgconfigdir = &check_dir(@env_pkgconfig, "/usr/local/lib/pkgconfig", "/usr/share/pkgconfig", "/usr/lib/pkgconfig") or die("Can't locate pkg-config install directory");
 
 open my $fd, "<$input";
 my $pcfile = "$pkgconfigdir/$input";
