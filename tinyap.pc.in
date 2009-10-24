@@ -2,6 +2,7 @@ prefix = #PREFIX#
 
 includedir=${prefix}/include/tinyap
 libdir=${prefix}/lib
+staticlink=${libdir}/libtinyap.a -Wl,-export-dynamic -pthread
 
 Name: Tinyap (This is not yet another parser)
 Description: An abstract LL parser (rather, a meta-parser) with facilities for visiting the AST resulting from a parsing.
@@ -10,4 +11,3 @@ URL: http://tinyap.googlecode.com/
 Libs: -L${libdir} -ltinyap -Wl,-export-dynamic -pthread
 Libs.private: -ldl
 Cflags: -I${includedir}
-staticlink: ${libdir}/libtinyap.a -Wl,-export-dynamic -pthread
