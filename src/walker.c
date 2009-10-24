@@ -59,13 +59,13 @@ void* walk(wast_t a, pilot_t p) {
 		switch(d) {
 		case Down:
 /*			puts("Down");*/
-			fprintf(stderr, "Down\n");
+			/*fprintf(stderr, "Down\n");*/
 			push(stack,a);
 			push(ofs_stack,(void*)opd);
 			opd=-1;
 		case Next:
 /*			puts("Next");*/
-			fprintf(stderr, "Next\n");
+			/*fprintf(stderr, "Next\n");*/
 			opd += 1;
 			if(is_empty(stack)) {
 				d = Done;
@@ -78,7 +78,7 @@ void* walk(wast_t a, pilot_t p) {
 			}
 		case Up:
 /*			puts("Up");*/
-			fprintf(stderr, "Up\n");
+			/*fprintf(stderr, "Up\n");*/
 			next=NULL;
 			/* either pop or go to father */
 			if(not_empty(stack)) {
@@ -93,12 +93,12 @@ void* walk(wast_t a, pilot_t p) {
 		case Done:
 			next=NULL;
 /*			puts("Done");*/
-			fprintf(stderr, "Done\n");
+			/*fprintf(stderr, "Done\n");*/
 			break;
 		case Error:
 			next=NULL;
 /*			puts("Error");*/
-			fprintf(stderr, "Error\n");
+			/*fprintf(stderr, "Error\n");*/
 			break;
 		default:;
 		};
