@@ -10,4 +10,4 @@ URL: http://tinyap.googlecode.com/
 Libs: -L${libdir} -ltinyap -Wl,-export-dynamic -pthread
 Libs.private: -ldl
 Cflags: -I${includedir}
-
+staticlink: ${libdir}/libtinyap.a -Wl,-export-dynamic -pthread
