@@ -20,6 +20,7 @@
 #include "tinyap.h"
 #include "ast.h"
 #include "tokenizer.h"
+#include "string_registry.h"
 
 #define _BIN_SZ 4096
 
@@ -162,8 +163,8 @@ wast_iterator_t wig_goto_rule(wast_iterator_t grammar, char* name) {
 	match=!strcmp(wi_string(grammar, 0), name);
 	while(match==0 && tinyap_wi_has_next(grammar)) {
 		tinyap_wi_next(grammar);
-	/*printf("rule name match ? %s / %s (%s)\n", wi_string(grammar, 0), name, wi_has_next(grammar)?"has next":"is last");*/
-		if(strcmp(wi_op(grammar), "Comment")) {
+		if(strcmp(wi_op(grammar), STR_Comment)) {
+			/*printf("rule name match ? %s / %s (%s)\n", wi_string(grammar, 0), name, wi_has_next(grammar)?"has next":"is last");*/
 			match=!strcmp(wi_string(grammar, 0), name);
 		}
 	}
@@ -346,13 +347,13 @@ int unproduce(wast_iterator_t grammar, wast_iterator_t expr, wast_iterator_t ast
 	}
 	BACKUP;
 	_rec += 1;
-	if(!strcmp(wi_op(expr),		"Rep0N")) {
+	if(!strcmp(wi_op(expr),	"Rep0N")) {
 		/*printf("Rep0N\n");*/
-		_rec += 1;
+		/*_rec += 1;*/
 		wi_down(expr);
 		while(unproduce(grammar, expr, ast));
 		wi_up(expr);
-		_rec -= 1;
+		/*_rec -= 1;*/
 		/*wi_next(expr);*/
 		status = 1;
 	} else if(!strcmp(wi_op(expr),	"Rep01")) {
@@ -362,20 +363,25 @@ int unproduce(wast_iterator_t grammar, wast_iterator_t expr, wast_iterator_t ast
 		status = 1;
 	} else if(!strcmp(wi_op(expr),	"Seq")) {
 		wi_down(expr);
-		while(unproduce(grammar, expr, ast) && wi_has_next(expr)) {
+		while((status=unproduce(grammar, expr, ast)) && wi_has_next(expr)) {
 			wi_next(expr);
 			/*printf("seq now on %p (%s)\n", wi_node(expr), wi_node(expr)?wi_op(expr):"null");*/
 		}
-		/*printf("after seq : %p %i\n", wi_node(expr), wi_has_next(expr));*/
-		status = !wi_has_next(expr);
+		/*printf("[%i] after seq : %p %i\n", _rec, wi_node(expr), wi_has_next(expr));*/
+		/*if(!status) {*/
+			/*printf("[%i] seq failed on ", _rec); wa_dump(wi_node(expr)); printf("\n");*/
+		/*}*/
+		/*status &= !wi_has_next(expr);*/
 		wi_up(expr);
 	} else if(!strcmp(wi_op(expr),	"Alt")) {
 		wi_down(expr);
 		while( (!(status = unproduce(grammar, expr, ast))) && wi_has_next(expr) ) {
 			wi_next(expr);
 		}
+		/*printf("[%i] after alt : status=%i\n", _rec, status);*/
 		wi_up(expr);
 	} else if(!strcmp(wi_op(expr),	"Epsilon")) {
+		/*printf("[%i] produced epsilon.\n", _rec);*/
 		status = 1;
 	} else if(!strcmp(wi_op(expr),	"EOF")) {
 		/*printf("on EOF.... ast = ");*/
@@ -474,6 +480,9 @@ int unproduce(wast_iterator_t grammar, wast_iterator_t expr, wast_iterator_t ast
 	if(status) {
 		VALIDATE;
 		/*printf("SUCCESS [%i]\n", _rec);*/
+		/*printf("---------- buffer so far ----------\n");*/
+		/*printf("%s\n", _buf);*/
+		/*printf("-----------------------------------\n");*/
 		if(next) {
 			wi_next(ast);
 		}
@@ -494,7 +503,7 @@ const char* tinyap_unparse(wast_t grammar, wast_t ast) {
 		ig,
 		ia = tinyap_wi_new(ast);
 	_buf_init();
-	ig = wig_goto_rule(igrammar, "_start");
+	ig = wig_goto_rule(igrammar, STR__start);
 	/*wa_dump(ast);*/
 	/*printf("\n");*/
 	if(unproduce_rule(igrammar, ig, ia)) {

@@ -20,6 +20,7 @@
 #include "ast.h"
 #include "tinyape.h"
 #include "stack.h"
+#include "string_registry.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -37,7 +38,8 @@ struct _walkable_ast_t {
 wast_t wa_new(const char* op, int l, int c) {
 	wast_t ret = (wast_t)malloc(sizeof(struct _walkable_ast_t));
 	memset(ret,0,sizeof(struct _walkable_ast_t));
-	ret->label = strdup(op);
+	/*ret->label = strdup(op);*/
+	ret->label = regstr(op);
 	ret->l = l;
 	ret->c = c;
 	return ret;
@@ -52,7 +54,8 @@ void wa_del(wast_t w) {
 		free(w->operands);
 	}
 	if(w->label) {
-		free((char*)w->label);
+		/*free((char*)w->label);*/
+		unregstr((char*)w->label);
 	}
 	free(w);
 }

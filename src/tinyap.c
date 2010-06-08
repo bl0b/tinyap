@@ -15,16 +15,21 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
+#define _GNU_SOURCE
+
 #include "config.h"
 #include "ast.h"
 #include "walker.h"
 #include "bootstrap.h"
 #include "tokenizer.h"
+#include "string_registry.h"
 #include "tinyap.h"
 
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <string.h>
+
+#include <stdio.h>
 
 struct _tinyap_t {
 	token_context_t*toktext;
@@ -60,6 +65,8 @@ void node_pool_term();
 
 void tinyap_terminate() {
 	node_pool_term();
+	deinit_strreg();
+	term_tinyap_alloc();
 }
 
 void tinyap_init() {
@@ -68,6 +75,8 @@ void tinyap_init() {
 		return;
 	}
 	is_init=1;
+	init_tinyap_alloc();
+	init_strreg();
 	node_pool_init();
 	atexit(tinyap_terminate);
 	init_pilot_manager();
@@ -99,7 +108,7 @@ void tinyap_delete(tinyap_t t) {
 tinyap_t tinyap_new() {
 	tinyap_t ret=(tinyap_t)malloc(sizeof(struct _tinyap_t));
 	memset(ret,0,sizeof(struct _tinyap_t));
-	tinyap_set_grammar(ret,"explicit");
+	tinyap_set_grammar(ret,"short");
 	init_pilot_manager();
 	return ret;
 }
@@ -162,8 +171,8 @@ const char* tinyap_get_grammar(tinyap_t t) {
 
 /* common to set_grammar and set_grammar_ast */
 void init_grammar(tinyap_t t) {
-	ast_node_t ws_node=find_nterm(t->grammar,"_whitespace");
-	t->start=find_nterm(t->grammar,"_start");
+	ast_node_t ws_node=find_nterm(t->grammar,STR__whitespace);
+	t->start=find_nterm(t->grammar,STR__start);
 	if(!t->start) {
 //		printf("Dump de la grammaire %s\n",tinyap_serialize_to_string(t->grammar));
 		t->start=getCar(getCdr(getCar(t->grammar)));
@@ -247,21 +256,31 @@ void tinyap_set_source_file(tinyap_t t,const char*fnam) {
 			} else {
 				f=fopen(t->source_file,"r");
 			}
-		} else {
-			f = stdin;
-		}
-	
-		if(t->source_buffer) {
-			free(t->source_buffer);
-		}
-		t->source_buffer=(char*)malloc(st.st_size+1);
-		t->source_buffer_sz=st.st_size;
+		
+			if(t->source_buffer) {
+				free(t->source_buffer);
+			}
+			t->source_buffer=(char*)malloc(st.st_size+1);
+			t->source_buffer_sz=st.st_size;
 
-		fread(t->source_buffer,1,st.st_size,f);
-		t->source_buffer[t->source_buffer_sz] = 0;
+			fread(t->source_buffer,1,st.st_size,f);
+			t->source_buffer[t->source_buffer_sz] = 0;
 
-		if(f!=stdin) {
 			fclose(f);
+		} else {
+			static char buf[4096];
+			FILE* mem;
+			size_t n;
+			t->source_buffer = NULL;
+			t->source_buffer_sz = 0;
+			mem = open_memstream(&t->source_buffer, &t->source_buffer_sz);
+			f = stdin;
+			while((n=fread(buf, 1, 4096, f))>0) {
+				fwrite(buf, 1, n, mem);
+			}
+			fflush(mem);
+			/*printf("stdin input currently disabled. Sorry for the inconvenience.\n");*/
+			/*abort();*/
 		}
 	} else {
 		tinyap_set_source_buffer(t,"",0);

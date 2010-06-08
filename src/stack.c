@@ -28,24 +28,24 @@ tinyap_stack_t new_stack() {
 	return ret;
 }
 
-void push(tinyap_stack_t s, void* w) {
-	s->sp += 1;
-	if(s->sz == s->sp) {
-		s->sz+=1024;
-		s->stack = (void**) realloc(s->stack, s->sz*sizeof(void*));
-	}
-	s->stack[s->sp] = w;
-}
+/*void push(tinyap_stack_t s, void* w) {*/
+	/*s->sp += 1;*/
+	/*if(s->sz == s->sp) {*/
+		/*s->sz+=1024;*/
+		/*s->stack = (void**) realloc(s->stack, s->sz*sizeof(void*));*/
+	/*}*/
+	/*s->stack[s->sp] = w;*/
+/*}*/
 
-void* _pop(tinyap_stack_t s) {
-	void* ret = s->stack[s->sp];
-	s->sp -= 1;
-	return ret;
-}
+/*void* _pop(tinyap_stack_t s) {*/
+	/*void* ret = s->stack[s->sp];*/
+	/*s->sp -= 1;*/
+	/*return ret;*/
+/*}*/
 
-void* _peek(tinyap_stack_t s) {
-	return s->stack[s->sp];
-}
+/*void* _peek(tinyap_stack_t s) {*/
+	/*return s->stack[s->sp];*/
+/*}*/
 
 void free_stack(tinyap_stack_t s) {
 //	printf("free_stack\n");

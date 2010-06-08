@@ -136,22 +136,33 @@ extern volatile int _node_alloc_count;
 
 int dump_node(const ast_node_t n);
 
-static inline ast_node_t ast_type_check(const ast_node_t n,const ast_type_t expected,const char*_f,const int _l) {
-	if((!n)&&expected==ast_Nil) {
-		return NULL;
-	} else if((!n)||n->type!=expected) {
-		/* spawn error */
-		debug_writeln("%s:%d: wrong node type %s [%X] : expected %s ; \n",
-			_f, _l,
-			n?_ast_node_type_to_str(n->type):"(nil)", n?n->type:0,_ast_node_type_to_str(expected));
-		if(n) dump_node(n);
-		/* die */
-		abort();
-		//exit(-1);
-	}
-	return (ast_node_t )n;
+#ifdef TINYAP_SAFEMODE
+static inline ast_node_t _atc_fail(const ast_node_t n,const ast_type_t expected,const char*_f,const int _l) {
+	debug_writeln("%s:%d: wrong node type %s [%X] : expected %s ; \n",
+		_f, _l,
+		n?_ast_node_type_to_str(n->type):"(nil)", n?n->type:0,_ast_node_type_to_str(expected));
+	if(n) dump_node(n);
+	/* die */
+	abort();
+	//exit(-1);
+	return NULL;
 }
 
+static inline ast_node_t ast_type_check(const ast_node_t n,const ast_type_t expected,const char*_f,const int _l) {
+	return n	? n->type==expected	? n
+						:_atc_fail(n, expected, _f, _l)
+			: NULL;
+	/*if((!n)&&expected==ast_Nil) {*/
+		/*return NULL;*/
+	/*} else if((!n)||n->type!=expected) {*/
+		/* spawn error */
+		/*_atc_fail(n, expected, _f, _l);*/
+	/*}*/
+	/*return (ast_node_t )n;*/
+}
+#else
+#	define ast_type_check(_n, _e, _f, _l) (_n)
+#endif
 
 
 ast_node_t newAtom(const char*data,int row,int col);

@@ -24,7 +24,7 @@
 
 void* ape_prettyprint_init(void* init_data) { return NULL; }
 
-void apt_prettyprint_free(void*data) {}
+void ape_prettyprint_free(void*data) {}
 
 void prettyprint_node_header(wast_t father, wast_t node) {
 	char c[4]={' ',' ',0,0};

@@ -18,7 +18,10 @@
 #include "config.h"
 #include "ast.h"
 #include "node_cache.h"
+#include "tinyap_alloc.h"
+#include <regex.h>
 #include "stack.h"
+#include "string_registry.h"
 
 volatile int depth=0;
 
@@ -50,7 +53,7 @@ size_t node_pool_size() {
 ast_node_t node_alloca() {
 	ast_node_t ret = node_pool;
 	if(!ret) {
-		ret = (ast_node_t )malloc(sizeof(union _ast_node_t));
+		ret = _tinyap_alloc(union _ast_node_t);
 		_node_alloc_count+=1;
 		push(node_stack,ret);
 	} else {
@@ -60,11 +63,12 @@ ast_node_t node_alloca() {
 }
 
 void node_dealloc(ast_node_t node) {
-	if(node&&node->type!=ast_Pool) {
-		node->type = ast_Pool;
-		node->pool.next = node_pool;
-		node_pool = node;
-	}
+	/*if(node&&node->type!=ast_Pool) {*/
+		/*node->type = ast_Pool;*/
+		/*node->pool.next = node_pool;*/
+		/*node_pool = node;*/
+	/*}*/
+	(void) (node&&node->type!=ast_Pool ? node->type = ast_Pool, node->pool.next = node_pool, node_pool = node : 0);
 }
 
 void delete_node(ast_node_t);
@@ -93,8 +97,9 @@ void node_pool_flush() {
 		_node_alloc_count-=1;
 	}
 
+	/* freeing slogw things down */
 	while(not_empty(tmp_stack)) {
-		free(_pop(tmp_stack));
+		_tinyap_free(union _ast_node_t, _pop(tmp_stack));
 	}
 
 	free_stack(tmp_stack);
@@ -115,7 +120,8 @@ void node_pool_term() {
 ast_node_t newAtom(const char*data,int row,int col) {
 	ast_node_t ret = node_alloca();
 	ret->type=ast_Atom;
-	ret->atom._str=strdup(data);
+	/*ret->atom._str=strdup(data);*/
+	ret->atom._str=regstr(data);
 	ret->raw._p2=NULL;	/* useful for regexp cache hack */
 	ret->pos.row=row;
 	ret->pos.col=col;
@@ -147,8 +153,6 @@ ast_node_t newPair(const ast_node_t a,const ast_node_t d,const int row,const int
 }
 
 
-// dirty hc'd include
-void regfree(void*);
 
 void delete_node(ast_node_t n) {
 //	static int prout=0;
@@ -156,12 +160,13 @@ void delete_node(ast_node_t n) {
 	switch(n->type) {
 	case ast_Atom:
 		assert(n->atom._str);
-		free(n->atom._str);
+		/*free(n->atom._str);*/
+		unregstr(n->atom._str);
 		if(n->raw._p2) {
 			/* regex cache hack */
 //			printf("prout %i\n",prout+=1);
 			regfree(n->raw._p2);
-			free(n->raw._p2);
+			_tinyap_free(regex_t, n->raw._p2);
 //			n->raw._p2=NULL;
 		}
 		break;

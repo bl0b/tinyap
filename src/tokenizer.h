@@ -16,6 +16,9 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
 
+#ifndef _TINYAP_TOKENIZER_H_
+#define _TINYAP_TOKENIZER_H_
+
 #include <regex.h>
 
 #include "stack.h"
@@ -25,6 +28,8 @@
 #define OFSTACK_SIZE 4096
 
 #define STRIP_TERMINALS 1
+
+#define __fastcall __attribute__((fastcall))
 
 typedef struct _token_context_t {
 	char*source;
@@ -48,12 +53,12 @@ typedef struct _token_context_t {
 } token_context_t;
 
 
-ast_node_t  token_produce_any(token_context_t*t,ast_node_t expr,int strip_T);
-ast_node_t find_nterm(const ast_node_t ruleset,const char*ntermid);
-ast_node_t clean_ast(ast_node_t t);
+ast_node_t __fastcall  token_produce_any(token_context_t*t,ast_node_t expr,int strip_T);
+ast_node_t __fastcall find_nterm(const ast_node_t ruleset,const char*ntermid);
+ast_node_t __fastcall clean_ast(ast_node_t t);
 
-ast_node_t token_produce_re(token_context_t*t,const regex_t*expr);
-ast_node_t token_produce_str(token_context_t*t,const char*token);
+ast_node_t __fastcall token_produce_re(token_context_t*t,const regex_t*expr);
+ast_node_t __fastcall token_produce_str(token_context_t*t,const char*token);
 
 regex_t*token_regcomp(const char*reg_expr);
 token_context_t*token_context_new(const char*src,const size_t length,const char*garbage_regex,ast_node_t greuh,size_t drapals);
@@ -84,5 +89,5 @@ static inline void _filter_garbage(token_context_t*t) {
 }
 
 
-
+#endif
 

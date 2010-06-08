@@ -18,6 +18,8 @@
 #include "config.h"
 
 #include "node_cache.h"
+#include "tinyap_alloc.h"
+#include "string_registry.h"
 
 
 static unsigned long int cache_collisions = 0;
@@ -78,7 +80,8 @@ void node_cache_flush(node_cache_t cache) {
 			q=cache[i];
 			cache[i]=q->next;
 			//delete_node(cache,q->v_node);
-			free(q);
+			/*free(q);*/
+			_tinyap_free(struct _node_cache_entry_t, q);
 		}
 	}
 	if(cache_popu) {
@@ -167,7 +170,8 @@ int node_cache_retrieve(node_cache_t cache, int l, int c, const char* rule, ast_
 	size_t ofs = cache_hash(l,c,rule);
 	node_cache_entry_t nce = cache[ofs];
 	while(nce) {
-		if(l==nce->k_l&&c==nce->k_c&&(!strcmp(rule,nce->k_rule))) {
+		/*if(l==nce->k_l&&c==nce->k_c&&(!strcmp(rule,nce->k_rule))) {*/
+		if(l==nce->k_l&&c==nce->k_c&&(!TINYAP_STRCMP(rule,nce->k_rule))) {
 //			*node_p = copy_node(nce->v_node);
 			*node_p = nce->v_node;
 			/*printf("At %i:%i for %s, node_cache_retrieve has found %s\n",nce->k_l,nce->k_c,nce->k_rule,tinyap_serialize_to_string(*node_p));*/
@@ -183,7 +187,8 @@ int node_cache_retrieve(node_cache_t cache, int l, int c, const char* rule, ast_
 void node_cache_add(node_cache_t cache, int l, int c, const char* expr_op, ast_node_t node, size_t ofs_p) {
 	node_cache_entry_t nce;
 	size_t ofs = cache_hash(l,c,expr_op);
-	nce = (node_cache_entry_t) malloc(sizeof(struct _node_cache_entry_t));
+	/*nce = (node_cache_entry_t) malloc(sizeof(struct _node_cache_entry_t));*/
+	nce = _tinyap_alloc(struct _node_cache_entry_t);
 	nce->next = cache[ofs];
 
 #ifdef NODE_CACHE_STATS
@@ -193,7 +198,8 @@ void node_cache_add(node_cache_t cache, int l, int c, const char* expr_op, ast_n
 		node_cache_entry_t tmp=nce;
 		cache_collisions+=1;
 		nce = cache[ofs];
-		while(nce&&!(l==nce->k_l&&c==nce->k_c&&(!strcmp(expr_op,nce->k_rule)))) {
+		/*while(nce&&!(l==nce->k_l&&c==nce->k_c&&(!strcmp(expr_op,nce->k_rule)))) {*/
+		while(nce&&!(l==nce->k_l&&c==nce->k_c&&(!TINYAP_STRCMP(expr_op,nce->k_rule)))) {
 			nce = nce->next;
 			n+=1;
 		}

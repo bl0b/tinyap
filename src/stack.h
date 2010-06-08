@@ -29,15 +29,35 @@ typedef struct _stack_t {
 
 tinyap_stack_t new_stack();
 tinyap_stack_t stack_dup(tinyap_stack_t);
-void push(tinyap_stack_t s, void* w);
-void* _pop(tinyap_stack_t s);
+/*void push(tinyap_stack_t s, void* w);*/
+/*void* _pop(tinyap_stack_t s);*/
 #define pop(__t,__s) ((__t)_pop(__s))
-void* _peek(tinyap_stack_t s);
+/*void* _peek(tinyap_stack_t s);*/
 #define peek(__t,__s) ((__t)_peek(__s))
 void free_stack(tinyap_stack_t s);
 
 #define is_empty(_s) (_s->sp==-1)
 #define not_empty(_s) (_s->sp!=-1)
+
+static inline void push(tinyap_stack_t s, void* w) {
+	s->sp += 1;
+	if(s->sz == s->sp) {
+		s->sz+=1024;
+		s->stack = (void**) realloc(s->stack, s->sz*sizeof(void*));
+	}
+	s->stack[s->sp] = w;
+}
+
+static inline void* _pop(tinyap_stack_t s) {
+	return s->stack[s->sp--];
+	/*void* ret = s->stack[s->sp];*/
+	/*s->sp -= 1;*/
+	/*return ret;*/
+}
+
+static inline void* _peek(tinyap_stack_t s) {
+	return s->stack[s->sp];
+}
 
 #endif
 

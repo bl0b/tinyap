@@ -31,7 +31,7 @@
 
 
 #define TINYAP_ABOUT	"This is not yet another parser.\n" \
-			"(c) 2007 Damien 'bl0b' Leroux\n\n"
+			"(c) 2007-2010 Damien 'bl0b' Leroux\n\n"
 
 
 void ast_serialize(const ast_node_t ast,char**output);
@@ -75,32 +75,33 @@ int do_args(int argc,char*argv[]) {
 			i+=1;
 			if(tinyap_parsed_ok(parser)&&tinyap_get_output(parser)) {
 				tinyap_serialize_to_file(tinyap_get_output(parser),argv[i]);
-			} else {
-				fprintf(stderr,"parse error at line %i, column %i\n%s\n",tinyap_get_error_row(parser),tinyap_get_error_col(parser),tinyap_get_error(parser));
+			/*} else {*/
+				/*fprintf(stderr,"parse error at line %i, column %i\n%s\n",tinyap_get_error_row(parser),tinyap_get_error_col(parser),tinyap_get_error(parser));*/
 			}
 		} else if(cmp_param(0,"--parse","-p")) {
 			tinyap_parse(parser);
-			if(tinyap_parsed_ok(parser)&&tinyap_get_output(parser)) {
-				tinyap_serialize_to_file(tinyap_get_output(parser),argv[i]);
-			} else {
+			if(!(tinyap_parsed_ok(parser)&&tinyap_get_output(parser))) {
+				/*tinyap_serialize_to_file(tinyap_get_output(parser),argv[i]);*/
+			/*} else {*/
 				fprintf(stderr,"parse error at line %i, column %i\n%s\n",tinyap_get_error_row(parser),tinyap_get_error_col(parser),tinyap_get_error(parser));
 			}
 		} else if(cmp_param(0,"--parse-as-grammar","-pag")) {
 			tinyap_parse_as_grammar(parser);
-			if(tinyap_parsed_ok(parser)&&tinyap_get_grammar_ast(parser)) {
-				tinyap_serialize_to_file(tinyap_get_output(parser),argv[i]);
-			} else {
+			if(!(tinyap_parsed_ok(parser)&&tinyap_get_grammar_ast(parser))) {
+				/*tinyap_serialize_to_file(tinyap_get_output(parser),argv[i]);*/
+			/*} else {*/
 				fprintf(stderr,"parse error at line %i, column %i\n%s\n",tinyap_get_error_row(parser),tinyap_get_error_col(parser),tinyap_get_error(parser));
 			}
 		} else if(cmp_param(0,"--print-grammar","-pg")) {
 			/*print_rules(tinyap_get_grammar_ast(parser));*/
 			/*fputc('\n',stdout);*/
 
-			wast_t grammar;
+			wast_t grammar, short_gram;
 			const char* up;
 
 			grammar = make_wast(tinyap_list_get_element(tinyap_get_grammar_ast(parser), 0));
-			up = tinyap_unparse(grammar, grammar);
+			short_gram = make_wast(tinyap_list_get_element(tinyap_get_ruleset(GRAMMAR_SHORT), 0));
+			up = tinyap_unparse(short_gram, grammar);
 			if(up) {
 				fputs(up, stdout);
 			}
