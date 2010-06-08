@@ -3,6 +3,7 @@
 #include "tinyap.h"
 #include "ast.h"
 #include "tokenizer.h"
+#include "string_registry.h"
 
 #include "tinyape.h"
 
@@ -126,7 +127,7 @@ char* unrepl(const char* re, const char* repl, const char* token) {
 	for(base=1;base<=n_sub;base+=1) {
 		if(sub_re[base]) {
 			regfree(sub_re[base]);
-			free(sub_re[base]);
+			tinyap_free(regex_t, sub_re[base]);
 			sub_re[base]=NULL;
 		}
 	}

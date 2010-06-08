@@ -17,6 +17,7 @@
  */
 #include "config.h"
 #include "tinyap.h"
+#include "tokenizer.h"
 #include "tinyape.h"
 //#include "bootstrap.h"
 //#include "tokenizer.h"
@@ -52,9 +53,15 @@ const char*outputDest="-";		/* default : output to stdout */
 
 void ast_serialize_to_file(const ast_node_t ast,FILE*f);
 
+void tinyap_set_output(const tinyap_t t, ast_node_t o);
 
 void node_pool_flush();
 
+extern int max_rec_level;
+
+
+
+ast_node_t relations_from_tree(ast_node_t gram);
 
 int do_args(int argc,char*argv[]) {
 	int i;
@@ -78,11 +85,17 @@ int do_args(int argc,char*argv[]) {
 			/*} else {*/
 				/*fprintf(stderr,"parse error at line %i, column %i\n%s\n",tinyap_get_error_row(parser),tinyap_get_error_col(parser),tinyap_get_error(parser));*/
 			}
+		} else if(cmp_param(0,"--relations","-R")) {
+			tinyap_set_output(parser, relations_from_tree(tinyap_get_output(parser)));
 		} else if(cmp_param(0,"--parse","-p")) {
 			tinyap_parse(parser);
-			if(!(tinyap_parsed_ok(parser)&&tinyap_get_output(parser))) {
+			if(tinyap_parsed_ok(parser)&&tinyap_get_output(parser)) {
 				/*tinyap_serialize_to_file(tinyap_get_output(parser),argv[i]);*/
-			/*} else {*/
+				printf("parsed %u bytes in %.3f seconds (%.3f kBps)\n",
+						tinyap_get_source_buffer_length(parser),
+						tinyap_get_parse_time(parser),
+						tinyap_get_source_buffer_length(parser)/tinyap_get_parse_time(parser)*(1./1024));
+			} else {
 				fprintf(stderr,"parse error at line %i, column %i\n%s\n",tinyap_get_error_row(parser),tinyap_get_error_col(parser),tinyap_get_error(parser));
 			}
 		} else if(cmp_param(0,"--parse-as-grammar","-pag")) {
@@ -141,6 +154,7 @@ int do_args(int argc,char*argv[]) {
 
 	tinyap_delete(parser);
 
+	printf("maximum recursion level : %i\n", max_rec_level);
 	return 0;
 }
 

@@ -49,10 +49,11 @@ char* STR_Dedent = NULL;
 char* STR_strip_me = NULL;
 
 static inline unsigned int _srh(char*notnull) {
-	unsigned int accum = 0;
+	register unsigned int accum = 0;
 	while(*notnull) {
-		accum = (accum<<5)^((accum>>27) | (int)*notnull);
-		notnull+=1;
+		/*accum = (accum<<5)^((accum>>27) | (int)*notnull);*/
+		accum = (accum<<7) + *notnull;
+		++notnull;
 	}
 	return accum%HASH_SIZE;
 }

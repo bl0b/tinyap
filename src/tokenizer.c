@@ -28,6 +28,16 @@ void delete_node(ast_node_t n);
 ast_node_t copy_node(ast_node_t);
 
 
+ast_node_t PRODUCTION_OK_BUT_EMPTY = (union _ast_node_t[]){{ {0, 0, 0, 0, 0} }};
+
+ast_node_t SafeAppend(ast_node_t a, ast_node_t b) {
+	return a==PRODUCTION_OK_BUT_EMPTY
+		? b
+		: b==PRODUCTION_OK_BUT_EMPTY
+			? a
+			: Append(a, b);
+}
+
 int dump_node(const ast_node_t n) {
 	const char*ptr=tinyap_serialize_to_string(n);
 	debug_writeln("%s", ptr);
@@ -46,7 +56,7 @@ void __fastcall update_pos_cache(token_context_t*t);
 /* prepends a ^ to reg_expr and returns the compiled extended POSIX regexp */
 regex_t*token_regcomp(const char*reg_expr) {
 	static char buf[1024];
-	regex_t*initiatur=_tinyap_alloc(regex_t);
+	regex_t*initiatur=tinyap_alloc(regex_t);
 	sprintf(buf,"^%s",reg_expr);
 	regcomp(initiatur,buf,REG_EXTENDED);
 	return initiatur;
@@ -187,7 +197,7 @@ static inline void token_context_pop(token_context_t*t) {
 void token_context_free(token_context_t*t) {
 	if(t->garbage) {
 		regfree(t->garbage);
-		_tinyap_free(regex_t, t->garbage);
+		tinyap_free(regex_t, t->garbage);
 	}
 	delete_node(t->grammar);
 	free_stack(t->node_stack);
@@ -209,8 +219,8 @@ ast_node_t __fastcall token_produce_re(token_context_t*t,const regex_t*expr) {
 	int r,c;
 	ast_node_t ret=NULL;
 	/* perform some preventive garbage filtering */
-	_filter_garbage(t);
-	update_pos_cache(t);
+	/*_filter_garbage(t);*/
+	/*update_pos_cache(t);*/
 	r=t->pos_cache.row;
 	c=t->pos_cache.col;
 	if(regexec(expr,t->source+t->ofs,1,&token,0)!=REG_NOMATCH&&token.rm_so==0) {
@@ -240,8 +250,8 @@ ast_node_t __fastcall token_produce_rpl(token_context_t*t,const regex_t*expr, co
 	int r,c;
 	ast_node_t ret=NULL;
 	/* perform some preventive garbage filtering */
-	_filter_garbage(t);
-	update_pos_cache(t);
+	/*_filter_garbage(t);*/
+	/*update_pos_cache(t);*/
 	r=t->pos_cache.row;
 	c=t->pos_cache.col;
 	if(regexec(expr,t->source+t->ofs,10,tokens,0)!=REG_NOMATCH&&(*tokens).rm_so==0) {
@@ -262,15 +272,17 @@ ast_node_t __fastcall token_produce_rpl(token_context_t*t,const regex_t*expr, co
 ast_node_t __fastcall token_produce_str(token_context_t*t,const char*token) {
 	int r,c;
 	size_t slen;
-	_filter_garbage(t);
-	update_pos_cache(t);
+	/*_filter_garbage(t);*/
+	/*update_pos_cache(t);*/
 	r=t->pos_cache.row;
 	c=t->pos_cache.col;
 	slen=strlen(token);
 	if(!strncmp(t->source+t->ofs,token,slen)) {
 		t->ofs+=slen;
 		update_pos_cache(t);
-		return newPair(newAtom(token,t->pos_cache.row,t->pos_cache.col),NULL,r,c);
+		return t->flags&STRIP_TERMINALS
+			? PRODUCTION_OK_BUT_EMPTY
+			: newPair(newAtom(token,t->pos_cache.row,t->pos_cache.col),NULL,r,c);
 		//return newAtom(token,t->pos_cache.row,t->pos_cache.col);
 	}
 	return NULL;
@@ -338,12 +350,11 @@ ast_node_t __fastcall find_nterm(const ast_node_t ruleset,const char*ntermid) {
 
 
 ast_node_t __fastcall _produce_seq_rec(token_context_t*t,ast_node_t seq) {
-	ast_node_t tmp,rec;
+	ast_node_t tmp,rec, _cdr;
 
 	/* if seq is Nil, don't fail */
 	if(!seq) {
-		update_pos_cache(t);
-		return newAtom(STR_eos,t->pos_cache.row,t->pos_cache.col);
+		return PRODUCTION_OK_BUT_EMPTY;
 	}
 
 	/* try and produce first token */
@@ -351,23 +362,58 @@ ast_node_t __fastcall _produce_seq_rec(token_context_t*t,ast_node_t seq) {
 
 	if(tmp) {
 		/* try and produce rest of list */
+		/*printf("seq:: start seq %s ; first production is %s\n", tinyap_serialize_to_string(seq), tinyap_serialize_to_string(tmp));*/
+		if(tmp!=PRODUCTION_OK_BUT_EMPTY) {
+			_cdr = tmp;
+			while(Cdr(_cdr)) { _cdr = Cdr(_cdr); }
+		} else {
+			_cdr = NULL;
+		}
+		seq = Cdr(seq);
+
+		while(seq&&(rec=token_produce_any(t, Car(seq), t->flags&STRIP_TERMINALS))) {
+			if(rec!=PRODUCTION_OK_BUT_EMPTY) {
+				update_pos_cache(t);
+				if(_cdr) {
+					_cdr->pair._cdr = rec;
+				} else {
+					tmp = rec;
+					_cdr = rec;
+				}
+				while(_cdr->pair._cdr) { _cdr = _cdr->pair._cdr; }
+			}
+			seq = Cdr(seq);
+			/*printf("seq:: now tmp=%p _cdr=%p seq=%p\n", tmp, _cdr, seq);*/
+		}
+
+		if(seq) {
+			/*printf("seq:: ended with remaining %s ; had produced %s\n", tinyap_serialize_to_string(seq), tinyap_serialize_to_string(tmp));*/
+			/*abort();*/
+			/*delete_node(tmp);*/
+			return NULL;
+		} else {
+			return tmp;
+		}
+		
+#if 0
 		rec=_produce_seq_rec(t,getCdr(seq));
 		if(rec) {
 			update_pos_cache(t);
 			if(isAtom(rec)) {
 				assert(!TINYAP_STRCMP(Value(rec),STR_eos));
-				delete_node(rec);
+				(void)(rec?delete_node(rec):0);
 				//return newPair(tmp,NULL,t->pos_cache.row,t->pos_cache.col);
 				return tmp;
 			} else {
 				//return newPair(tmp,rec,t->pos_cache.row,t->pos_cache.col);
-				return Append(tmp,rec);
+				return SafeAppend(tmp,rec);
 			}
 		} else {
 			/* FIXME : delay deletions until final cache flush */
 			//delete_node(tmp);
 			return NULL;
 		}
+#endif
 	}
 	return NULL;
 }
@@ -391,21 +437,10 @@ ast_node_t  __fastcall token_produce_seq(token_context_t*t,ast_node_t seq) {
 
 ast_node_t  __fastcall token_produce_alt(token_context_t*t,ast_node_t alt) {
 	ast_node_t tmp;
-
-	/* if alt is Nil, fail */
-	if(!alt) {
-		return NULL;
-	}
-
-	tmp=token_produce_any(t,getCar(alt),t->flags&STRIP_TERMINALS);
-	if(tmp) {
-		/* select first matching alternative */
-		//update_pos_cache(t);
-		//return newPair(tmp,NULL,t->pos_cache.row,t->pos_cache.col);
-		return tmp;
-	} else {
-		return token_produce_alt(t,getCdr(alt));
-	}
+	while(alt&&!(tmp=token_produce_any(t,getCar(alt),t->flags&STRIP_TERMINALS))) {
+		alt = getCdr(alt);
+	};
+	return tmp;
 }
 
 
@@ -528,6 +563,8 @@ int __fastcall check_trivial_left_rec(ast_node_t node) {
 #define OP_REP_1N 14
 
 
+int max_rec_level = 0;
+
 
 ast_node_t __fastcall token_produce_any(token_context_t*t,ast_node_t expr,int strip_T) {
 //	static int prit=0;
@@ -560,7 +597,8 @@ ast_node_t __fastcall token_produce_any(token_context_t*t,ast_node_t expr,int st
 
 	if(isAtom(expr)) {
 		if(!TINYAP_STRCMP(Value(expr),STR_Epsilon)) {
-			return newPair(newAtom(STR_strip_me,0,0),NULL,row,col);
+			/*return newPair(newAtom(STR_strip_me,0,0),NULL,row,col);*/
+			return PRODUCTION_OK_BUT_EMPTY;
 		} else if(!TINYAP_STRCMP(Value(expr),STR_EOF)) {
 			_filter_garbage(t);
 			if(t->ofs<t->size) {
@@ -569,7 +607,8 @@ ast_node_t __fastcall token_produce_any(token_context_t*t,ast_node_t expr,int st
 			} else {
 				//debug_writeln("EOF matched at #%u (against #%u)",t->ofs,t->size);
 				update_pos_cache(t);
-				ret=newPair(newAtom(STR_strip_me,t->pos_cache.row,t->pos_cache.col),NULL,t->pos_cache.row,t->pos_cache.col);
+				/*ret=newPair(newAtom(STR_strip_me,t->pos_cache.row,t->pos_cache.col),NULL,t->pos_cache.row,t->pos_cache.col);*/
+				ret = PRODUCTION_OK_BUT_EMPTY;
 			}
 			return ret;
 		/*} else {*/
@@ -617,7 +656,8 @@ ast_node_t __fastcall token_produce_any(token_context_t*t,ast_node_t expr,int st
 	} else if(!TINYAP_STRCMP(tag,STR_EOF)) {
 		typ = OP_EOF;
 	} else if(!TINYAP_STRCMP(tag,STR_Epsilon)) {
-		return newPair(newAtom(STR_strip_me,0,0),NULL,row,col);
+		/*return newPair(newAtom(STR_strip_me,0,0),NULL,row,col);*/
+		return PRODUCTION_OK_BUT_EMPTY;
 	}
 
 	/*debug_write("--debug[% 4.4i]-- produce %s ",rec_lvl,tag);*/
@@ -631,11 +671,12 @@ ast_node_t __fastcall token_produce_any(token_context_t*t,ast_node_t expr,int st
 	if(key&&node_cache_retrieve(t->cache, row, col, key, &ret,&t->ofs)) {
 		/*fprintf(stderr,"found %s at %i:%i %s\n",key,row, col,tinyap_serialize_to_string(ret));*/
 		update_pos_cache(t);
-		return copy_node(ret);
+		return ret==PRODUCTION_OK_BUT_EMPTY?ret:copy_node(ret);	/* keep PROD.. a singleton */
 	}
 //*/
 
 	rec_lvl+=1;
+	max_rec_level = rec_lvl>max_rec_level?rec_lvl:max_rec_level;
 
 	token_context_push(t,err_tag);
 
@@ -670,15 +711,6 @@ ast_node_t __fastcall token_produce_any(token_context_t*t,ast_node_t expr,int st
 	case OP_T:
 		ret=token_produce_str(t,Value(getCar(getCdr(expr))));
 //		debug_write("### -=< term %s >=- ###\n",ret?"OK":"failed");
-		if(ret) {
-			if(strip_T) {
-				delete_node(ret);
-				ret=newPair(newAtom(STR_strip_me,0,0),NULL,0,0);
-//			} else {
-//				update_pos_cache(t);
-//				ret=newPair(ret,NULL,t->pos_cache.row,t->pos_cache.col);
-			}
-		}
 		break;
 	case OP_ROP:
 /*
@@ -739,12 +771,13 @@ ast_node_t __fastcall token_produce_any(token_context_t*t,ast_node_t expr,int st
 		if(pfx!=NULL) {
 			ret = pfx;
 		} else {
-			ret = newPair(newAtom(STR_strip_me,0,0), NULL,t->pos_cache.row,t->pos_cache.col);
+			/*ret = newPair(newAtom(STR_strip_me,0,0), NULL,t->pos_cache.row,t->pos_cache.col);*/
+			ret = PRODUCTION_OK_BUT_EMPTY;
 		}
 		break;
 	case OP_REP_1N:
 		pfx = token_produce_any(t,getCar(getCdr(expr)),t->flags&STRIP_TERMINALS);
-		if(pfx!=NULL) {
+		if(pfx!=NULL&&pfx!=PRODUCTION_OK_BUT_EMPTY) {
 			unsigned long last_ofs = t->ofs;
 			/*char*stmp = (char*) tinyap_serialize_to_string(expr);*/
 			/*char*stmp2 = (char*)tinyap_serialize_to_string(pfx);*/
@@ -754,7 +787,9 @@ ast_node_t __fastcall token_produce_any(token_context_t*t,ast_node_t expr,int st
 			/*free(stmp2);*/
 			ret = pfx;
 			while( (tmp = token_produce_any(t,getCar(getCdr(expr)),t->flags&STRIP_TERMINALS))
-						 &&
+						&&
+					tmp != PRODUCTION_OK_BUT_EMPTY
+						&&
 					last_ofs!=t->ofs ) {
 				last_ofs=t->ofs;
 				/*stmp = (char*) tinyap_serialize_to_string(tmp);*/
@@ -770,11 +805,13 @@ ast_node_t __fastcall token_produce_any(token_context_t*t,ast_node_t expr,int st
 		break;
 	case OP_REP_0N:
 		pfx = token_produce_any(t,getCar(getCdr(expr)),t->flags&STRIP_TERMINALS);
-		if(pfx!=NULL) {
+		if(pfx!=NULL&&pfx!=PRODUCTION_OK_BUT_EMPTY) {
 			unsigned long last_ofs = t->ofs;
 			ret = pfx;
 			while( (tmp = token_produce_any(t,getCar(getCdr(expr)),t->flags&STRIP_TERMINALS))
-						 &&
+						&&
+					tmp != PRODUCTION_OK_BUT_EMPTY
+						&&
 					last_ofs!=t->ofs  ) {
 				last_ofs=t->ofs;
 				while(pfx->pair._cdr) {
@@ -784,7 +821,7 @@ ast_node_t __fastcall token_produce_any(token_context_t*t,ast_node_t expr,int st
 				pfx = tmp;
 			}
 		} else {
-			ret = newPair(newAtom(STR_strip_me,0,0), NULL,t->pos_cache.row,t->pos_cache.col);
+			ret = PRODUCTION_OK_BUT_EMPTY;
 		}
 		break;
 	case OP_PREFX:
@@ -796,6 +833,12 @@ ast_node_t __fastcall token_produce_any(token_context_t*t,ast_node_t expr,int st
 		if(pfx!=NULL) {
 			/*printf("have prefix %s\n",tinyap_serialize_to_string(pfx));*/
 			ret=token_produce_any(t,getCar(getCdr(expr)),t->flags&STRIP_TERMINALS);
+			if(ret==PRODUCTION_OK_BUT_EMPTY) {
+				return pfx;
+			}
+			if(pfx==PRODUCTION_OK_BUT_EMPTY) {
+				return ret;
+			}
 			if(ret&&ret->pair._car) {
 				ast_node_t tail;
 				/* these copies are necessary because of structural hack.
@@ -829,7 +872,7 @@ ast_node_t __fastcall token_produce_any(token_context_t*t,ast_node_t expr,int st
 			if(ret&&ret->pair._car) {
 				//printf("have expr %s\n",tinyap_serialize_to_string(ret));
 				//ret->pair._car->pair._cdr = Append(pfx,ret->pair._car->pair._cdr);
-				ret->pair._car = Append(ret->pair._car,pfx);
+				ret->pair._car = SafeAppend(ret->pair._car,pfx);
 
 				//printf("have merged into %s\n",tinyap_serialize_to_string(ret));
 			}
@@ -838,7 +881,8 @@ ast_node_t __fastcall token_produce_any(token_context_t*t,ast_node_t expr,int st
 	case OP_NT:
 		tag = Value(getCar(getCdr(expr)));
 		if(!(TINYAP_STRCMP(tag, STR_Space) && TINYAP_STRCMP(tag, STR_NewLine) && TINYAP_STRCMP(tag, STR_Indent) && TINYAP_STRCMP(tag, STR_Dedent))) {
-			ret=newPair(newAtom(STR_strip_me,t->pos_cache.row,t->pos_cache.col),NULL,t->pos_cache.row,t->pos_cache.col);
+			/*ret=newPair(newAtom(STR_strip_me,t->pos_cache.row,t->pos_cache.col),NULL,t->pos_cache.row,t->pos_cache.col);*/
+			ret = PRODUCTION_OK_BUT_EMPTY;
 		} else {
 			if(!node_cache_retrieve(t->cache,0,0,tag,&nt,&dummy)) {
 				nt=find_nterm(t->grammar,tag);
@@ -863,7 +907,8 @@ ast_node_t __fastcall token_produce_any(token_context_t*t,ast_node_t expr,int st
 		} else {
 			//debug_writeln("EOF matched at #%u (against #%u)",t->ofs,t->size);
 			update_pos_cache(t);
-			ret=newPair(newAtom(STR_strip_me,t->pos_cache.row,t->pos_cache.col),NULL,t->pos_cache.row,t->pos_cache.col);
+			/*ret=newPair(newAtom(STR_strip_me,t->pos_cache.row,t->pos_cache.col),NULL,t->pos_cache.row,t->pos_cache.col);*/
+			ret = PRODUCTION_OK_BUT_EMPTY;
 		}
 		break;
 	};
@@ -1027,44 +1072,40 @@ ast_node_t __fastcall clean_ast(ast_node_t t) {
 
 
 void __fastcall update_pos_cache(token_context_t*t) {
-	int ln=1;		/* line number */
-	size_t ofs=0;
+	int ln=t->pos_cache.row;		/* line number */
+	size_t ofs=t->pos_cache.last_ofs;
 	size_t end=t->ofs;
-	size_t last_nlofs=0;
-
-	ofs=t->pos_cache.last_ofs;
-	ln=t->pos_cache.row;
-	last_nlofs=t->pos_cache.last_nlofs;
+	size_t last_nlofs=t->pos_cache.last_nlofs;
 
 	if(t->ofs<t->pos_cache.last_ofs) {
-/*
-		ln=1;
-		ofs=0;
-		last_nlofs=0;
-*/
 		while(ofs>end) {
 			if(t->source[ofs]=='\n') {
-				ln-=1;
+				--ln;
 			}
-			ofs-=1;
+			--ofs;
 		}
 		while(ofs>0&&t->source[ofs]!='\n') {
-			ofs-=1;
+			--ofs;
 		}
-		last_nlofs=ofs+(ofs!=0);	/* don't skip character if at start of buffer */
-
+		last_nlofs=ofs+(!!ofs);	/* don't skip character if at start of buffer */
 	} else {
-
 		while(ofs<end) {
 			if(t->source[ofs]=='\n') {
-				ln+=1;
+				++ln;
 				last_nlofs=ofs+1;
 			}
-			ofs+=1;
+			++ofs;
 		}
 
 	}
 
+	if(ln>t->pos_cache.row) {
+		t->pos_cache.row=ln;
+		t->pos_cache.col=1+end-last_nlofs;
+		t->pos_cache.last_ofs=end;
+		t->pos_cache.last_nlofs=last_nlofs;
+		/*node_cache_clean(t->cache, &t->pos_cache);*/
+	}
 	t->pos_cache.row=ln;
 	t->pos_cache.col=1+end-last_nlofs;
 	t->pos_cache.last_ofs=end;

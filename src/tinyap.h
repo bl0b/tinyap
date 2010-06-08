@@ -93,6 +93,8 @@ extern "C" {
 	const char*	tinyap_get_source_buffer(tinyap_t);
 	/*! \brief access to length of text input source */
 	unsigned int	tinyap_get_source_buffer_length(tinyap_t);
+	/*! \brief access to duration of last parsing, in seconds */
+	float		tinyap_get_parse_time(tinyap_t);
 	/*! \brief set named file as text input
 	 * CAUTION : if source filename is "-" or "stdin", standard input will be read until closed, and the function will block meanwhile.
 	 */

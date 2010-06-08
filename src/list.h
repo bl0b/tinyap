@@ -30,8 +30,6 @@
 		struct NodeOfType_##__type *prev,*next;\
 		struct ListOfType_##__type*list;\
 		__type* data;\
-		void* data2;\
-		long __pad__[3];\
 	}
 
 #define NODE(__type) \
@@ -39,8 +37,6 @@
 		struct NodeOfType_##__type *prev,*next;\
 		struct ListOfType_##__type*list;\
 		__type data;\
-		void* data2;\
-		long __pad__[3];\
 	}
 
 #define LIST(__type) \
@@ -101,7 +97,7 @@ TypeDefPList(GenericList,void);
 						(_a)->list=&(_l);\
 						(_l).head=(_a);\
 						(_l).tail=(_a);\
-						(_l).count++;\
+						(_l).count=1;\
 					}\
 				} while(0)
 

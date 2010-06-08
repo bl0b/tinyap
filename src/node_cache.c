@@ -17,16 +17,28 @@
  */
 #include "config.h"
 
-#include "node_cache.h"
+#include "tokenizer.h"
 #include "tinyap_alloc.h"
 #include "string_registry.h"
 
+#include "3rd_party/fnv.h"
 
-static unsigned long int cache_collisions = 0;
-static unsigned long int cache_popu = 0;
-static unsigned long int cache_dup_keys = 0;
-static unsigned long int cache_max_depth = 0;
+#define FNV_HASH(_x, _s) fnv_32a_buf(_x, _s, FNV1_32A_INIT)
 
+static long int total_collisions = 0;
+static long int max_collisions = 0;
+static long int cache_collisions = 0;
+static long int cache_popu = 0;
+static long int max_popu = 0;
+static long int cache_dup_keys = 0;
+static long int cache_max_depth = 0;
+
+
+#define INC_POPU do { cache_popu+=1; max_popu = cache_popu>max_popu ? cache_popu : max_popu; } while(0)
+#define DEC_POPU do { cache_popu-=1; } while(0)
+
+#define INC_COLL do { total_collisions+=1; cache_collisions+=1; max_collisions = cache_collisions>max_collisions ? cache_collisions : max_collisions; } while(0)
+#define DEC_COLL(_v) do { cache_collisions-=(_v&&_v->next); } while(0)
 
 struct _node_cache_entry_t {
 	struct _node_cache_entry_t* next;
@@ -46,6 +58,7 @@ void node_cache_init(node_cache_t cache) {
 		cache[i] = NULL;
 	}
 	cache_popu = 0;
+	max_popu = 0;
 	cache_dup_keys = 0;
 	cache_collisions = 0;
 	cache_max_depth = 0;
@@ -71,6 +84,41 @@ void node_cache_init(node_cache_t cache) {
 
 void delete_node(node_cache_t cache, ast_node_t n);
 
+void node_cache_clean(node_cache_t cache, struct _pos_cache_t* pos) {
+	int i;
+	node_cache_entry_t q, p;
+	int threshold = pos->row-20;
+//	printf("node_cache_flush\n");
+	for(i=0;i<NODE_CACHE_SIZE;i+=1) {
+		while(cache[i]&&cache[i]->k_l<threshold) {
+			q = cache[i];
+			cache[i]=q->next;
+			tinyap_free(struct _node_cache_entry_t, q);
+#ifdef NODE_CACHE_STATS
+			DEC_POPU;
+			DEC_COLL(cache[i]);
+#endif
+		}
+		if(cache[i]) {
+			p=cache[i];
+			q=p->next;
+			while(q) {
+				if(q->k_l<threshold) {
+					p->next = q->next;
+					tinyap_free(struct _node_cache_entry_t, q);
+#ifdef NODE_CACHE_STATS
+					DEC_POPU;
+					DEC_COLL(cache[i]);
+#endif
+					q = p->next;
+				} else {
+					q = q->next;
+				}
+			}
+		}
+	}
+}
+
 void node_cache_flush(node_cache_t cache) {
 	int i,j;
 	node_cache_entry_t q;
@@ -81,13 +129,13 @@ void node_cache_flush(node_cache_t cache) {
 			cache[i]=q->next;
 			//delete_node(cache,q->v_node);
 			/*free(q);*/
-			_tinyap_free(struct _node_cache_entry_t, q);
+			tinyap_free(struct _node_cache_entry_t, q);
 		}
 	}
-	if(cache_popu) {
-		i = 1000 * (cache_popu-cache_collisions) / cache_popu;
-		j = 1000 * (cache_popu-cache_collisions) / NODE_CACHE_SIZE;
-		fprintf(stderr,"node cache statistics :\n - maximum population : %lu\n - collision count : %lu\n - duplicate keys : %lu\n - maximum search depth : %li\n - optimal access probability : %3i.%1.1i%%\n - cache usage : %3i.%1.1i%%\n",cache_popu, cache_collisions,cache_dup_keys,cache_max_depth,i/10,i%10,j/10,j%10);
+	if(max_popu) {
+		i = 1000 * (max_popu-max_collisions) / max_popu;
+		j = 1000 * (max_popu-max_collisions) / NODE_CACHE_SIZE;
+		fprintf(stderr,"node cache statistics :\n - maximum population : %li (final %li, total space %li)\n - collision count : %li\n - duplicate keys : %li\n - maximum search depth : %li\n - optimal access probability : %3i.%1.1i%%\n - cache usage : %3i.%1.1i%%\n", max_popu,cache_popu,NODE_CACHE_SIZE, max_collisions, cache_dup_keys, cache_max_depth, i/10,i%10,j/10,j%10);
 	}
 }
 
@@ -101,56 +149,55 @@ uint32_t hashlittle( const void *key, size_t length, uint32_t initval);
 #define _h_(_accum,_ch) ( (_ch) ^ (((_accum)<<6) + (_accum)) )
 /*#define _h_(_accum,_ch) ( (_ch) + (_accum<<6) + (_accum<<16) + _accum )*/
 
+#define _reduce(_x, _bsz) ((((_x)>>(_bsz))^(_x)) & ((1<<(_bsz))-1))
+
+#define _r2(_x) _reduce(_x, 2)
+#define _r4(_x) _reduce(_x, 4)
+#define _r8(_x) _reduce(_x, 8)
+#define _r16(_x) _reduce(_x, 16)
+#define rowcolhash(_x) do { _x = _r16(_x); _x = _r8(_x); _x = _r4(_x); } while(0)
+
+static inline unsigned long hash_bytes(unsigned char *str, unsigned int len, unsigned long hash)
+{
+	/*unsigned long hash = 5381;*/
+	while(len) {
+	        int c = *str;
+		/*counter = permut[(unsigned char)(counter+c)];*/
+                /*hash = (hash*33) ^ c;*/
+                hash = ((hash << 6) + hash) ^ c;
+		/*hash = (hash << 5) | (hash >> 27);*/
+                ++str;
+		--len;
+		/*counter&=0xFF;*/
+        }
+	return hash;
+}
+
+
+
+
 /* sdbm function : hash(i) = hash(i - 1) * 65599 + str[i] */
 /* djb2 function : hash(i) = hash(i - 1) * 33 ^ str[i] */
-size_t cache_hash(int l, int c, const char*n) {
-	unsigned long int slen = strlen(n);
-	unsigned long int accum=0;
-	/*accum = hashlittle(n,strlen(n),accum);*/
-	/*c=~(0x7FFFFFFFl/(1+c));*/
-	/*l=~(0x7FFFFFFFl/(1+l));*/
-	/*accum = hashlittle(&l,4,accum);*/
-	/*accum = hashlittle(&c,4,accum);*/
-	/*accum = hashlittle(n,slen,accum);*/
-	accum = hashlittle(n,slen,accum);
-	/*accum = hashlittle(n,slen,accum);*/
-	return (accum^(l*0x10l)^(c*0x101l))&0xFFFF;
-	/*return accum&0xFFFF;*/
-	/*return accum%NODE_CACHE_SIZE;*/
-	/*accum = hashlittle(n,strlen(n),hashword(&l,1,hashword(&c,1,0)));*/
-	/*accum = hashlittle(n,strlen(n),accum);*/
-	/*return hashlittle(n,strlen(n),accum)&0xFFFF;*/
-	/*return accum&(NODE_CACHE_SIZE-1);*/
-	/*return accum%NODE_CACHE_SIZE;*/
-	/*unsigned long int accum=0;*/
-/*	unsigned char*k=(unsigned char*)n;
-	unsigned long int ch;
-	l+=1;
-	c+=1;
-
-	while((ch=*k)) {
-		accum = ch + (accum<<6) + (accum<<16) - accum;
-		accum = _h_(accum,ch);
-		k += 1;
-	}
-
-	accum = _h_(accum,'_');
-	// simulate char keys for l and c, as in <l>_<c>_<n>
-	while(l) { accum = _h_(accum,(l&3)+31); l>>=2; }
-	accum = _h_(accum,'_');
-
-	while(c) { accum = _h_(accum,(c&3)+37); c>>=2; }
-// */
-
-	/*accum^=hash_int(c);*/
-	/*accum+=(l<<13)-l+c;*/
-//	printf("hashed %i:%i:\"%s\" to %i\n",l,c,n,((l<<7)+c+accum)%NODE_CACHE_SIZE);
-	/*accum ^= (l+1)*65599;*/
-	/*accum ^= (l+1)*6599;*/
-	/*accum ^= (c+1)*53747;*/
-	/*accum ^= (c+1)*573;*/
-	/*return accum%NODE_CACHE_SIZE;*/
-	/*return (accum>>16)^(accum&0xFFFF);*/
+static inline size_t cache_hash(int l, int c, const char*n) {
+	struct _ch {
+		unsigned char c;
+		unsigned char l;
+		unsigned short int n;
+		/*const char* str;*/
+		/*char str[256];*/
+	/*} buf = { l, c, "" };*/
+	} buf = { c, l, (((unsigned int)n)>>2)&0xFFFF };
+	size_t ret = *(size_t*)&buf;
+	ret = _r16(ret);
+	ret = _r8(ret);
+	return ret;
+	/*size_t ret;*/
+	/*strncpy(buf.str, n, 255);*/
+	/*ret = FNV_HASH(&buf, sizeof(struct _ch));*/
+	/*ret = FNV_HASH(&buf, sizeof(int)+sizeof(int)+strlen(buf.str));*/
+	/*return (ret^(ret>>(NODE_CACHE_BITSIZE)))&NODE_CACHE_MASK;*/
+	/*return ret%NODE_CACHE_MOD;*/
+	/*return ret&NODE_CACHE_MASK;*/
 }
 
 
@@ -167,6 +214,7 @@ ast_node_t copy_node(ast_node_t a) {
 
 
 int node_cache_retrieve(node_cache_t cache, int l, int c, const char* rule, ast_node_t* node_p, size_t* ofs_p) {
+#if 0
 	size_t ofs = cache_hash(l,c,rule);
 	node_cache_entry_t nce = cache[ofs];
 	while(nce) {
@@ -177,18 +225,19 @@ int node_cache_retrieve(node_cache_t cache, int l, int c, const char* rule, ast_
 			/*printf("At %i:%i for %s, node_cache_retrieve has found %s\n",nce->k_l,nce->k_c,nce->k_rule,tinyap_serialize_to_string(*node_p));*/
 			*ofs_p = nce->v_ofs;
 			return 1;
-		} else {
-			nce = nce->next;
 		}
+		nce = nce->next;
 	}
+#endif
 	return 0;
 }
 
 void node_cache_add(node_cache_t cache, int l, int c, const char* expr_op, ast_node_t node, size_t ofs_p) {
+#if 1
 	node_cache_entry_t nce;
 	size_t ofs = cache_hash(l,c,expr_op);
 	/*nce = (node_cache_entry_t) malloc(sizeof(struct _node_cache_entry_t));*/
-	nce = _tinyap_alloc(struct _node_cache_entry_t);
+	nce = tinyap_alloc(struct _node_cache_entry_t);
 	nce->next = cache[ofs];
 
 #ifdef NODE_CACHE_STATS
@@ -196,7 +245,6 @@ void node_cache_add(node_cache_t cache, int l, int c, const char* expr_op, ast_n
 	if(nce->next) {
 		int n=0;
 		node_cache_entry_t tmp=nce;
-		cache_collisions+=1;
 		nce = cache[ofs];
 		/*while(nce&&!(l==nce->k_l&&c==nce->k_c&&(!strcmp(expr_op,nce->k_rule)))) {*/
 		while(nce&&!(l==nce->k_l&&c==nce->k_c&&(!TINYAP_STRCMP(expr_op,nce->k_rule)))) {
@@ -213,8 +261,9 @@ void node_cache_add(node_cache_t cache, int l, int c, const char* expr_op, ast_n
 		nce=tmp;
 		/*fprintf(stderr,"hash collision %i:%i:\"%s\" hashed to %i, but %i:%i:\"%s\" in slot\n",l,c,expr_op,ofs,*/
 			/*cache[ofs]->k_l,cache[ofs]->k_c,cache[ofs]->k_rule);*/
+		INC_COLL;
 	}
-	cache_popu+=1;
+	INC_POPU;
 
 #endif
 
@@ -224,5 +273,6 @@ void node_cache_add(node_cache_t cache, int l, int c, const char* expr_op, ast_n
 	nce->v_node = node;
 	nce->v_ofs = ofs_p;
 	cache[ofs] = nce;
+#endif
 }
 

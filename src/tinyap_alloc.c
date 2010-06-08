@@ -16,12 +16,92 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
 
-#include "list.h"
 #include "tinyap_alloc.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include<pthread.h>
+
+struct _memorybloc {
+	GenericListNode node;
+	void* reserve;
+	unsigned long reserve_size;
+};
+
+
+#define BLOC_DATA(_mb) ((void*) ( ((char*)(_mb)) + sizeof(struct _memorybloc) ))
+#define BLOC_ALLOC_SIZE(_n) (sizeof(struct _memorybloc)+_n)
+#define BLOC_RESERVE_INCR(_mb, _sz) (_mb->reserve = ( ((char*)_mb->reserve) + item_size ))
+
+static inline struct _memorybloc* _alloc_bloc(unsigned long item_size, unsigned long max_allocs) {
+	struct _memorybloc* mb = (struct _memorybloc*) malloc(BLOC_ALLOC_SIZE(item_size*max_allocs));
+	mb->reserve = BLOC_DATA(mb);
+	mb->reserve_size = max_allocs;
+	return mb;
+}
+
+static inline void* bloc_alloc(struct _memorybloc* mb, unsigned long item_size) {
+	void* ret;
+	if(!mb->reserve_size) {
+		return NULL;
+	}
+	ret = mb->reserve;
+	--mb->reserve_size;
+	BLOC_RESERVE_INCR(mb, item_size);
+	return ret;
+}
+
+
+#define ALLOCA_INIT(_sz) { _sz, 0, {NULL, NULL, 0}, {NULL, NULL, 0}, PTHREAD_MUTEX_INITIALIZER }
+
+struct __allocator
+	_alloca_4 = ALLOCA_INIT(W(4)),
+	_alloca_8 = ALLOCA_INIT(W(8)),
+	_alloca_16 = ALLOCA_INIT(W(16)),
+	_alloca_32 = ALLOCA_INIT(W(32)),
+	_alloca_64 = ALLOCA_INIT(W(64))
+;
+
+
+void* _alloc(struct __allocator*A) {
+	struct _memorybloc* current_bloc = (struct _memorybloc*)A->blocs.head;
+	GenericListNode* x;
+	/*printf("_alloc %u bytes", A->size);*/
+	/*fflush(stdout);*/
+	if(A->free.head) {
+		x = A->free.head;
+		/*printf(" : had free item\n");*/
+	/*fflush(stdout);*/
+		A->free.head = A->free.head->next;
+		return x;
+	} else if(current_bloc&&current_bloc->reserve_size) {
+		/*printf(" : from reserve\n");*/
+	/*fflush(stdout);*/
+		return bloc_alloc(current_bloc, A->size);
+	} else {
+		/*printf(" : new bloc\n");*/
+	/*fflush(stdout);*/
+		x = (GenericListNode*)_alloc_bloc(A->size, (1<<10)-1);
+		x->next = A->blocs.head;
+		x->prev=NULL;
+		A->blocs.head = x;
+		if(!A->blocs.tail) {
+			A->blocs.tail=x;
+		}
+		return bloc_alloc((struct _memorybloc*)x, A->size);
+	}
+}
+
+void* _free(struct __allocator*A, void* ptr) {
+	GenericListNode*n = (GenericListNode*)ptr;
+	n->prev=NULL;
+	n->next=A->free.head;
+	A->free.head = n;
+}
+
+#if 0
+
+
 
 pthread_mutex_t tinyap_allocmutex4;
 pthread_mutex_t tinyap_allocmutex8;
@@ -101,39 +181,37 @@ static inline void* __new_buf(size_t size,size_t countPerBuf,GenericList*l,void*
 	return (void*)ptr;
 }
 
+
+static inline void* _ta_malloc(size_t size, size_t countPerBuf, GenericList*l, void**first, size_t*total, size_t*free__) {
+	return (*first=malloc(countPerBuf*size+sizeof(GenericListNode)))
+			? __new_buf(size,countPerBuf,l,first,total,free__)
+			: NULL;
+}
+
+static inline void* _ta_fast(void* ptr, void**first, size_t*free__) {
+	*first=**(void***)first;
+	--*free__;
+	return ptr;
+}
+
 static inline void* __tinyap_allocate_(pthread_mutex_t*mtx,size_t size,size_t countPerBuf,GenericList*l,void**first,size_t*total,size_t*free__) {
 	char*ptr;
-//	vm_printf("__allocator_(%i)",size);fflush(stdout);
-	pthread_mutex_lock(mtx);
-	if(!*first) {
-		if((*first=malloc(countPerBuf*size+sizeof(GenericListNode)))) {
-			ptr=(char*)__new_buf(size,countPerBuf,l,first,total,free__);
-			pthread_mutex_unlock(mtx);
-//			vm_printf(" [%p->%p]\n",*first,**(void***)first);fflush(stdout);
-//			vm_printf(" [%p]\n",ptr);fflush(stdout);
-			return (void*)ptr;
-		}
-	}
-	ptr=(char*)*first;
-	if(ptr) {
-//		vm_printf(" [%p->%p]\n",*first,**(void***)first);fflush(stdout);
-		*first=**(void***)first;
-		--*free__;
-	}
-//	vm_printf(" [%p]\n",ptr);fflush(stdout);
-	pthread_mutex_unlock(mtx);
+	/*pthread_mutex_lock(mtx);*/
+	ptr = *first	? (ptr=(char*)*first)	? _ta_fast(ptr, first, free__)
+						: NULL
+			: _ta_malloc(size, countPerBuf, l, first, total, free__);
+	/*pthread_mutex_unlock(mtx);*/
 	return (void*)ptr;
 }
 
-/*static inline*/
-void __collect_(pthread_mutex_t*mtx,void*ptr,GenericList*l,void**first) {
-	pthread_mutex_lock(mtx);
-//	vm_printf("collect %p (first=%p, next=%p)\n",ptr,*first,*(void**)*first);
+static inline void __collect_(pthread_mutex_t*mtx,void*ptr,GenericList*l,void**first) {
 	if(!ptr) return;
+	/*pthread_mutex_lock(mtx);*/
+//	vm_printf("collect %p (first=%p, next=%p)\n",ptr,*first,*(void**)*first);
 	*(void**)ptr=*first;
 	*first=ptr;
 //	vm_printf("after collecting %p : first=%p, next=%p\n",ptr,*first,*(void**)*first);
-	pthread_mutex_unlock(mtx);
+	/*pthread_mutex_unlock(mtx);*/
 }
 
 
@@ -170,4 +248,4 @@ void init_tinyap_alloc() {
 }
 
 
-
+#endif

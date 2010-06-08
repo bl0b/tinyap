@@ -19,6 +19,50 @@
 #ifndef __TINYAP_ALLOC_H__
 #define __TINYAP_ALLOC_H__
 
+#include "list.h"
+#include <pthread.h>
+
+struct __allocator {
+	unsigned long size;
+	unsigned long total;
+	GenericList blocs;
+	GenericList free;
+	pthread_mutex_t mutex;
+};
+
+extern struct __allocator _alloca_4, _alloca_8, _alloca_16, _alloca_32, _alloca_64;
+
+
+#define W(_x) ((_x)*sizeof(unsigned long))
+
+#define _select_alloca(_N) ( \
+	_N<=W(4) \
+		? &_alloca_4 \
+		: _N<=W(8) \
+			? &_alloca_8 \
+			: _N<=W(16) \
+				? &_alloca_16 \
+				: _N<=W(32) \
+					? &_alloca_32 \
+					: _N<=W(64) \
+						? &_alloca_64 \
+						: NULL)
+
+
+
+#define tinyap_alloc(type) (type*) _alloc(_select_alloca(sizeof(type)))
+#define tinyap_free(type, ptr) _free(_select_alloca(sizeof(type)), ptr)
+
+void* _alloc(struct __allocator*A);
+void* _free(struct __allocator*A, void* ptr);
+
+#define init_tinyap_alloc() ((void)0)
+#define term_tinyap_alloc() ((void)0)
+
+#endif
+
+
+#if 0
 
 #define BLOC_COUNT_4W  ((2048*1024)-2)
 #define BLOC_COUNT_8W  ((1024*1024)-1)

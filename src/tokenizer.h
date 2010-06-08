@@ -22,6 +22,14 @@
 #include <regex.h>
 
 #include "stack.h"
+
+struct _pos_cache_t {
+	int last_ofs;
+	int last_nlofs;
+	int row;
+	int col;
+};
+
 #include "node_cache.h"
 
 
@@ -30,7 +38,6 @@
 #define STRIP_TERMINALS 1
 
 #define __fastcall __attribute__((fastcall))
-
 typedef struct _token_context_t {
 	char*source;
 	size_t size;
@@ -43,12 +50,7 @@ typedef struct _token_context_t {
 	tinyap_stack_t farthest_stack;
 	tinyap_stack_t node_stack;
 	ast_node_t grammar;
-	struct {
-		int last_ofs;
-		int last_nlofs;
-		int row;
-		int col;
-	} pos_cache;
+	struct _pos_cache_t pos_cache;
 	node_cache_t cache;
 } token_context_t;
 

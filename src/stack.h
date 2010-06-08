@@ -20,6 +20,7 @@
 #define __TINYAP_WAST_STACK_H__
 
 #include "tinyape.h"
+#include <malloc.h>
 
 typedef struct _stack_t {
 	size_t sz;

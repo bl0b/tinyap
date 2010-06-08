@@ -29,15 +29,10 @@ void deinit_strreg();
 
 #define TINYAP_STRCMP(_a, _b) ( (_a) != (_b) )
 
-#define W(n) (n*sizeof(void*))
-
 
 static inline char* _stralloc(unsigned long l) {
-	return (char*)
-		(l<=W(4)? _tinyap_alloc_4w()
-			: l<=W(8)	? _tinyap_alloc_8w()
-					: l<=W(16)	? _tinyap_alloc_16w()
-							: malloc(l));
+	struct __allocator* A = _select_alloca(l);
+	return A?_alloc(A):malloc(l);
 }
 
 static inline char* _strdup(const char*str) {
@@ -47,14 +42,10 @@ static inline char* _strdup(const char*str) {
 
 static inline void _strfree(char*str) {
 	register unsigned long l = strlen(str)+1;
-	l<=W(4)	? _tinyap_free_4w(str)
-		:l<=W(8)? _tinyap_free_8w(str)
-			:l<=W(16)?_tinyap_free_16w(str)
-				 :free(str);
+	struct __allocator* A = _select_alloca(l);
+	A ? _free(A, str) : free(str);
 }
 
-
-#undef W
 
 extern char* STR__start;
 extern char* STR__whitespace;

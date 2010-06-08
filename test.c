@@ -16,6 +16,64 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
 
+#include <stdio.h>
+#include <stdarg.h>
+#include <stdlib.h>
+
+void bla(int a, short b, char c) {
+	printf("a=%i b=%d c=%c\n", a, b, c);
+}
+
+typedef void (*ftype_t )();
+typedef void (*ftype1_t)(void*);
+typedef void (*ftype2_t)(void*,void*);
+typedef void (*ftype3_t)(void*,void*,void*);
+typedef void (*ftype4_t)(void*,void*,void*,void*);
+typedef void (*ftype5_t)(void*,void*,void*,void*,void*);
+
+void v(ftype_t f, int argc, ...) {
+	static void* _[5];
+	va_list ap;
+	int i=0;
+	va_start(ap, argc);
+	while(i<argc&&i<5) {
+		_[i] = va_arg(ap, void*);
+		i+=1;
+	}
+	va_end(ap);
+	switch(argc) {
+	case 0:
+		f();
+		break;
+	case 1:
+		((ftype1_t)f)(_[0]);
+		break;
+	case 2:
+		((ftype2_t)f)(_[0], _[1]);
+		break;
+	case 3:
+		((ftype3_t)f)(_[0], _[1], _[2]);
+		break;
+	case 4:
+		((ftype4_t)f)(_[0], _[1], _[2], _[3]);
+		break;
+	case 5:
+		((ftype5_t)f)(_[0], _[1], _[2], _[3], _[4]);
+		break;
+	default:;
+		abort();
+	};
+}
+
+
+int main(int argc, char**argv) {
+	struct {} t;
+	v((ftype_t)bla, 3, (2<<23)-1, 65535, '@');
+	return 0;
+}
+
+#if 0
+
 #include <dlfcn.h>
 #include <stdio.h>
 
@@ -78,4 +136,6 @@ int main(int argc, const char**argv) {
 
 	return 0;
 }
+
+#endif
 

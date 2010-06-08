@@ -30,6 +30,7 @@
 #include <string.h>
 
 #include <stdio.h>
+#include <sys/time.h>
 
 struct _tinyap_t {
 	token_context_t*toktext;
@@ -46,6 +47,8 @@ struct _tinyap_t {
 	char*source_file;
 	char*source_buffer;
 	size_t source_buffer_sz;
+
+	float parse_time;
 
 	int error;
 };
@@ -236,6 +239,10 @@ unsigned int tinyap_get_source_buffer_length(tinyap_t t) {
 	return (unsigned int)t->source_buffer_sz;
 }
 
+float tinyap_get_parse_time(tinyap_t t) {
+	return (unsigned int)t->parse_time;
+}
+
 void tinyap_set_source_file(tinyap_t t,const char*fnam) {
 	if(fnam) {
 		struct stat st;
@@ -308,6 +315,11 @@ void tinyap_set_source_buffer(tinyap_t t,const char* b,const unsigned int sz) {
 
 int tinyap_parse(tinyap_t t) {
 //	printf("before tinyap_parse : %li nodes (%i alloc'd so far)\n",node_pool_size(),_node_alloc_count);
+	struct timeval t0, t1;
+	unsigned long deltasec;
+
+	gettimeofday(&t1, NULL);
+
 	if(t->toktext) {
 		token_context_free(t->toktext);
 	}
@@ -323,7 +335,14 @@ int tinyap_parse(tinyap_t t) {
 		delete_node(t->output);
 	}
 
-	t->output=copy_node(clean_ast(
+	gettimeofday(&t0, NULL);
+	printf("took %.3f seconds to init parsing context.\n", 1.e-6f*(t0.tv_usec-t1.tv_usec)+t0.tv_sec-t1.tv_sec);
+
+	gettimeofday(&t0, NULL);
+
+	/*t->output=copy_node(clean_ast(*/
+	/*t->output = (copy_node(*/
+	t->output = ((
 			token_produce_any(
 				t->toktext,
 				t->start,
@@ -334,6 +353,10 @@ int tinyap_parse(tinyap_t t) {
 //	t->toktext=NULL;
 
 //	printf("after  tinyap_parse : %li nodes (%i alloc'd so far)\n",node_pool_size(),_node_alloc_count);
+	gettimeofday(&t1, NULL);
+	deltasec = t1.tv_sec-t0.tv_sec;
+	t->parse_time = 1.e-6f*(t1.tv_usec-t0.tv_usec)+deltasec;
+
 	return (t->error=(t->output!=NULL));
 	
 }
@@ -350,6 +373,7 @@ int tinyap_parse_as_grammar(tinyap_t t) {
 int tinyap_parsed_ok(const tinyap_t t) { return t->error||(t->toktext->ofs!=t->source_buffer_sz); }
 
 ast_node_t tinyap_get_output(const tinyap_t t) { return t->output; }
+void tinyap_set_output(const tinyap_t t, ast_node_t o) { t->output = o; }
 
 int tinyap_get_error_col(const tinyap_t t) { return parse_error_column(t->toktext); }
 int tinyap_get_error_row(const tinyap_t t) { return parse_error_line(t->toktext); }

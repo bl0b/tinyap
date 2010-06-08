@@ -120,7 +120,7 @@ static inline void init_hashtab(hashtab_t tab,hash_func hash,compare_func cmp) {
 static inline void hash_addelem(hashtab_t tab,hash_key key,hash_elem elem) {
 	size_t i=tab->hash(key);
 	/*htab_entry_t e=(htab_entry_t)malloc(sizeof(struct _htab_entry_struct));*/
-	htab_entry_t e=_tinyap_alloc(struct _htab_entry_struct);
+	htab_entry_t e=tinyap_alloc(struct _htab_entry_struct);
 	if(!e) return;
 	e->next=tab->table[i];
 	e->key=key;
@@ -161,7 +161,7 @@ static inline void hash_delelem(hashtab_t tab,hash_key key) {
 		else tab->table[i]=s->next;
 		/*free_node((nep_mem_node*)s,1);*/
 		/*free(s);*/
-		_tinyap_free(struct _htab_entry_struct, s);
+		tinyap_free(struct _htab_entry_struct, s);
 	}
 }
 
@@ -175,7 +175,7 @@ static inline void clean_hashtab(hashtab_t tab,void(*callback)(htab_entry_t)) {
 			s=s->next;
 			/*free_node((nep_mem_node*)p,1);*/
 			if(callback) callback(p);
-			_tinyap_free(struct _htab_entry_struct, p);
+			tinyap_free(struct _htab_entry_struct, p);
 			/*free(p);*/
 		}
 		tab->table[i]=(htab_entry_t)HASH_NOVAL;

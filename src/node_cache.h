@@ -21,7 +21,10 @@
 
 #include "ast.h"
 
-#define NODE_CACHE_SIZE (1<<16)
+#define NODE_CACHE_BITSIZE 8
+#define NODE_CACHE_SIZE (1<<NODE_CACHE_BITSIZE)
+#define NODE_CACHE_MASK (NODE_CACHE_SIZE-1)
+#define NODE_CACHE_MOD (NODE_CACHE_SIZE-1)
 /*#define NODE_CACHE_SIZE 32749*/
 /*#define NODE_CACHE_SIZE 65533*/
 /*#define NODE_CACHE_SIZE 65521*/
@@ -37,6 +40,7 @@ int node_cache_retrieve(node_cache_t cache, int l, int c, const char* rule, ast_
 void node_cache_add(node_cache_t cache, int l, int c, const char* expr_op, ast_node_t node, size_t ofs);
 void node_cache_flush(node_cache_t cache);
 
+void node_cache_clean(node_cache_t cache, struct _pos_cache_t* pos);
 
 #endif
 

@@ -53,7 +53,7 @@ size_t node_pool_size() {
 ast_node_t node_alloca() {
 	ast_node_t ret = node_pool;
 	if(!ret) {
-		ret = _tinyap_alloc(union _ast_node_t);
+		ret = tinyap_alloc(union _ast_node_t);
 		_node_alloc_count+=1;
 		push(node_stack,ret);
 	} else {
@@ -99,7 +99,7 @@ void node_pool_flush() {
 
 	/* freeing slogw things down */
 	while(not_empty(tmp_stack)) {
-		_tinyap_free(union _ast_node_t, _pop(tmp_stack));
+		tinyap_free(union _ast_node_t, _pop(tmp_stack));
 	}
 
 	free_stack(tmp_stack);
@@ -159,14 +159,14 @@ void delete_node(ast_node_t n) {
 	if(!n) return;
 	switch(n->type) {
 	case ast_Atom:
-		assert(n->atom._str);
+		/*assert(n->atom._str);*/
 		/*free(n->atom._str);*/
 		unregstr(n->atom._str);
 		if(n->raw._p2) {
 			/* regex cache hack */
 //			printf("prout %i\n",prout+=1);
 			regfree(n->raw._p2);
-			_tinyap_free(regex_t, n->raw._p2);
+			tinyap_free(regex_t, n->raw._p2);
 //			n->raw._p2=NULL;
 		}
 		break;
