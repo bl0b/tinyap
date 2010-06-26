@@ -47,7 +47,9 @@ union _ast_node_t {
 		void*_p2;
 		int _row;
 		int _col;
+		int _flags;
 	} raw;
+	void*__align[8];
 	struct {
 		ast_type_t _;
 		char __reserve[sizeof(struct _ant_sz)-sizeof(ast_type_t)-sizeof(ast_node_t)];
@@ -74,8 +76,9 @@ union _ast_node_t {
 		union _ast_node_t* _cdr;
 	} pair;
 };
-
-
+#define node_flags raw._flags
+#define RULE_IS_LEFTREC 1
+#define RULE_IS_LEFTREC_COMPUTED 2
 
 
 #define _atom(__s,_r,_c) (union _ast_node_t[]){{{ast_Atom,__s,NULL,_r,_c}}}

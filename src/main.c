@@ -61,7 +61,7 @@ extern int max_rec_level;
 
 
 
-ast_node_t relations_from_tree(ast_node_t gram);
+/*ast_node_t relations_from_tree(ast_node_t gram);*/
 
 int do_args(int argc,char*argv[]) {
 	int i;
@@ -85,8 +85,8 @@ int do_args(int argc,char*argv[]) {
 			/*} else {*/
 				/*fprintf(stderr,"parse error at line %i, column %i\n%s\n",tinyap_get_error_row(parser),tinyap_get_error_col(parser),tinyap_get_error(parser));*/
 			}
-		} else if(cmp_param(0,"--relations","-R")) {
-			tinyap_set_output(parser, relations_from_tree(tinyap_get_output(parser)));
+		/*} else if(cmp_param(0,"--relations","-R")) {*/
+			/*tinyap_set_output(parser, relations_from_tree(tinyap_get_output(parser)));*/
 		} else if(cmp_param(0,"--parse","-p")) {
 			tinyap_parse(parser);
 			if(tinyap_parsed_ok(parser)&&tinyap_get_output(parser)) {

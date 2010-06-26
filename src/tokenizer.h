@@ -36,6 +36,7 @@ struct _pos_cache_t {
 #define OFSTACK_SIZE 4096
 
 #define STRIP_TERMINALS 1
+#define INPUT_IS_CLEAN 2
 
 #define __fastcall __attribute__((fastcall))
 typedef struct _token_context_t {
@@ -55,7 +56,7 @@ typedef struct _token_context_t {
 } token_context_t;
 
 
-ast_node_t __fastcall  token_produce_any(token_context_t*t,ast_node_t expr,int strip_T);
+ast_node_t __fastcall  token_produce_any(token_context_t*t,ast_node_t expr);
 ast_node_t __fastcall find_nterm(const ast_node_t ruleset,const char*ntermid);
 ast_node_t __fastcall clean_ast(ast_node_t t);
 
@@ -79,6 +80,10 @@ int parse_error_column(token_context_t*t);
 static inline void _filter_garbage(token_context_t*t) {
 	regmatch_t token;
 //	printf("\tdebug-- current string [[%10.10s...]]\n",t->source+t->ofs);
+	if(t->flags&INPUT_IS_CLEAN) {
+		/*printf("input already clean.\n");*/
+		return;
+	}
 	if(regexec(t->garbage,t->source+t->ofs,1,&token,0)!=REG_NOMATCH) {
 //		printf("\tdebug-- matched garbage [%i-%i]\n",token.rm_so,token.rm_eo);
 		assert(token.rm_so==0);
@@ -87,6 +92,8 @@ static inline void _filter_garbage(token_context_t*t) {
 	} else {
 //		printf("\tdebug-- no garbage\n");
 	}
+	t->flags|=INPUT_IS_CLEAN;
+	/*printf("input is now clean.\n");*/
 //	printf("\tdebug-- now string is [[%10.10s...]]\n",t->source+t->ofs);
 }
 

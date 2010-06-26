@@ -248,6 +248,10 @@ void tinyap_set_source_file(tinyap_t t,const char*fnam) {
 		struct stat st;
 		FILE*f = NULL;
 
+		struct timeval t0, t1;
+
+		gettimeofday(&t1, NULL);
+
 		if(t->source_file) {
 			free(t->source_file);
 		}
@@ -289,6 +293,8 @@ void tinyap_set_source_file(tinyap_t t,const char*fnam) {
 			/*printf("stdin input currently disabled. Sorry for the inconvenience.\n");*/
 			/*abort();*/
 		}
+		gettimeofday(&t0, NULL);
+		printf("took %.3f seconds to read file contents.\n", 1.e-6f*(t0.tv_usec-t1.tv_usec)+t0.tv_sec-t1.tv_sec);
 	} else {
 		tinyap_set_source_buffer(t,"",0);
 	}
@@ -342,13 +348,9 @@ int tinyap_parse(tinyap_t t) {
 
 	/*t->output=copy_node(clean_ast(*/
 	/*t->output = (copy_node(*/
-	t->output = ((
-			token_produce_any(
-				t->toktext,
-				t->start,
-				0)));
+	t->output = token_produce_any(t->toktext, t->start);
 
-	/*printf("TinyaP parsed %u of %u characters.\n",t->toktext->farthest,t->toktext->size);*/
+	printf("TinyaP parsed %u of %u characters.\n",t->toktext->farthest,t->toktext->size);
 //	token_context_free(t->toktext);
 //	t->toktext=NULL;
 

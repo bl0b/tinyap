@@ -125,6 +125,7 @@ ast_node_t newAtom(const char*data,int row,int col) {
 	ret->raw._p2=NULL;	/* useful for regexp cache hack */
 	ret->pos.row=row;
 	ret->pos.col=col;
+	ret->node_flags=0;
 	return ret;
 }
 
@@ -149,6 +150,7 @@ ast_node_t newPair(const ast_node_t a,const ast_node_t d,const int row,const int
 	ret->pair._cdr=(ast_node_t )d;
 	ret->pos.row=row;
 	ret->pos.col=col;
+	ret->node_flags=0;
 	return ret;
 }
 
