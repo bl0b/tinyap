@@ -116,7 +116,6 @@ void node_pool_term() {
 }
 
 
-
 ast_node_t newAtom(const char*data,int row,int col) {
 	ast_node_t ret = node_alloca();
 	ret->type=ast_Atom;
@@ -163,13 +162,18 @@ void delete_node(ast_node_t n) {
 	case ast_Atom:
 		/*assert(n->atom._str);*/
 		/*free(n->atom._str);*/
-		unregstr(n->atom._str);
+		if(!(n->node_flags&ATOM_IS_NOT_STRING)) {
+			unregstr(n->atom._str);
+		}
 		if(n->raw._p2) {
 			/* regex cache hack */
 //			printf("prout %i\n",prout+=1);
-			regfree(n->raw._p2);
-			tinyap_free(regex_t, n->raw._p2);
+			/*regfree(n->raw._p2);*/
+			/*tinyap_free(regex_t, n->raw._p2);*/
 //			n->raw._p2=NULL;
+
+			/* FIXME ! */
+			/*pcre_free(n->raw._p2);*/
 		}
 		break;
 	case ast_Pair:

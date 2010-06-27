@@ -8,18 +8,21 @@
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
 #ifndef _TINYAP_TOKENIZER_H_
 #define _TINYAP_TOKENIZER_H_
 
-#include <regex.h>
+/*#include <regex.h>*/
+#include <pcre.h>
+
+#define RE_TYPE pcre*
 
 #include "stack.h"
 
@@ -44,7 +47,7 @@ typedef struct _token_context_t {
 	size_t size;
 	size_t flags;
 	size_t ofs;
-	regex_t*garbage;
+	RE_TYPE garbage;
 	size_t ofstack[OFSTACK_SIZE];
 	size_t ofsp;
 	size_t farthest;
@@ -56,14 +59,14 @@ typedef struct _token_context_t {
 } token_context_t;
 
 
-ast_node_t __fastcall  token_produce_any(token_context_t*t,ast_node_t expr);
+ast_node_t __fastcall token_produce_any(token_context_t*t,ast_node_t expr);
 ast_node_t __fastcall find_nterm(const ast_node_t ruleset,const char*ntermid);
 ast_node_t __fastcall clean_ast(ast_node_t t);
 
-ast_node_t __fastcall token_produce_re(token_context_t*t,const regex_t*expr);
+ast_node_t __fastcall token_produce_re(token_context_t*t,const RE_TYPE expr);
 ast_node_t __fastcall token_produce_str(token_context_t*t,const char*token);
 
-regex_t*token_regcomp(const char*reg_expr);
+RE_TYPE token_regcomp(const char*reg_expr);
 token_context_t*token_context_new(const char*src,const size_t length,const char*garbage_regex,ast_node_t greuh,size_t drapals);
 /*size_t token_context_peek(const token_context_t*t);
 void token_context_push(token_context_t*t);
@@ -76,21 +79,62 @@ const char* parse_error(token_context_t*t);
 int parse_error_line(token_context_t*t);
 int parse_error_column(token_context_t*t);
 
+#define MAX_TOK_SIZE 256
+
+#if 0
+static inline int regexec_hack(RE_TYPE re, token_context_t* t, int count, regmatch_t* tokens, int flags) {
+	int ret;
+	if(t->ofs+256<t->size) {
+		char* ptr = t->source+t->ofs+256;
+		char bak = *ptr;
+		*ptr = 0;
+		ret = regexec(re, t->source+t->ofs, count, tokens, flags);
+		*ptr = bak;
+	} else {
+		ret = regexec(re, t->source+t->ofs, count, tokens, flags);
+	}
+	return ret;	
+}
+#endif
+
+/*#define re_exec(_re, _t, _m, _sz) (pcre_exec(_re, NULL, (_t)->source, (_t)->size, (_t)->ofs, PCRE_DOLLAR_ENDONLY|PCRE_NEWLINE_ANY, _m, _sz)>=0)*/
+
+static inline int re_exec(const RE_TYPE re, token_context_t* t, int* matches, int sz) {
+	int ret = pcre_exec(re, NULL, t->source+t->ofs, t->size-t->ofs, 0, PCRE_ANCHORED, matches, sz);
+	/*printf("RE DEBUG : match %p against \"%10.10s\"\n", re, t->source+t->ofs);*/
+	if(ret<0) {
+		/*printf("PCRE error %i\n", ret);*/
+		return 0;
+	}
+	if(matches[0]!=0) {
+		printf("PCRE match not at start (%i)\n", matches[0]);
+		return 0;
+	}
+	return 1;
+}
+
+void __fastcall update_pos_cache(token_context_t*t);
+
 /* silent garbage filter, used before each tokenization */
 static inline void _filter_garbage(token_context_t*t) {
-	regmatch_t token;
+	/*regmatch_t token;*/
+	int token[3];
 //	printf("\tdebug-- current string [[%10.10s...]]\n",t->source+t->ofs);
-	if(t->flags&INPUT_IS_CLEAN) {
+	/*if(t->flags&INPUT_IS_CLEAN) {*/
 		/*printf("input already clean.\n");*/
-		return;
-	}
-	if(regexec(t->garbage,t->source+t->ofs,1,&token,0)!=REG_NOMATCH) {
+		/*return;*/
+	/*}*/
+	/*if(regexec(t->garbage,t->source+t->ofs,1,&token,0)!=REG_NOMATCH) {*/
+	/*if(regexec_hack(t->garbage,t,1,&token,0)!=REG_NOMATCH) {*/
 //		printf("\tdebug-- matched garbage [%i-%i]\n",token.rm_so,token.rm_eo);
-		assert(token.rm_so==0);
-		t->ofs+=token.rm_eo;
-//		printf("\tdebug-- now ofs=%li\n",t->ofs);
-	} else {
-//		printf("\tdebug-- no garbage\n");
+		/*assert(token.rm_so==0);*/
+		/*t->ofs+=token.rm_eo;*/
+	if(re_exec(t->garbage, t, token, 3)) {
+		t->ofs+=token[1];
+		/*printf("\tdebug-- skipped garbage, now ofs=%u\n",t->ofs);*/
+		update_pos_cache(t);
+	/*} else {*/
+		/*printf("\tdebug-- no garbage\n");*/
 	}
 	t->flags|=INPUT_IS_CLEAN;
 	/*printf("input is now clean.\n");*/

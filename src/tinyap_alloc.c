@@ -81,7 +81,7 @@ void* _alloc(struct __allocator*A) {
 	} else {
 		/*printf(" : new bloc\n");*/
 	/*fflush(stdout);*/
-		x = (GenericListNode*)_alloc_bloc(A->size, (1<<10)-1);
+		x = (GenericListNode*)_alloc_bloc(A->size, (1<<22)-1);
 		x->next = A->blocs.head;
 		x->prev=NULL;
 		A->blocs.head = x;

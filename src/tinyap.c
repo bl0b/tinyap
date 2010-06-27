@@ -153,7 +153,7 @@ void tinyap_set_whitespace(tinyap_t t,const char*ws) {
 	t->ws_source=strdup(ws);
 	t->ws=(char*)malloc(strlen(t->ws_source)+4);
 	sprintf(t->ws,"[%s]+",t->ws_source);
-//	printf("has set whitespace RE to %s\n",t->ws);
+	/*printf("has set whitespace RE to %s\n",t->ws);*/
 }
 
 void tinyap_set_whitespace_regexp(tinyap_t t,const char*re) {
@@ -165,7 +165,7 @@ void tinyap_set_whitespace_regexp(tinyap_t t,const char*re) {
 		free(t->ws);
 	}
 	t->ws=strdup(re);
-//	printf("has set whitespace RE to %s\n",t->ws);
+	/*printf("has set whitespace RE to %s\n",t->ws);*/
 }
 
 const char* tinyap_get_grammar(tinyap_t t) {

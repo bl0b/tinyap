@@ -79,6 +79,7 @@ union _ast_node_t {
 #define node_flags raw._flags
 #define RULE_IS_LEFTREC 1
 #define RULE_IS_LEFTREC_COMPUTED 2
+#define ATOM_IS_NOT_STRING 4
 
 
 #define _atom(__s,_r,_c) (union _ast_node_t[]){{{ast_Atom,__s,NULL,_r,_c}}}

@@ -43,7 +43,7 @@ void free_stack(tinyap_stack_t s);
 static inline void push(tinyap_stack_t s, void* w) {
 	s->sp += 1;
 	if(s->sz == s->sp) {
-		s->sz+=1024;
+		s->sz+=16384;
 		s->stack = (void**) realloc(s->stack, s->sz*sizeof(void*));
 	}
 	s->stack[s->sp] = w;

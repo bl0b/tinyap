@@ -20,7 +20,7 @@ set(libtinyap_src
 	string_registry.c
 )
 
-set(tinyap_ldflags "-ldl -rdynamic")
+set(tinyap_ldflags "-ldl -rdynamic -lpcre")
 
 add_library(libtinyap SHARED ${libtinyap_src})
 set_target_properties(libtinyap

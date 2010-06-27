@@ -15,7 +15,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
-#include "config.h"
+#include "serialize.h"
 #include "ast.h"
 #include "tokenizer.h"
 
@@ -30,11 +30,7 @@
 #define _RE   2
 #define _T    4
 
-const struct {
-	char escaped;
-	char unescaped;
-	int  context;
-} escape_characters[] = {
+const struct _esc_chr escape_characters[] = {
 	{'n','\n', -1 },
 	{'t','\t', -1 },
 	{'r','\r', -1 },
@@ -65,72 +61,6 @@ const char* ctxt2str(int c) {
 
 void dump_contexts(char c, int cc, int cg) {
 	printf("escape %c in contexts %s %s ? %s\n", c, ctxt2str(cc), ctxt2str(cg), (cc&cg)==cg?"OK.":"DON'T !");
-}
-
-/* unescape first character in *src, put it in *dest, and advance pointers */
-void unescape_chr(char**src,char**dest, int context) {
-	/* index to search for character escaping combination */
-	int i, c;
-	char ret=**src;
-	if(!ret) {
-		**dest=0;
-		return;
-	}
-	*src+=1;
-	if(ret=='\\') {
-		i=0;
-		/* there may be an escaped character following */
-		while(escape_characters[i].escaped!=0&&**src!=escape_characters[i].escaped) {
-			i+=1;
-		}
-		c = escape_characters[i].context;
-		if(escape_characters[i].escaped && (context&c)==context) {
-			/* if we do have an escaped character, swallow it before returning */
-//			debug_writeln("unescaping \\%c",escape_characters[i].escaped);
-			ret=escape_characters[i].unescaped;
-			*src+=1;
-		}
-	}
-	/* either ret is not \ or there's no valid escaped character following, thus we push raw ret in dest */
-	**dest=ret;
-	*dest+=1;
-}
-
-
-
-/*static inside_lisp = 0;*/
-
-
-/* escape first character in *src, put it in *dest, and advance pointers */
-void escape_chr(char**src,int(*func)(int,void*),void*param, int context) {
-	/* index to search for character escaping combination */
-	int i=0, c;
-	char ret=**src;
-	if(!ret) {
-		func(0,param);
-		return;
-	}
-
-	/* search for an escaping combination for this character */
-	while(escape_characters[i].unescaped!=0&&**src!=escape_characters[i].unescaped) {
-		i+=1;
-	}
-
-	/*#define lisp_ok(_ec_) ( ((_ec_).lisp & inside_lisp) == (_ec_).lisp )*/
-	/*if(escape_characters[i].unescaped!=0 && lisp_ok(escape_characters[i])) {*/
-
-	c = escape_characters[i].context;
-	if(escape_characters[i].unescaped!=0 && (context&c)==context) {
-		/*dump_contexts(escape_characters[i].unescaped, c, context);*/
-		/* have to escape character, two bytes will be pushed onto *dest */
-		func('\\',param);
-		func(escape_characters[i].escaped,param);
-	} else {
-		/* push raw **src into **dest */
-		func(ret,param);
-	}
-	/* now dest is all set up, advance source */
-	*src+=1;
 }
 
 

@@ -8,7 +8,7 @@
 #include "tinyape.h"
 
 static char sub_re_str[10][1024];
-static regex_t* sub_re[10] = { NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL };
+static RE_TYPE  sub_re[10] = { NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL };
 static char sub_str[10][1024];
 static size_t sub_ofs[10][2];
 static size_t n_sub;
@@ -81,17 +81,21 @@ char* unrepl(const char* re, const char* repl, const char* token) {
 
 	while(*p_repl) {
 		if(*p_repl=='\\') {
-			regmatch_t match;
-			match.rm_so=match.rm_eo=0;
+			/*regmatch_t match;*/
+			int match[2]={0,0};
+			/*match.rm_so=match.rm_eo=0;*/
 			p_repl += 1;
 			base = *p_repl - '0';
 			p_repl += 1;
 			/*printf("exec re /%s/ against %s", sub_re_str[base], p_tok);*/
-			if(regexec(sub_re[base], p_tok, 1, &match, 0)!=REG_NOMATCH && match.rm_so==0) {
-				strncpy(sub_str[base], p_tok, match.rm_eo+1);
+			/*if(regexec(sub_re[base], p_tok, 1, &match, 0)!=REG_NOMATCH && match.rm_so==0) {*/
+			if(pcre_exec(sub_re[base], NULL, p_tok, strlen(p_tok), 0, PCRE_DOLLAR_ENDONLY|PCRE_NEWLINE_ANY, match, 2)>=0) {
+				/*strncpy(sub_str[base], p_tok, match.rm_eo+1);*/
+				strncpy(sub_str[base], p_tok, match[1]+1);
 				/*printf("perform escaping of string \"%s\"\n", sub_str[base]);*/
 				strcpy(sub_str[base], str_escape(sub_str[base]));
-				p_tok += match.rm_eo+1;
+				/*p_tok += match.rm_eo+1;*/
+				p_tok += match[1]+1;
 				/*printf("matched ! end ofs = %u\n", match.rm_eo);*/
 			}
 		} else {
@@ -127,7 +131,8 @@ char* unrepl(const char* re, const char* repl, const char* token) {
 	for(base=1;base<=n_sub;base+=1) {
 		if(sub_re[base]) {
 			regfree(sub_re[base]);
-			tinyap_free(regex_t, sub_re[base]);
+			/*tinyap_free(regex_t, sub_re[base]);*/
+			pcre_free(sub_re[base]);
 			sub_re[base]=NULL;
 		}
 	}

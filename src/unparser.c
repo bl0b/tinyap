@@ -21,6 +21,7 @@
 #include "ast.h"
 #include "tokenizer.h"
 #include "string_registry.h"
+#include "serialize.h"
 
 #define _BIN_SZ 4096
 
@@ -305,7 +306,7 @@ int _str_escape_hlpr(int c, void* context) {
 	return 0;
 }
 
-void escape_chr(char**src,int(*func)(int,void*),void*param, int context);
+/*void escape_chr(char**src,int(*func)(int,void*),void*param, int context);*/
 
 char* str_escape(char* str) {
 	static char buffy[4096];
