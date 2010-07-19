@@ -70,6 +70,9 @@ extern "C" {
 	 */
 	tinyap_t	tinyap_new();
 
+	/*! \brief set the parser verbosity */
+	void tinyap_set_verbose(int);
+
 	/*! \brief access to whitespace characters list */
 	const char*	tinyap_get_whitespace(tinyap_t);
 	/*! \brief modification of whitespace characters list */
@@ -81,6 +84,9 @@ extern "C" {
 	const char*	tinyap_get_grammar(tinyap_t);
 	/*! \brief modification of grammar source (any filename, or "explicit" or "CamelCasing") */
 	void		tinyap_set_grammar(tinyap_t,const char*);
+
+	/*! \brief enable (1) or disable (0) the full parsing algorithm. Slower but handles parse forests. */
+	void		tinyap_set_full_parse(tinyap_t, int);
 
 	/*! \brief access to grammar ast */
 	ast_node_t	tinyap_get_grammar_ast(tinyap_t);

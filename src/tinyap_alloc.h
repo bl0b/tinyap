@@ -23,31 +23,43 @@
 #include <pthread.h>
 #include <malloc.h>
 
+struct _alloc_unit {
+	struct _alloc_unit* next;
+};
+
+struct _alloc_list {
+	struct _alloc_unit* head;
+};
+
 struct __allocator {
 	unsigned long size;
 	unsigned long total;
-	GenericList blocs;
-	GenericList free;
+	struct _alloc_list blocs;
+	struct _alloc_list free;
 	pthread_mutex_t mutex;
 };
 
-extern struct __allocator _alloca_4, _alloca_8, _alloca_16, _alloca_32, _alloca_64;
+extern struct __allocator _alloca_1, _alloca_2, _alloca_4, _alloca_8, _alloca_16, _alloca_32, _alloca_64;
 
 
 #define W(_x) ((_x)*sizeof(unsigned long))
 
 #define _select_alloca(_N) ( \
-	_N<=W(4) \
-		? &_alloca_4 \
-		: _N<=W(8) \
-			? &_alloca_8 \
-			: _N<=W(16) \
-				? &_alloca_16 \
-				: _N<=W(32) \
-					? &_alloca_32 \
-					: _N<=W(64) \
-						? &_alloca_64 \
-						: NULL)
+	_N<=W(1) \
+		? &_alloca_1 \
+		: _N<=W(2) \
+			? &_alloca_2 \
+			: _N<=W(4) \
+				? &_alloca_4 \
+				: _N<=W(8) \
+					? &_alloca_8 \
+					: _N<=W(16) \
+						? &_alloca_16 \
+						: _N<=W(32) \
+							? &_alloca_32 \
+							: _N<=W(64) \
+								? &_alloca_64 \
+								: NULL)
 
 
 
@@ -61,6 +73,8 @@ void _term_allocator(struct __allocator*A);
 
 #define init_tinyap_alloc() ((void)0)
 #define term_tinyap_alloc() do {\
+		_term_allocator(&_alloca_1);\
+		_term_allocator(&_alloca_2);\
 		_term_allocator(&_alloca_4);\
 		_term_allocator(&_alloca_8);\
 		_term_allocator(&_alloca_16);\

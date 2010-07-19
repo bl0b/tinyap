@@ -43,7 +43,8 @@
 /* Define to 1 if you have the ANSI C header files. */
 #cmakedefine STDC_HEADERS
 
-#define PACKAGE_VERSION "${CMAKE_PACKAGE_VERSION}"
+#define PACKAGE_VERSION "${TINYAP_VERSION}"
 
 #cmakedefine TINYAP_SAFEMODE
 #cmakedefine NODE_CACHE_STATS
+#cmakedefine USE_FOREST

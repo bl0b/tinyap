@@ -20,6 +20,7 @@
 #define __TINYAP_NODE_CACHE_H__
 
 #include "ast.h"
+#include "pda.h"
 
 #define NODE_CACHE_BITSIZE 10
 #define NODE_CACHE_SIZE (1<<NODE_CACHE_BITSIZE)

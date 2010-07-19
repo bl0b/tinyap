@@ -10,10 +10,14 @@ set(libtinyap_src
 	serialize.c
 	stack.c
 	tinyap.c
+	trie.c
 	tinyap_alloc.c
-	tokenizer.c
+	#tokenizer.c
+	pda.c
+	pda_impl.c
+	token_utils.c
 	unparser.c
-	unrepl.c
+	#unrepl.c
 	walkableast.c
 	walker.c
 	ape_prettyprint.c

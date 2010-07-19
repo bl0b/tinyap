@@ -33,6 +33,10 @@ volatile ast_node_t node_pool = NULL;
 
 static tinyap_stack_t node_stack;
 
+
+ast_node_t PRODUCTION_OK_BUT_EMPTY = (union _ast_node_t[]){{ {0, 0, 0, 0, 0} }};
+
+
 void node_pool_init() {
 	node_stack = new_stack();
 }
@@ -188,5 +192,44 @@ void delete_node(ast_node_t n) {
 //	free(n);
 }
 
+
+
+ast_node_t copy_node(ast_node_t);
+
+
+ast_node_t forest_append(ast_node_t prefix, ast_node_t suffix) {
+	ast_node_t ret=NULL, sufbak=suffix, p, s;
+	if(prefix->node_flags&IS_FOREST) {
+		if(suffix->node_flags&IS_FOREST) {
+			while(prefix) {
+				suffix=sufbak;
+				while(suffix) {
+					p = copy_node(Car(prefix));
+					s = copy_node(Car(suffix));
+					ret = newPair(Append(p, s), ret, suffix->pos.col, suffix->pos.col);
+					ret->node_flags|=IS_FOREST;
+					suffix = Cdr(suffix);
+				}
+				prefix = Cdr(prefix);
+			}
+		} else {
+			ret=prefix;
+			while(prefix) {
+				Car(prefix) = Append(Car(prefix), copy_node(suffix));
+			}
+		}
+	} else {
+		if(suffix->node_flags&IS_FOREST) {
+			ret = suffix;
+			while(suffix) {
+				Car(suffix) = Append(copy_node(prefix), Car(suffix));
+				suffix = Cdr(suffix);
+			}
+		} else {
+			ret = Append(copy_node(prefix), copy_node(suffix));
+		}
+	}
+	return ret;
+}
 
 

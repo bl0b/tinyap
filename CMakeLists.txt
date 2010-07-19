@@ -3,6 +3,9 @@ PROJECT(tinyap C)
 
 SET(TINYAP_VERSION_MAJOR 2)
 SET(TINYAP_VERSION_MINOR 0)
+SET(TINYAP_VERSION_PATCH beta)
+
+SET(TINYAP_VERSION "${TINYAP_VERSION_MAJOR}.${TINYAP_VERSION_MINOR}-${TINYAP_VERSION_PATCH}")
 
 INCLUDE(CheckFunctionExists)
 INCLUDE(CheckLibraryExists)
@@ -23,6 +26,7 @@ INCLUDE_DIRECTORIES(${CMAKE_BINARY_DIR}/src)
 
 OPTION(TINYAP_SAFEMODE "Safe mode : check type before accessing any node in the AST" ON)
 OPTION(NODE_CACHE_STATS "Compute and output statistics about node cache usage." OFF)
+OPTION(USE_FOREST "Compute and output all possible parse trees, not just first one. Slower algorithm but useful for ambiguous grammars." ON)
 
 ADD_SUBDIRECTORY(src)
 #INCLUDE(CMakeCPack.cmake)

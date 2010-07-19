@@ -17,8 +17,9 @@
  */
 #include "serialize.h"
 #include "ast.h"
-#include "tokenizer.h"
 #include "string_registry.h"
+#include "pda.h"
+#include "pda_impl.h"
 
 
 #define OPEN_PAR ((void*)(-1))
@@ -72,7 +73,7 @@ void dump_contexts(char c, int cc, int cg) {
 
 
 
-char* usrlz_token(token_context_t*t,const char*whitespaces,const char*terminators, int context) {
+char* usrlz_token(pda_t t,const char*whitespaces,const char*terminators, int context) {
 	static char buffer[MAX_SER_TOKEN_SIZE];
 
 	char*srcptr,*destptr=buffer;
@@ -85,7 +86,7 @@ char* usrlz_token(token_context_t*t,const char*whitespaces,const char*terminator
 		t->ofs+=1;
 	}
 
-	srcptr=t->source+t->ofs;
+	srcptr=(char*)(t->source+t->ofs);
 
 	if((!srcptr)||(!*srcptr)) {
 		return "";
@@ -113,10 +114,14 @@ char* usrlz_token(token_context_t*t,const char*whitespaces,const char*terminator
 
 
 
-ast_node_t  _qlp_elem(token_context_t*t);
+ast_node_t  _qlp_elem(pda_t t);
 
-ast_node_t  _qlp_list(token_context_t*t) {
+ast_node_t  _qlp_list(pda_t t) {
 	ast_node_t car=_qlp_elem(t);
+	if(t->source[t->ofs]=='@') {
+		t->ofs+=2;
+		car->node_flags|=IS_FOREST;
+	}
 	if(car) {
 //		printf("\tcar="); dump_node(car); printf("\n");
 		//return newPair(car,_qlp_list(t,sym));
@@ -125,19 +130,19 @@ ast_node_t  _qlp_list(token_context_t*t) {
 	return NULL;
 }
 
-ast_node_t  _qlp_elem(token_context_t*t) {
+ast_node_t  _qlp_elem(pda_t t) {
 /* ( => cons(_qlp_rec(t),_qlp_rec(t))
  * ) => NULL
  * \. => atom(.)
  * [^()]* => symbol
  */
 	ast_node_t ret=NULL;
-	char*cur=t->source+t->ofs;
+	char*cur=(char*)(t->source+t->ofs);
 	char*token;
 
 	debug_enter();
 
-	cur=t->source+t->ofs;
+	cur=(char*)(t->source+t->ofs);
 
 	token=usrlz_token(t,"\n\r\t ","()", _LISP);
 /*	t->ofs+=token_length;*/
@@ -159,7 +164,7 @@ ast_node_t  _qlp_elem(token_context_t*t) {
 
 ast_node_t  ast_unserialize(const char*input) {
 	ast_node_t ret;
-	token_context_t toktext;/*=token_context_new(input,"[\t\n\r ]*",NULL,0);*/
+	struct _pda toktext;/*=token_context_new(input,"[\t\n\r ]*",NULL,0);*/
 	toktext.ofs=0;
 	toktext.source=(char*)input;
 	ret = _qlp_elem(&toktext);	/* symbol is anything but parenthesis or whitespace */
@@ -211,16 +216,30 @@ void ast_ser_list(const ast_node_t ast,int(*func)(int,void*),void*param) {
 }
 
 
+extern ast_node_t PRODUCTION_OK_BUT_EMPTY;
+
 void ast_serialize(const ast_node_t ast,int(*func)(int,void*),void*param) {
 	char*srcptr;
 	/* if ast is nil, output '()' */
 	/*inside_lisp = 1;*/
+	if(ast==PRODUCTION_OK_BUT_EMPTY) {
+		func('E', param);
+		func('M', param);
+		func('P', param);
+		func('T', param);
+		func('Y', param);
+		return;
+	}
 	if(!ast) {
 		func('(',param);
 		func(')',param);
 	/* if ast is pair, serialize list */
 	} else if(isPair(ast)) {
 		func('(',param);
+		if(ast->node_flags&IS_FOREST) {
+		func('@',param);
+		func(' ',param);
+		}
 		ast_ser_list(ast,func,param);
 		func(')',param);
 	/* if ast is atom, output atom */

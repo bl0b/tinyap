@@ -73,7 +73,7 @@ wast_t wa_father(wast_t w) {
 }
 
 const char* wa_op(wast_t w) {
-	return w->label;
+	return w->label?w->label:"";
 }
 
 wast_t wa_opd(wast_t w, const unsigned int n) {

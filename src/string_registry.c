@@ -40,6 +40,9 @@ char* STR_RE = NULL;
 char* STR_RPL = NULL;
 char* STR_T = NULL;
 char* STR_STR = NULL;
+char* STR_BOW = NULL;
+char* STR_AddToBag = NULL;
+char* STR_BKeep = NULL;
 char* STR_Prefix = NULL;
 char* STR_Postfix = NULL;
 char* STR_TransientRule = NULL;
@@ -54,10 +57,10 @@ const char* op2string(int typ); 	/* defined in tokenizer.c */
 
 static inline unsigned int _srh(char*notnull) {
 	register unsigned int accum = 0;
-	/*if(notnull<0x100) {*/
-		/* suspect an optimized tag (not-a-string) */
-		/*notnull = op2string((int)notnull);*/
-	/*}*/
+	if(notnull<0x100) {
+		 /* suspect an optimized tag (not-a-string) */
+		notnull = op2string((int)notnull);
+	}
 	while(*notnull) {
 		/*accum = (accum<<5)^((accum>>27) | (int)*notnull);*/
 		accum = (accum<<7) + *notnull;
@@ -90,6 +93,9 @@ void init_strreg() {
 	STR_RE			= regstr("RE");
 	STR_RPL			= regstr("RPL");
 	STR_STR			= regstr("STR");
+	STR_BOW			= regstr("BOW");
+	STR_AddToBag		= regstr("AddToBag");
+	STR_BKeep		= regstr("BKeep");
 	STR_T			= regstr("T");
 	STR_Prefix		= regstr("Prefix");
 	STR_Postfix		= regstr("Postfix");
@@ -104,22 +110,26 @@ void init_strreg() {
 }
 
 char* regstr(const char* str) {
-	htab_entry_t e = hash_find_e(&str_registry, (hash_key) ((int)str)<0x100?op2string((int)str):str);
-	char* ret;
-	if(!e) {
-		ret = _strdup(str);
-		hash_addelem(&str_registry, (hash_key) ret, (hash_elem) 1);
-		/*printf("register string \"%s\" (1)\n", ret);*/
+	if(!str) {
+		return "{null}";
 	} else {
-		e->e = (hash_elem) (((unsigned int)e->e)+1);
-		ret = (char*) e->key;
-		/*printf("register string \"%s\" (%u)\n", ret, (unsigned int)e->e);*/
+		htab_entry_t e = hash_find_e(&str_registry, (hash_key) (str<(char*)0x100?op2string((int)str):str));
+		char* ret;
+		if(!e) {
+			ret = _strdup(str);
+			hash_addelem(&str_registry, (hash_key) ret, (hash_elem) 1);
+			/*printf("register string \"%s\" (1)\n", ret);*/
+		} else {
+			e->e = (hash_elem) (((unsigned int)e->e)+1);
+			ret = (char*) e->key;
+			/*printf("register string \"%s\" (%u)\n", ret, (unsigned int)e->e);*/
+		}
+		return ret;
 	}
-	return ret;
 }
 
 void unregstr(const char* str) {
-	htab_entry_t e = hash_find_e(&str_registry, (hash_key) str);
+	htab_entry_t e = hash_find_e(&str_registry, (hash_key) (str<(char*)0x100?op2string((int)str):str));
 	if(!e) {
 		/* whine ? */
 		return;

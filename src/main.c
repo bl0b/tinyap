@@ -17,10 +17,7 @@
  */
 #include "config.h"
 #include "tinyap.h"
-#include "tokenizer.h"
 #include "tinyape.h"
-//#include "bootstrap.h"
-//#include "tokenizer.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -58,6 +55,7 @@ void tinyap_set_output(const tinyap_t t, ast_node_t o);
 void node_pool_flush();
 
 extern int max_rec_level;
+extern int tinyap_verbose;
 
 
 
@@ -87,16 +85,23 @@ int do_args(int argc,char*argv[]) {
 			}
 		/*} else if(cmp_param(0,"--relations","-R")) {*/
 			/*tinyap_set_output(parser, relations_from_tree(tinyap_get_output(parser)));*/
+		} else if(cmp_param(0,"--full-parse=on","-fp")) {
+			tinyap_set_full_parse(parser, 1);
+		} else if(cmp_param(0,"--simple-parse=on","-sp")) {
+			tinyap_set_full_parse(parser, 1);
 		} else if(cmp_param(0,"--parse","-p")) {
 			tinyap_parse(parser);
 			if(tinyap_parsed_ok(parser)&&tinyap_get_output(parser)) {
 				/*tinyap_serialize_to_file(tinyap_get_output(parser),argv[i]);*/
-				fprintf(stderr, "parsed %u bytes in %.3f seconds (%.3f kBps)\n",
-						tinyap_get_source_buffer_length(parser),
-						tinyap_get_parse_time(parser),
-						tinyap_get_source_buffer_length(parser)/tinyap_get_parse_time(parser)*(1./1024));
+				if(tinyap_verbose) {
+					fprintf(stderr, "parsed %u bytes in %.3f seconds (%.3f kBps)\n",
+							tinyap_get_source_buffer_length(parser),
+							tinyap_get_parse_time(parser),
+							tinyap_get_source_buffer_length(parser)/tinyap_get_parse_time(parser)*(1./1024));
+				}
 			} else {
 				fprintf(stderr,"parse error at line %i, column %i\n%s\n",tinyap_get_error_row(parser),tinyap_get_error_col(parser),tinyap_get_error(parser));
+				/*fprintf(stderr,"parse error at line %i, column %i\n%s\n", -1, -1, "TODO");*/
 			}
 		} else if(cmp_param(0,"--parse-as-grammar","-pag")) {
 			tinyap_parse_as_grammar(parser);
@@ -104,6 +109,7 @@ int do_args(int argc,char*argv[]) {
 				/*tinyap_serialize_to_file(tinyap_get_output(parser),argv[i]);*/
 			/*} else {*/
 				fprintf(stderr,"parse error at line %i, column %i\n%s\n",tinyap_get_error_row(parser),tinyap_get_error_col(parser),tinyap_get_error(parser));
+				/*fprintf(stderr,"parse error at line %i, column %i\n%s\n", -1, -1, "TODO");*/
 			}
 		} else if(cmp_param(0,"--print-grammar","-pg")) {
 			/*print_rules(tinyap_get_grammar_ast(parser));*/
@@ -123,15 +129,22 @@ int do_args(int argc,char*argv[]) {
 			free((char*)up);
 			wa_del(grammar);
 
+		} else if(cmp_param(0,"--verbose","-V")) {
+			tinyap_set_verbose(1);
+		} else if(cmp_param(0,"--quiet","-q")) {
+			tinyap_set_verbose(0);
 		} else if(cmp_param(0,"--version","-v")) {
 			fprintf(stderr, TINYAP_ABOUT);
 			fprintf(stderr, "version " TINYAP_VERSION "\n" );
 		} else if(cmp_param(0,"--help","-h")) {
+
 			fprintf(stderr, TINYAP_ABOUT);
-			fprintf(stderr, "Usage : %s [--input,-i [inputFile]] [--output,-o [outputFile]] [--grammar,-g [grammarFile]] [--parse,-p] [--parse-as-grammar,-pag] [--walk, -w [pilotName]] [--help,-h]\n",argv[0]);
+			fprintf(stderr, "Usage : %s [--input,-i [inputFile]] [--output,-o [outputFile]] [--grammar,-g [grammarFile]] [--parse,-p] [--parse-as-grammar,-pag] [--walk, -w [pilotName]] [--help,-h] [--version, -v] [--verbose,-V] [--quiet,-q]\n",argv[0]);
+			fprintf(stderr, "\n\t--version,-v\tdisplay version\n");
+			fprintf(stderr, "\n\t--verbose,-V\toutput messages during parse\n");
+			fprintf(stderr, "\n\t--quiet,-q\tdon't output messages during parse (default)\n");
 			fprintf(stderr, "\n\t--grammar,-g name\tuse this grammar to parse input\n");
-			fprintf(stderr, "\t\t\"" GRAMMAR_EXPLICIT "\"\t(default) selects explicit variant\n");
-			fprintf(stderr, "\t\t\"" GRAMMAR_CAMELCASING "\"\tselects CamelCasing variant\n");
+			fprintf(stderr, "\t\t\"" GRAMMAR_SHORT "\"\t(default) selects default meta-grammar\n");
 			fprintf(stderr, "\t\tany other string is a filename to read grammar from\n");
 			fprintf(stderr, "\n\t--print-grammar,-pg\toutput the current grammar in `explicit' dialect\n");
 			fprintf(stderr, "\t\targument is the same as above\n");
@@ -143,6 +156,8 @@ int do_args(int argc,char*argv[]) {
 			fprintf(stderr, "\t\tany other string is a filename to write to\n");
 			fprintf(stderr, "\n\t--parse,-p\t\tparse input text\n");
 			fprintf(stderr, "\n\t--parse-as-grammar,-pag\tparse input text and use output AST as new grammar\n");
+			fprintf(stderr, "\n\t--full-parse,-fp\t\tfind all possible parse trees\n");
+			fprintf(stderr, "\n\t--simple-parse,-p\t\tfind first parse tree\n");
 			fprintf(stderr, "\n\t--walk,-w name\t\twalk the current output tree using named ape\n\t\t\t\t(try prettyprint !)\n");
 			fprintf(stderr, "\n\t--help,-h\t\tdisplay this text\n\n");
 			exit(0);
@@ -156,7 +171,9 @@ int do_args(int argc,char*argv[]) {
 
 	tinyap_delete(parser);
 
-	fprintf(stderr, "maximum recursion level : %i\n", max_rec_level);
+	/*if(tinyap_verbose) {*/
+		/*fprintf(stderr, "maximum recursion level : %i\n", max_rec_level);*/
+	/*}*/
 	return 0;
 }
 

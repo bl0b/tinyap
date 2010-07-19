@@ -17,7 +17,9 @@
  */
 #include "config.h"
 
-#include "tokenizer.h"
+#include "ast.h"
+#include "node_cache.h"
+
 #include "tinyap_alloc.h"
 #include "string_registry.h"
 
@@ -201,7 +203,7 @@ static inline size_t cache_hash(int l, int c, const char*n) {
 	/*return ret%NODE_CACHE_MOD;*/
 	/*return ret&NODE_CACHE_MASK;*/
 	/*size_t ret = hashlittle(n, strlen(n), (0xdeadbeef*l*c)^(0xdeadbeef+l+c));*/
-	size_t ret = hash_bytes(n, strlen(n),0xdeadb33f);
+	size_t ret = hash_bytes((char*)n, strlen(n),0xdeadb33f);
 	/*size_t ret = hashlittle(n, strlen(n),0xdeadb33f);*/
 	/*size_t ret = FNV_HASH(n, strlen(n))^l^c;*/
 	/*ret *= (ret>>16);*/

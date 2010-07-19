@@ -15,6 +15,8 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
+#ifndef _TINYAP_SERIALIZE_H_
+#define _TINYAP_SERIALIZE_H_
 #include "config.h"
 
 struct _esc_chr {
@@ -95,4 +97,5 @@ static inline void escape_chr(char**src,int(*func)(int,void*),void*param, int co
 	*src+=1;
 }
 
+#endif
 

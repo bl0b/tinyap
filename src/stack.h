@@ -23,8 +23,8 @@
 #include <malloc.h>
 
 typedef struct _stack_t {
-	size_t sz;
-	size_t sp;
+	unsigned long sz;
+	unsigned long sp;
 	void** stack;
 }* tinyap_stack_t;
 
@@ -42,14 +42,19 @@ void free_stack(tinyap_stack_t s);
 
 static inline void push(tinyap_stack_t s, void* w) {
 	s->sp += 1;
-	if(s->sz == s->sp) {
-		s->sz+=16384;
+	if(s->sz <= s->sp) {
+		/*s->sz+=16384;*/
+		s->sz+=1024;
 		s->stack = (void**) realloc(s->stack, s->sz*sizeof(void*));
+		/*printf("resized stack %p to %lu\n", s, s->sz);*/
 	}
+	/*printf("push %X in %p at %lu\n", w, s, s->sp);*/
 	s->stack[s->sp] = w;
 }
 
 static inline void* _pop(tinyap_stack_t s) {
+	if(s->sp==-1)
+		return NULL;
 	return s->stack[s->sp--];
 	/*void* ret = s->stack[s->sp];*/
 	/*s->sp -= 1;*/
@@ -57,6 +62,8 @@ static inline void* _pop(tinyap_stack_t s) {
 }
 
 static inline void* _peek(tinyap_stack_t s) {
+	if(s->sp==-1)
+		return NULL;
 	return s->stack[s->sp];
 }
 

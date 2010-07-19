@@ -80,10 +80,11 @@ union _ast_node_t {
 #define RULE_IS_LEFTREC 1
 #define RULE_IS_LEFTREC_COMPUTED 2
 #define ATOM_IS_NOT_STRING 4
+#define IS_FOREST	0x8000
 
 
-#define _atom(__s,_r,_c) (union _ast_node_t[]){{{ast_Atom,__s,NULL,_r,_c}}}
-#define _pair(__a,__d,_r,_c) (union _ast_node_t[]){{{ast_Pair,__a,__d,_r,_c}}}
+#define _atom(__s,_r,_c, _f) (union _ast_node_t[]){{{ast_Atom,__s,NULL,_r,_c, _f}}}
+#define _pair(__a,__d,_r,_c, _f) (union _ast_node_t[]){{{ast_Pair,__a,__d,_r,_c, _f}}}
 
 
 /*! \par __n an AST node
@@ -181,16 +182,19 @@ ast_node_t newAtom(const char*data,int row,int col);
 ast_node_t newPair(const ast_node_t a,const ast_node_t d,const int row,const int col);
 //void delete_node(node_cache_t cache, ast_node_t n);
 
+ast_node_t forest_append(ast_node_t prefix_forest, ast_node_t suffix_forest);
+
 void print_pair(ast_node_t n);
 
 
+extern ast_node_t PRODUCTION_OK_BUT_EMPTY;
 
 static inline ast_node_t Append(const ast_node_t a,const ast_node_t b) {
 	ast_node_t ptr;
-	if(!b) {
+	if(b==PRODUCTION_OK_BUT_EMPTY||!b) {
 		return (ast_node_t )a;
 	}
-	if(!a) {
+	if(a==PRODUCTION_OK_BUT_EMPTY||!a) {
 		return (ast_node_t )b;
 	}
 	assert(isPair(b));

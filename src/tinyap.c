@@ -21,9 +21,11 @@
 #include "ast.h"
 #include "walker.h"
 #include "bootstrap.h"
-#include "tokenizer.h"
 #include "string_registry.h"
 #include "tinyap.h"
+#include "pda.h"
+#include "pda_impl.h"
+#include "token_utils.h"
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -33,7 +35,8 @@
 #include <sys/time.h>
 
 struct _tinyap_t {
-	token_context_t*toktext;
+	/*token_context_t*toktext;*/
+	pda_t pda;
 	
 	char*grammar_source;
 	ast_node_t grammar;
@@ -44,6 +47,8 @@ struct _tinyap_t {
 	char*ws;
 	char*ws_source;
 
+	unsigned int flags;
+
 	char*source_file;
 	char*source_buffer;
 	size_t source_buffer_sz;
@@ -53,7 +58,7 @@ struct _tinyap_t {
 	int error;
 };
 
-
+int tinyap_verbose=0;
 
 void delete_node(ast_node_t n);
 
@@ -65,6 +70,18 @@ extern volatile int _node_alloc_count;
 void node_pool_init();
 void node_pool_term();
 
+
+void tinyap_set_verbose(int v) {
+	tinyap_verbose=v;
+}
+
+void tinyap_set_full_parse(tinyap_t t, int full_parse) {
+	if(full_parse) {
+		t->flags|=FULL_PARSE;
+	} else {
+		t->flags&=~FULL_PARSE;
+	}
+}
 
 void tinyap_terminate() {
 	node_pool_term();
@@ -89,10 +106,11 @@ void tinyap_init() {
 
 void tinyap_delete(tinyap_t t) {
 //	printf("before tinyap_delete : %li nodes (%i alloc'd so far)\n",node_pool_size(),_node_alloc_count);
-	if(t->toktext) token_context_free(t->toktext);
+	/*if(t->toktext) token_context_free(t->toktext);*/
+	if(t->pda) pda_free(t->pda);
 
 	if(t->grammar_source) free(t->grammar_source);
-	if(t->grammar) delete_node(t->grammar);
+	/*if(t->grammar) delete_node(t->grammar);*/
 	/* start was inside grammar */
 
 	if(t->output) delete_node(t->output);
@@ -112,7 +130,8 @@ tinyap_t tinyap_new() {
 	tinyap_t ret=(tinyap_t)malloc(sizeof(struct _tinyap_t));
 	memset(ret,0,sizeof(struct _tinyap_t));
 	tinyap_set_grammar(ret,"short");
-	init_pilot_manager();
+	ret->flags=0;
+	/*init_pilot_manager();*/
 	return ret;
 }
 
@@ -250,7 +269,9 @@ void tinyap_set_source_file(tinyap_t t,const char*fnam) {
 
 		struct timeval t0, t1;
 
-		gettimeofday(&t1, NULL);
+		if(tinyap_verbose) {
+			gettimeofday(&t1, NULL);
+		}
 
 		if(t->source_file) {
 			free(t->source_file);
@@ -293,8 +314,10 @@ void tinyap_set_source_file(tinyap_t t,const char*fnam) {
 			/*printf("stdin input currently disabled. Sorry for the inconvenience.\n");*/
 			/*abort();*/
 		}
-		gettimeofday(&t0, NULL);
-		fprintf(stderr, "took %.3f seconds to read file contents.\n", 1.e-6f*(t0.tv_usec-t1.tv_usec)+t0.tv_sec-t1.tv_sec);
+		if(tinyap_verbose) {
+			gettimeofday(&t0, NULL);
+			fprintf(stderr, "took %.3f seconds to read file contents.\n", 1.e-6f*(t0.tv_usec-t1.tv_usec)+t0.tv_sec-t1.tv_sec);
+		}
 	} else {
 		tinyap_set_source_buffer(t,"",0);
 	}
@@ -326,36 +349,44 @@ int tinyap_parse(tinyap_t t) {
 
 	gettimeofday(&t1, NULL);
 
-	if(t->toktext) {
-		token_context_free(t->toktext);
+	/*if(t->toktext) {*/
+		/*token_context_free(t->toktext);*/
+	/*}*/
+	if(t->pda) {
+		pda_free(t->pda);
 	}
 
-	t->toktext=token_context_new(
-			t->source_buffer,
-			t->source_buffer_sz,
-			t->ws,
-			t->grammar,
-			STRIP_TERMINALS);
+	/*t->toktext=token_context_new(*/
+			/*t->source_buffer,*/
+			/*t->source_buffer_sz,*/
+			/*t->ws,*/
+			/*t->grammar,*/
+			/*t->flags);*/
+	t->pda = pda_new(t->grammar, t->ws);
 
 	if(t->output) {
 		delete_node(t->output);
 	}
 
-	gettimeofday(&t0, NULL);
-	fprintf(stderr, "took %.3f seconds to init parsing context.\n", 1.e-6f*(t0.tv_usec-t1.tv_usec)+t0.tv_sec-t1.tv_sec);
+	if(tinyap_verbose) {
+		gettimeofday(&t0, NULL);
+		fprintf(stderr, "took %.3f seconds to init parsing context.\n", 1.e-6f*(t0.tv_usec-t1.tv_usec)+t0.tv_sec-t1.tv_sec);
+
+	}
 
 	gettimeofday(&t0, NULL);
+	/*t->output = token_produce_any(t->toktext, t->start, NULL);*/
+	t->output = pda_parse(t->pda, t->source_buffer, t->source_buffer_sz, t->start, t->flags);
+	gettimeofday(&t1, NULL);
 
-	/*t->output=copy_node(clean_ast(*/
-	/*t->output = (copy_node(*/
-	t->output = token_produce_any(t->toktext, t->start);
-
-	fprintf(stderr, "TinyaP parsed %u of %u characters.\n",t->toktext->farthest,t->toktext->size);
+	if(tinyap_verbose) {
+		/*fprintf(stderr, "TinyaP parsed %u of %u characters.\n",t->toktext->farthest,t->toktext->size);*/
+		fprintf(stderr, "TinyaP parsed %u of %u characters.\n",t->pda->farthest,t->pda->size);
+	}
 //	token_context_free(t->toktext);
 //	t->toktext=NULL;
 
 //	printf("after  tinyap_parse : %li nodes (%i alloc'd so far)\n",node_pool_size(),_node_alloc_count);
-	gettimeofday(&t1, NULL);
 	deltasec = t1.tv_sec-t0.tv_sec;
 	t->parse_time = 1.e-6f*(t1.tv_usec-t0.tv_usec)+deltasec;
 
@@ -372,14 +403,17 @@ int tinyap_parse_as_grammar(tinyap_t t) {
 	return t->error;
 }
 
-int tinyap_parsed_ok(const tinyap_t t) { return t->error||(t->toktext->ofs!=t->source_buffer_sz); }
+/*int tinyap_parsed_ok(const tinyap_t t) { return t->error||(t->toktext->ofs!=t->source_buffer_sz); }*/
+int tinyap_parsed_ok(const tinyap_t t) { return t->error||(t->pda->ofs!=t->source_buffer_sz); }
 
 ast_node_t tinyap_get_output(const tinyap_t t) { return t->output; }
 void tinyap_set_output(const tinyap_t t, ast_node_t o) { t->output = o; }
 
-int tinyap_get_error_col(const tinyap_t t) { return parse_error_column(t->toktext); }
-int tinyap_get_error_row(const tinyap_t t) { return parse_error_line(t->toktext); }
-const char* tinyap_get_error(const tinyap_t t) { return parse_error(t->toktext); }
+#if 1
+int tinyap_get_error_col(const tinyap_t t) { return parse_error_column(t->pda); }
+int tinyap_get_error_row(const tinyap_t t) { return parse_error_line(t->pda); }
+const char* tinyap_get_error(const tinyap_t t) { return parse_error(t->pda); }
+#endif
 
 int tinyap_node_is_nil(const ast_node_t  n) {
 	return n==NULL;
@@ -415,8 +449,8 @@ int tinyap_node_is_string(const ast_node_t  n) {
 }
 
 const char* tinyap_node_get_string(const ast_node_t  n) {
-	char* ret = Value(n);
-	if(ret<0x100) {
+	const char* ret = Value(n);
+	if(n->node_flags&ATOM_IS_NOT_STRING) {
 		ret = op2string((int)ret);
 	}
 	return ret;

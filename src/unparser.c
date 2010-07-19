@@ -19,9 +19,9 @@
 
 #include "tinyap.h"
 #include "ast.h"
-#include "tokenizer.h"
 #include "string_registry.h"
 #include "serialize.h"
+#include "stack.h"
 
 #define _BIN_SZ 4096
 
@@ -37,7 +37,7 @@ static char
 
 size_t _buf_indent_lvl = 0;
 
-extern int unrepl_context;
+int unrepl_context=0;
 
 #ifndef HAVE_STRNDUP
 
@@ -120,14 +120,17 @@ static void _buf_realloc() {
 
 static void _buf_backup() {
 	push(_buf_st, (void*)_buf_sz);
+	/*printf("  Bak @%i _buf_sz = %u\n", _buf_st->sp+1, _buf_sz);*/
 }
 
 static void _buf_validate() {
+	/*printf("  Vld @%i _buf_sz = %u\n", _buf_st->sp+1, _buf_sz);*/
 	_pop(_buf_st);
 }
 
 static void _buf_restore() {
 	_buf_sz = (size_t) _pop(_buf_st);
+	/*printf("  Rst @%i _buf_sz = %u\n", _buf_st->sp+2, _buf_sz);*/
 }
 
 static void _buf_append(const char* s) {
@@ -201,13 +204,15 @@ wast_iterator_t wig_goto_rule(wast_iterator_t grammar, char* name) {
  *   	
  *
  */
-#define __brv(_op) do { /*printf("DEBUG : " #_op "\n");*/ _buf_##_op(); wi_##_op(expr); wi_##_op(ast); } while(0)
+#define __brv(_op) do { /*printf("%s:%u\n", __FILE__, __LINE__);*/ /*printf("DEBUG : " #_op "\n");*/ _buf_##_op(); wi_##_op(expr); wi_##_op(ast); } while(0)
 
 #define BACKUP __brv(backup)
 #define RESTORE do { /*printf("BUF WAS : %s\n", _buf);*/ __brv(restore); /*printf("BUF RESTORED TO : %s\n", _buf);*/ } while(0)
 #define VALIDATE do { __brv(validate); /*printf("CURRENT BUF : %s\n", _buf);*/ } while(0)
 
 int unproduce(wast_iterator_t grammar, wast_iterator_t expr, wast_iterator_t ast);
+
+int _rec = 0;
 
 int wa_check_lefty(wast_t rule) {
 	wast_t expr = wa_opd(rule, 1);
@@ -222,6 +227,8 @@ int wa_check_lefty(wast_t rule) {
 	}
 	return 0;
 }
+
+void delete_node(ast_node_t);
 
 wast_t wa_dump(wast_t wa) {
 	ast_node_t a = make_ast(wa);
@@ -242,8 +249,9 @@ int unproduce_rule(wast_iterator_t grammar, wast_iterator_t expr, wast_iterator_
 	/*if(wi_node(ast)==NULL) {*/
 		/*return 0;*/
 	/*}*/
-	/*printf("ON rule %s\n", wi_op(expr));*/
-	BACKUP;
+	/*_rec+=1;*/
+	/*printf("[%i] ON rule %s\n", _rec, wi_op(expr));*/
+	/*BACKUP;*/
 
 	if(!strcmp(wi_op(expr), "TransientRule")) {
 		if(wa_check_lefty(wi_node(expr))) {
@@ -298,11 +306,20 @@ int unproduce_rule(wast_iterator_t grammar, wast_iterator_t expr, wast_iterator_
 		/*status = 1/0;*/
 		status = 0;
 	}
-	if(status) {
-		VALIDATE;
-	} else {
-		RESTORE;
-	}
+	/*if(status) {*/
+		/*VALIDATE;*/
+		/*printf("[%i] SUCCESS\n", _rec);*/
+		/*printf("---------- buffer so far ----------\n");*/
+		/*printf("<<<%s>>>\n", _buf);*/
+		/*printf("-----------------------------------\n\n");*/
+	/*} else {*/
+		/*RESTORE;*/
+		/*printf("[%i] FAILURE\n", _rec);*/
+		/*printf("---------- buffer so far ----------\n");*/
+		/*printf("<<<%*.*s>>>\n", _buf_sz, _buf_sz, _buf);*/
+		/*printf("-----------------------------------\n\n");*/
+	/*}*/
+	/*_rec-=1;*/
 	return status;
 }
 
@@ -329,34 +346,34 @@ char* str_escape(char* str) {
 
 
 
-char* unrepl(const char* re, const char* repl, const char* token);
+/*char* unrepl(const char* re, const char* repl, const char* token);*/
 
 #define _RE   2
 #define _T    4
 
 int unproduce(wast_iterator_t grammar, wast_iterator_t expr, wast_iterator_t ast/*, int* next*/) {
-	static int _rec = 0;
 	int status=0;
 	int next=0;
 	/*ast_node_t a;*/
 	/**next = 0;*/
-	/*printf("\n[%i] - - unproduce - - expr = ", _rec); wa_dump(wi_node(expr)); printf(" ast = "); wa_dump(wi_node(ast)); printf("\n");*/
 	if(wi_node(expr)==NULL) {
+		printf("[%i] null element\n", _rec);
 		return 0;
 	}
 	if(wi_node(ast) == wa_bl_ast) {
 		wi_next(ast);
 	}
 	if(wi_node(expr)==wa_bl_expr) {
+		printf("[%i] skipping blacklisted element\n", _rec);
 		return 1;
 	}
+	_rec += 1;
+	/*printf("\n[%i] - - unproduce - - expr = ", _rec); wa_dump(wi_node(expr)); printf(" ast = "); wa_dump(wi_node(ast)); printf("\n");*/
+	BACKUP;
 	if(!strcmp(wi_op(expr), "T")) {
 		_buf_append(wi_string(expr,0));
-		return 1;
-	}
-	BACKUP;
-	_rec += 1;
-	if(!strcmp(wi_op(expr),	"Rep0N")) {
+		status = 1;
+	} else if(!strcmp(wi_op(expr),	"Rep0N")) {
 		/*printf("Rep0N\n");*/
 		/*_rec += 1;*/
 		wi_down(expr);
@@ -370,22 +387,26 @@ int unproduce(wast_iterator_t grammar, wast_iterator_t expr, wast_iterator_t ast
 		unproduce(grammar, expr, ast);
 		wi_up(expr);
 		status = 1;
+		next=1;
 	} else if(!(strcmp(wi_op(expr),	"Seq")&&strcmp(wi_op(expr), "RawSeq"))) {
 		wi_down(expr);
+		/*printf("[%i] seq now on %p (%s)\n", _rec, wi_node(expr), wi_node(expr)?wi_op(expr):"null");*/
 		while((status=unproduce(grammar, expr, ast)) && wi_has_next(expr)) {
 			wi_next(expr);
-			/*printf("seq now on %p (%s)\n", wi_node(expr), wi_node(expr)?wi_op(expr):"null");*/
+			/*printf("[%i] seq now on %p (%s)\n", _rec, wi_node(expr), wi_node(expr)?wi_op(expr):"null");*/
 		}
 		/*printf("[%i] after seq : %p %i\n", _rec, wi_node(expr), wi_has_next(expr));*/
-		/*if(!status) {*/
+		if(!status) {
 			/*printf("[%i] seq failed on ", _rec); wa_dump(wi_node(expr)); printf("\n");*/
-		/*}*/
+		}
 		/*status &= !wi_has_next(expr);*/
 		wi_up(expr);
 	} else if(!strcmp(wi_op(expr),	"Alt")) {
 		wi_down(expr);
+		/*printf("[%i] alt now on %p (%s)\n", _rec, wi_node(expr), wi_node(expr)?wi_op(expr):"null");*/
 		while( (!(status = unproduce(grammar, expr, ast))) && wi_has_next(expr) ) {
 			wi_next(expr);
+			/*printf("[%i] alt now on %p (%s)\n", _rec, wi_node(expr), wi_node(expr)?wi_op(expr):"null");*/
 		}
 		/*printf("[%i] after alt : status=%i\n", _rec, status);*/
 		wi_up(expr);
@@ -451,15 +472,6 @@ int unproduce(wast_iterator_t grammar, wast_iterator_t expr, wast_iterator_t ast
 				status = 1;
 				next = 1;
 			}
-		} else if(!strcmp(wi_op(expr),	"RPL")) {
-			/* FIXME : can't undo a replacement from regexp match */
-			if(wi_on_leaf(ast)) {
-				char* unrep = unrepl( wi_string(expr, 0), wi_string(expr, 1), wi_op(ast));
-				/*_buf_append(str_escape(unrep));*/
-				_buf_append(unrep);
-				status = 1;
-				next = 1;
-			}
 		} else if(!strcmp(wi_op(expr),	"Prefix")) {
 			wast_t backup;
 			/* try to unproduce first operand in prefix and first operand in ast */
@@ -505,20 +517,37 @@ int unproduce(wast_iterator_t grammar, wast_iterator_t expr, wast_iterator_t ast
 				while(unproduce(grammar, expr, ast));
 			}
 			wi_up(expr);
+		} else if(!strcmp(wi_op(expr),	"RPL")) {
+			/* FIXME : can't undo a replacement from regexp match */
+			if(wi_on_leaf(ast)) {
+				/*char* unrep = unrepl( wi_string(expr, 0), wi_string(expr, 1), wi_op(ast));*/
+				char* unrep = "OBSOLETE";
+				/*_buf_append(str_escape(unrep));*/
+				_buf_append(unrep);
+				status = 1;
+				next = 1;
+			}
+		} else {
+			printf("[%i] Won't handle %s\n", _rec, wi_op(expr));
 		}
+	} else {
+		printf("[%i] Won't handle %s\n", _rec, wi_op(expr));
 	}
 	if(status) {
 		VALIDATE;
-		/*printf("SUCCESS [%i]\n", _rec);*/
+		/*printf("[%i] SUCCESS ", _rec); wa_dump(wi_node(expr)); printf("\n");*/
 		/*printf("---------- buffer so far ----------\n");*/
-		/*printf("%s\n", _buf);*/
-		/*printf("-----------------------------------\n");*/
+		/*printf("<<<%*.*s>>>\n", _buf_sz, _buf_sz, _buf);*/
+		/*printf("-----------------------------------\n\n");*/
 		if(next) {
 			wi_next(ast);
 		}
 	} else {
 		RESTORE;
-		/*printf("FAILURE [%i]\n", _rec);*/
+		/*printf("[%i] FAILURE ", _rec); wa_dump(wi_node(expr)); printf("\n");*/
+		/*printf("---------- buffer so far ----------\n");*/
+		/*printf("<<<%*.*s>>>\n", _buf_sz, _buf_sz, _buf);*/
+		/*printf("-----------------------------------\n\n");*/
 	}
 	_rec -= 1;
 	return status;

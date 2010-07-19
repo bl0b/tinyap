@@ -50,11 +50,11 @@
 
 #define TypeDefList(__id,__type)\
 	typedef LIST(__type) __id;\
-	typedef NODE(__type) __id##Node;
+	typedef NODE(__type) __id##Node
 
 #define TypeDefPList(__id,__type)\
 	typedef LIST(__type) __id;\
-	typedef NODE_P(__type) __id##Node;
+	typedef NODE_P(__type) __id##Node
 
 TypeDefPList(GenericList,void);
 

@@ -25,6 +25,9 @@
 #define RE_TYPE pcre*
 
 #include "stack.h"
+#include "hashtab.h"
+#include "string_registry.h"
+#include "trie.h"
 
 struct _pos_cache_t {
 	int last_ofs;
@@ -40,6 +43,7 @@ struct _pos_cache_t {
 
 #define STRIP_TERMINALS 1
 #define INPUT_IS_CLEAN 2
+#define FULL_PARSE 0x100
 
 #define __fastcall __attribute__((fastcall))
 typedef struct _token_context_t {
@@ -48,8 +52,9 @@ typedef struct _token_context_t {
 	size_t flags;
 	size_t ofs;
 	RE_TYPE garbage;
-	size_t ofstack[OFSTACK_SIZE];
-	size_t ofsp;
+	/*size_t ofstack[OFSTACK_SIZE];*/
+	/*size_t ofsp;*/
+	tinyap_stack_t ofstack;
 	size_t farthest;
 	tinyap_stack_t farthest_stack;
 	tinyap_stack_t node_stack;
@@ -58,15 +63,17 @@ typedef struct _token_context_t {
 	ast_node_t grammar;
 	struct _pos_cache_t pos_cache;
 	node_cache_t cache;
+	struct _hashtable bows;
 } token_context_t;
 
 
-ast_node_t __fastcall token_produce_any(token_context_t*t,ast_node_t expr);
+ast_node_t __fastcall token_produce_any(token_context_t*t,ast_node_t expr, ast_node_t follow);
 ast_node_t __fastcall find_nterm(const ast_node_t ruleset,const char*ntermid);
 ast_node_t __fastcall clean_ast(ast_node_t t);
 
-ast_node_t __fastcall token_produce_re(token_context_t*t,const RE_TYPE expr);
-ast_node_t __fastcall token_produce_str(token_context_t*t,const char*token);
+ast_node_t __fastcall token_produce_re(token_context_t*t, ast_node_t re);
+ast_node_t __fastcall token_produce_str(token_context_t*t, ast_node_t expr);
+ast_node_t __fastcall token_produce_bow(token_context_t*t, ast_node_t bow);
 
 RE_TYPE token_regcomp(const char*reg_expr);
 token_context_t*token_context_new(const char*src,const size_t length,const char*garbage_regex,ast_node_t greuh,size_t drapals);
@@ -80,6 +87,8 @@ void token_context_free(token_context_t*t);
 const char* parse_error(token_context_t*t);
 int parse_error_line(token_context_t*t);
 int parse_error_column(token_context_t*t);
+
+trie_t token_find_bow(token_context_t*t, char* name);
 
 #define MAX_TOK_SIZE 256
 

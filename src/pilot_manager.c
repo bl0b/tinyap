@@ -39,7 +39,7 @@ struct {
 /*! \brief hashes a string
  * \return the hash value
  */
-static size_t hash_str(hash_key k) {
+size_t hash_str(hash_key k) {
 //	size_t ror;
 	const char* str = (const char*)k;
 	size_t ret=*str %HASH_SIZE;

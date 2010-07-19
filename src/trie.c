@@ -1,7 +1,22 @@
-#include "tinyap_alloc.h"
-#include "string_registry.h"
+/* Tinya(J)P : this is not yet another (Java) parser.
+ * Copyright (C) 2007 Damien Leroux
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+ */
 
-typedef struct _trie_node_t* trie_t;
+#include "trie.h"
 
 unsigned long int trie_stats_allocs;
 unsigned long int trie_stats_words;
@@ -42,14 +57,17 @@ static inline trie_t trie_alloc() {
 }
 
 trie_t trie_new() {
-	trie_t ret = trie_alloc();
+	trie_t ret;
+
+	/* stats */
+	trie_stats_allocs = 0;
+	trie_stats_words = 0;
+
+	ret = trie_alloc();
 	ret->radix=NULL;
 	ret->next=NULL;
 	ret->follow=NULL;
 	ret->is_leaf=1;
-	/* stats */
-	trie_stats_allocs = 0;
-	trie_stats_words = 0;
 	return ret;
 }
 
@@ -67,6 +85,7 @@ void trie_free(trie_t t) {
 
 unsigned long match_prefix(const char*s1, const char*s2) {
 	const char*base=s1;
+	if(!(s1&&s2)) { return 0; }
 	while(*s1&&*s2&&*s1==*s2) { s1+=1; s2+=1; }
 	return s1-base;
 }
@@ -87,6 +106,34 @@ unsigned long trie_match(trie_t t, const char*s) {
 				s+=l;
 			} else {
 				return 0;
+			}
+		} else {
+			tmp=tmp->next;
+		}
+	}
+	return ret;
+}
+
+
+unsigned long trie_match_prefix(trie_t t, const char*s) {
+	trie_t tmp=t->follow;
+	const char* backup = s;
+	unsigned long ret=0;
+	int l;
+	/*printf("\nstarting match of %20.20s\n", s);*/
+	while(*s&&tmp) {
+		/*printf("  on string %20.20s, on node %p, on radix %s\n", s, t, tmp->radix);*/
+		if((l=match_prefix(tmp->radix, s))) {
+			/*if(!debug) {printf("matched radix %s%s\n", tmp->radix, tmp->is_leaf?" (LEAF)":"");}*/
+			if(tmp->radix[l]==0) {
+				if(tmp->is_leaf) {
+					ret = s+l-backup;
+					/*ret += l;*/
+				}
+				tmp=tmp->follow;
+				s+=l;
+			} else {
+				return ret;
 			}
 		} else {
 			tmp=tmp->next;
@@ -128,8 +175,7 @@ void trie_insert(trie_t t, const char*s) {
 			split->next=NULL;/*n;*/
 			split->follow=cur->follow;
 			cur->radix[l]=0;
-			/*cur->next=NULL;*/
-			/*cur->is_leaf&=!!n;*/
+			cur->is_leaf&=!s[l];
 			s+=l;
 			cur->follow=split;
 			prev=cur;
@@ -160,13 +206,29 @@ double chrono() {
 #define EXAMPLE "/usr/share/dict/web2"
 /*#define EXAMPLE "web2"*/
 
+char* examples[] = {
+	"rans",
+	"ans",
+	"terati",
+	"ati",
+	"oni",
+	"niz",
+	"iz",
+	"ati",
+	"bilit",
+	"ili",
+	"ty",
+	NULL
+};
+
 int main(int argc, char**argv) {
 	trie_t t = trie_new();
 	FILE*f = fopen(EXAMPLE, "r");
 	char buf[64];
 	double t0, t1;
-	int counter=0;
+	unsigned int counter=0;
 	int failures=0;
+	int i;
 	t0 = chrono();
 	while((!feof(f))&&fscanf(f, "%s", buf)) {
 		trie_insert(t, buf);
@@ -197,10 +259,31 @@ int main(int argc, char**argv) {
 	t1 = chrono();
 	printf("found %i words (failed on %i) in %.3lf seconds\n", counter, failures, t1-t0);
 
+	strcpy(buf, "transliterationizationability");
+	t0 = chrono();
+#if 0
+	{
+		char** ptr = examples;
+		while(*ptr) {
+			printf("%s => %lu\n", *ptr, trie_match_prefix(t, *ptr));
+			ptr+=1;
+		}
+	}
+#else
+	for(i=0;i<strlen(buf);i+=1) {
+		for(failures=0;failures<1000000;failures+=1) {
+			counter = trie_match_prefix(t, buf+i);
+		}
+		printf("+%2.2i found pefix match : %*.*s (%lu)\n", i, counter<30?counter:0, counter<30?counter:0, buf+i, counter);
+	}
+#endif
+	t1 = chrono();
+	printf("done that in %.3lf microseconds per match\n", (t1-t0)/strlen(buf));
+
 	t0 = chrono();
 	trie_free(t);
 	t1 = chrono();
-	printf("freed the beast in %.3lf seconds\n", t1-t0);
+	printf("freed the beast (%lu allocs left) in %.3lf seconds\n", trie_stats_allocs, t1-t0);
 	term_tinyap_alloc();
 	return 0;
 }
