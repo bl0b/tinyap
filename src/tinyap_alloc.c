@@ -63,6 +63,15 @@ struct __allocator
 ;
 
 
+void _term_allocator(struct __allocator*A) {
+	GenericListNode* b = A->blocs.head, *tmp;
+	while(b) {
+		tmp = b;
+		b = b->next;
+		free(tmp);
+	}
+}
+
 void* _alloc(struct __allocator*A) {
 	struct _memorybloc* current_bloc = (struct _memorybloc*)A->blocs.head;
 	GenericListNode* x;
@@ -81,7 +90,7 @@ void* _alloc(struct __allocator*A) {
 	} else {
 		/*printf(" : new bloc\n");*/
 	/*fflush(stdout);*/
-		x = (GenericListNode*)_alloc_bloc(A->size, (1<<22)-1);
+		x = (GenericListNode*)_alloc_bloc(A->size, (1<<16)-1);
 		x->next = A->blocs.head;
 		x->prev=NULL;
 		A->blocs.head = x;
@@ -92,7 +101,7 @@ void* _alloc(struct __allocator*A) {
 	}
 }
 
-void* _free(struct __allocator*A, void* ptr) {
+void _free(struct __allocator*A, void* ptr) {
 	GenericListNode*n = (GenericListNode*)ptr;
 	n->prev=NULL;
 	n->next=A->free.head;

@@ -21,6 +21,7 @@
 
 #include "list.h"
 #include <pthread.h>
+#include <malloc.h>
 
 struct __allocator {
 	unsigned long size;
@@ -54,10 +55,18 @@ extern struct __allocator _alloca_4, _alloca_8, _alloca_16, _alloca_32, _alloca_
 #define tinyap_free(type, ptr) _free(_select_alloca(sizeof(type)), ptr)
 
 void* _alloc(struct __allocator*A);
-void* _free(struct __allocator*A, void* ptr);
+void _free(struct __allocator*A, void* ptr);
+
+void _term_allocator(struct __allocator*A);
 
 #define init_tinyap_alloc() ((void)0)
-#define term_tinyap_alloc() ((void)0)
+#define term_tinyap_alloc() do {\
+		_term_allocator(&_alloca_4);\
+		_term_allocator(&_alloca_8);\
+		_term_allocator(&_alloca_16);\
+		_term_allocator(&_alloca_32);\
+		_term_allocator(&_alloca_64);\
+	} while(0)
 
 #endif
 
