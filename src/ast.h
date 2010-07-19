@@ -133,6 +133,14 @@ static inline void setCol(ast_node_t n,int c) {
 #define Cdr	getCdr
 #define Value	getAtom
 
+#define Cddr(_x) Cdr(Cdr(_x))
+#define Cdddr(_x) Cdr(Cddr(_x))
+#define Cddddr(_x) Cdr(Cdddr(_x))
+
+#define Cadr(_x) Car(Cdr(_x))
+#define Caddr(_x) Car(Cddr(_x))
+#define Cadddr(_x) Car(Cdddr(_x))
+#define Caddddr(_x) Car(Cddddr(_x))
 
 extern volatile int _node_alloc_count;
 

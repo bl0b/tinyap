@@ -26,6 +26,8 @@ add_library(libtinyap SHARED ${libtinyap_src})
 set_target_properties(libtinyap
 	PROPERTIES	OUTPUT_NAME tinyap
 			LINK_FLAGS "${tinyap_ldflags}"
+			SOVERSION "${TINYAP_VERSION_MAJOR}.${TINYAP_VERSION_MINOR}"
+			VERSION "${TINYAP_VERSION_MAJOR}.${TINYAP_VERSION_MINOR}"
 	)
 			
 add_executable(tinyap_static main.c ${libtinyap_src})

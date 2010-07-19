@@ -25,6 +25,7 @@ char* str_escape(char* str);
 char* unrepl(const char* re, const char* repl, const char* token) {
 	size_t base = 0;
 	size_t rec = 0;
+	int in_assertion;
 	char* p_re = (char*) re;
 	char* p_repl = (char*) repl;
 	char* p_tok = (char*) token;
@@ -50,18 +51,27 @@ char* unrepl(const char* re, const char* repl, const char* token) {
 	/*}*/
 
 
-	/*printf("got regex \"%s\" replacement \"%s\" token \"%s\"\n", re, repl, token);*/
+	printf("got regex \"%s\" replacement \"%s\" token \"%s\"\n", re, repl, token);
 
 	while(*p_re) {
 		if(*p_re=='(') {
-			n_sub += 1;
-			rec += 1;
-			sub_ofs[base+rec][0] = p_re - re +1;
+			if(*(p_re+1)&&*(p_re+1)=='?') {
+				in_assertion=1;
+			} else {
+				in_assertion=0;
+				n_sub += 1;
+				rec += 1;
+				sub_ofs[base+rec][0] = p_re - re +1;
+			}
 		} else if(*p_re==')') {
-			sub_ofs[base+rec][1] = p_re - re;
-			rec -= 1;
-			if(rec==0) {
-				base = n_sub;
+			if(in_assertion) {
+				in_assertion=0;
+			} else {
+				sub_ofs[base+rec][1] = p_re - re;
+				rec -= 1;
+				if(rec==0) {
+					base = n_sub;
+				}
 			}
 		}
 		p_re += 1;
@@ -71,6 +81,7 @@ char* unrepl(const char* re, const char* repl, const char* token) {
 
 	for(base=1;base<=n_sub;base+=1) {
 		strncpy(sub_re_str[base], re+sub_ofs[base][0], sub_ofs[base][1]-sub_ofs[base][0]);
+		printf("unrepl:: compiling %s\n", sub_re_str[base]);
 		sub_re[base] = token_regcomp(sub_re_str[base]);
 		if(sub_re[base] == NULL) {
 			printf("regex compilation failed : %s\n", sub_re_str[base]);
@@ -87,20 +98,20 @@ char* unrepl(const char* re, const char* repl, const char* token) {
 			p_repl += 1;
 			base = *p_repl - '0';
 			p_repl += 1;
-			/*printf("exec re /%s/ against %s", sub_re_str[base], p_tok);*/
+			printf("exec re /%s/ against %s", sub_re_str[base], p_tok);
 			/*if(regexec(sub_re[base], p_tok, 1, &match, 0)!=REG_NOMATCH && match.rm_so==0) {*/
-			if(pcre_exec(sub_re[base], NULL, p_tok, strlen(p_tok), 0, PCRE_DOLLAR_ENDONLY|PCRE_NEWLINE_ANY, match, 2)>=0) {
+			if(pcre_exec(sub_re[base], NULL, p_tok, strlen(p_tok), 0, 0, match, 2)>=0) {
 				/*strncpy(sub_str[base], p_tok, match.rm_eo+1);*/
-				strncpy(sub_str[base], p_tok, match[1]+1);
-				/*printf("perform escaping of string \"%s\"\n", sub_str[base]);*/
+				strncpy(sub_str[base], p_tok, match[1]);
+				printf("perform escaping of string \"%s\"\n", sub_str[base]);
 				strcpy(sub_str[base], str_escape(sub_str[base]));
 				/*p_tok += match.rm_eo+1;*/
-				p_tok += match[1]+1;
-				/*printf("matched ! end ofs = %u\n", match.rm_eo);*/
+				p_tok += match[1];
+				printf("matched ! end ofs = %u\n", match[1]);
 			}
 		} else {
 			assert(*p_repl==*p_tok);
-			/*printf("skip %c\n", *p_tok);*/
+			printf("skip %c\n", *p_tok);
 			p_repl += 1;
 			p_tok += 1;
 		}
@@ -130,7 +141,7 @@ char* unrepl(const char* re, const char* repl, const char* token) {
 
 	for(base=1;base<=n_sub;base+=1) {
 		if(sub_re[base]) {
-			regfree(sub_re[base]);
+			/*regfree(sub_re[base]);*/
 			/*tinyap_free(regex_t, sub_re[base]);*/
 			pcre_free(sub_re[base]);
 			sub_re[base]=NULL;

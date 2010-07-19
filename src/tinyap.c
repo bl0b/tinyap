@@ -240,7 +240,7 @@ unsigned int tinyap_get_source_buffer_length(tinyap_t t) {
 }
 
 float tinyap_get_parse_time(tinyap_t t) {
-	return (unsigned int)t->parse_time;
+	return t->parse_time;
 }
 
 void tinyap_set_source_file(tinyap_t t,const char*fnam) {
@@ -294,7 +294,7 @@ void tinyap_set_source_file(tinyap_t t,const char*fnam) {
 			/*abort();*/
 		}
 		gettimeofday(&t0, NULL);
-		printf("took %.3f seconds to read file contents.\n", 1.e-6f*(t0.tv_usec-t1.tv_usec)+t0.tv_sec-t1.tv_sec);
+		fprintf(stderr, "took %.3f seconds to read file contents.\n", 1.e-6f*(t0.tv_usec-t1.tv_usec)+t0.tv_sec-t1.tv_sec);
 	} else {
 		tinyap_set_source_buffer(t,"",0);
 	}
@@ -342,7 +342,7 @@ int tinyap_parse(tinyap_t t) {
 	}
 
 	gettimeofday(&t0, NULL);
-	printf("took %.3f seconds to init parsing context.\n", 1.e-6f*(t0.tv_usec-t1.tv_usec)+t0.tv_sec-t1.tv_sec);
+	fprintf(stderr, "took %.3f seconds to init parsing context.\n", 1.e-6f*(t0.tv_usec-t1.tv_usec)+t0.tv_sec-t1.tv_sec);
 
 	gettimeofday(&t0, NULL);
 
@@ -350,7 +350,7 @@ int tinyap_parse(tinyap_t t) {
 	/*t->output = (copy_node(*/
 	t->output = token_produce_any(t->toktext, t->start);
 
-	printf("TinyaP parsed %u of %u characters.\n",t->toktext->farthest,t->toktext->size);
+	fprintf(stderr, "TinyaP parsed %u of %u characters.\n",t->toktext->farthest,t->toktext->size);
 //	token_context_free(t->toktext);
 //	t->toktext=NULL;
 
@@ -415,7 +415,11 @@ int tinyap_node_is_string(const ast_node_t  n) {
 }
 
 const char* tinyap_node_get_string(const ast_node_t  n) {
-	return Value(n);
+	char* ret = Value(n);
+	if(ret<0x100) {
+		ret = op2string((int)ret);
+	}
+	return ret;
 }
 
 ast_node_t  tinyap_node_get_operand(const ast_node_t  n,int i) {

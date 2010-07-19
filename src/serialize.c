@@ -18,6 +18,7 @@
 #include "serialize.h"
 #include "ast.h"
 #include "tokenizer.h"
+#include "string_registry.h"
 
 
 #define OPEN_PAR ((void*)(-1))
@@ -98,7 +99,7 @@ char* usrlz_token(token_context_t*t,const char*whitespaces,const char*terminator
 		//debug_writeln("* %s PARENTHESIS",*srcptr=='('?"OPENING":"CLOSING"); /*)*/
 	} else {
 		do {
-			unescape_chr(&srcptr,&destptr, context);
+			unescape_chr(&srcptr,&destptr, context, -1);
 			isTerminator=strchr(terminators,*srcptr)||strchr(whitespaces,*srcptr);
 		} while(*srcptr!=0 &&!isTerminator);
 		t->ofs+=(size_t)(srcptr-t->source-t->ofs);
@@ -224,7 +225,7 @@ void ast_serialize(const ast_node_t ast,int(*func)(int,void*),void*param) {
 		func(')',param);
 	/* if ast is atom, output atom */
 	} else if(isAtom(ast)) {
-		srcptr=getAtom(ast);
+		srcptr=regstr(getAtom(ast));
 		while(*srcptr!=0) {
 			escape_chr(&srcptr,func,param, _LISP);
 		}

@@ -23,11 +23,12 @@
 #include "string_registry.h"
 #include "serialize.h"
 
-void ast_serialize(const ast_node_t ast,char**output);
-/*void unescape_chr(char**src,char**dest, int context);*/
+const char* ast_serialize_to_string(const ast_node_t ast);
 void delete_node(ast_node_t n);
 ast_node_t copy_node(ast_node_t);
 
+
+int max_rec_level = 0;
 
 ast_node_t PRODUCTION_OK_BUT_EMPTY = (union _ast_node_t[]){{ {0, 0, 0, 0, 0} }};
 
@@ -59,17 +60,18 @@ RE_TYPE token_regcomp(const char*reg_expr) {
 	int error_ofs;
 	const char* error;
 	RE_TYPE initiatur = pcre_compile(reg_expr, 0, &error, &error_ofs, NULL);
+	fprintf(stderr, "Compiling regex \"%s\"\n", reg_expr);
 	if(error) {
-		printf("Error : regex compilation of \"%s\" failed (%s at #%i)\n", reg_expr, error, error_ofs);
+		fprintf(stderr, "Error : regex compilation of \"%s\" failed (%s at #%i)\n", reg_expr, error, error_ofs);
 		return NULL;
 	}
 	return initiatur;
 }
 
-void escape_ncpy(char**dest, char**src, int count, int context) {
+void escape_ncpy(char**dest, char**src, int count, int delim) {
 	const char* base=*src;
 	while( (*src-base) < count) {
-		unescape_chr(src,dest, context);
+		unescape_chr(src,dest, -1, delim);
 	}
 }
 
@@ -82,10 +84,10 @@ char* match2str_rpl(const char*repl, const char* match, int n_tok, int* tokens) 
 		if(*src=='\\'&& *(src+1)>='0' && *(src+1)<='9') {
 			int n = *(src+1)-'0';
 			subsrc = (char*) (match+tokens[2*n]);
-			escape_ncpy(&dest,&subsrc, tokens[2*n+1]+1-tokens[2*n], _RE);
+			escape_ncpy(&dest,&subsrc, tokens[2*n+1]-tokens[2*n], '/');
 			src+=2;
 		} else {
-			unescape_chr(&src,&dest, -1);
+			unescape_chr(&src,&dest, 8/*no context*/, '/');
 		}
 	}
 	*dest=0;
@@ -107,7 +109,7 @@ char*match2str(const char*src,const size_t start,const size_t end) {
 //		memset(buf,0,end-start);
 //	printf("              => \"%s\"\n",buf);
 		while(ofs<sz) {
-			unescape_chr(&rd, &wr, _RE);
+			unescape_chr(&rd, &wr, _RE, '/');
 			ofs = rd-src-start;
 //		printf("match2str orig = \"%*.*s\"\n",(int)(end-start-ofs),(int)(end-start-ofs),rd);
 //		printf("              => \"%s\" %p %p %li\n",buf,rd,buf,ofs);
@@ -127,6 +129,19 @@ char*match2str(const char*src,const size_t start,const size_t end) {
 	return buf;
 }
 
+
+
+
+
+
+static inline void token_context_enter_raw(token_context_t*t, int raw) {
+	push(t->raw_stack, (void*)raw);
+}
+
+
+static inline void token_context_leave_raw(token_context_t*t) {
+	_pop(t->raw_stack);
+}
 
 
 token_context_t*token_context_new(const char*src,const size_t length,const char*garbage_regex,ast_node_t greuh,size_t drapals) {
@@ -151,8 +166,13 @@ token_context_t*token_context_new(const char*src,const size_t length,const char*
 	t->pos_cache.last_nlofs=0;
 	t->pos_cache.row=1;
 	t->pos_cache.col=1;
+	t->raw_stack = new_stack();
 
 	node_cache_init(t->cache);
+
+	t->expected=NULL;
+
+	token_context_enter_raw(t, 0);
 
 	return t;
 }
@@ -179,26 +199,35 @@ static inline void token_context_validate(token_context_t*t) {
 	static int last = 0;
 	/* TODO : implement node caching here */
 	t->ofsp-=1;		/* release space on stack, don't update t->ofs */
-	if(t->farthest<t->ofs) {
+	if(t->farthest<t->ofs && !(t->flags&INPUT_IS_CLEAN)) { 	/* just matched a token, so we didn't expect an unmet token. */
 		t->farthest=t->ofs;
 		/*free_stack(t->farthest_stack);*/
 		/*t->farthest_stack = stack_dup(t->node_stack);*/
+		delete_node(t->expected);
+		t->expected=NULL;
 	}
 	_pop(t->node_stack);
 	t->flags&=~INPUT_IS_CLEAN;
 	if((last>>10)!=(t->ofs>>10)) {
 		last=t->ofs;
-		printf("%u / %u    \r", t->ofs, t->size);
+		fprintf(stderr, "%u / %u    \r", t->ofs, t->size);
 	}
 	/*printf("input is unclean.\n");*/
 }
 
 
 
-static inline void token_context_pop(token_context_t*t) {
+static inline void token_context_pop(token_context_t*t, ast_node_t failed_expr) {
+	if(failed_expr && t->farthest==t->ofs) {
+		char* tag = Value(Car(failed_expr));
+		if(!(TINYAP_STRCMP(tag, STR_T)&&TINYAP_STRCMP(tag, STR_RE)&&TINYAP_STRCMP(tag, STR_RPL))) {
+			t->expected = newPair(copy_node(failed_expr), t->expected, 0, 0);
+		}
+	}
 	_pop(t->node_stack);
-	if(!t->ofsp)
+	if(!t->ofsp) {
 		return;
+	}
 	t->ofsp-=1;
 	t->ofs=t->ofstack[t->ofsp];
 }
@@ -212,12 +241,15 @@ void token_context_free(token_context_t*t) {
 		pcre_free(t->garbage);
 	}
 	delete_node(t->grammar);
+	free_stack(t->raw_stack);
 	free_stack(t->node_stack);
 	free_stack(t->farthest_stack);
 	/*node_cache_flush(t->cache);*/
 	free(t->source);
 	free(t);
 }
+
+
 
 
 /*
@@ -231,8 +263,8 @@ ast_node_t __fastcall token_produce_re(token_context_t*t,const RE_TYPE expr) {
 	int r,c;
 	ast_node_t ret=NULL;
 	/* perform some preventive garbage filtering */
-	_filter_garbage(t);
-	update_pos_cache(t);
+	/*_filter_garbage(t);*/
+	/*update_pos_cache(t);*/
 	r=t->pos_cache.row;
 	c=t->pos_cache.col;
 	/*if(regexec(expr,t->source+t->ofs,1,&token,0)!=REG_NOMATCH&&token.rm_so==0) {*/
@@ -252,6 +284,51 @@ ast_node_t __fastcall token_produce_re(token_context_t*t,const RE_TYPE expr) {
 	return ret;
 }
 
+
+
+ast_node_t __fastcall token_produce_delimstr(token_context_t*t, ast_node_t str) {
+	char* ret = NULL;
+	char* _src;
+	char* _end;
+	char* _match;
+	ast_node_t delim = Cdr(str);
+	char* prefix=Value(Car(delim));
+	char* suffix=Value(Cadr(delim));
+	size_t slen = strlen(prefix);
+	/*printf(__FILE__ ":%i\n", __LINE__);*/
+	if(*prefix&&strncmp(t->ofs+t->source,prefix,slen)) {
+		return NULL;
+	}
+	/*printf(__FILE__ ":%i\n", __LINE__);*/
+	_src = t->ofs+t->source+slen;
+	if(!*suffix) {
+		/*printf(__FILE__ ":%i\n", __LINE__);*/
+		_match = ret = _stralloc(t->source+t->size-_src+1);
+		escape_ncpy(&_match, &_src, t->source+t->size-_src, -1);
+		t->ofs = t->size;
+	} else {
+		/*printf(__FILE__ ":%i\n", __LINE__);*/
+		_end = _src;
+		/*printf(__FILE__ ":%i\n", __LINE__);*/
+		while((_match=strchr(_end, (int)*suffix))&&_match>_end&&*(_match-1)=='\\') {
+			/*printf(__FILE__ ":%i\n", __LINE__);*/
+			_end = _match+1;
+		}
+		/*printf(__FILE__ ":%i\n", __LINE__);*/
+		if(!_match) {
+			return NULL;
+		}
+		/*printf(__FILE__ ":%i\n", __LINE__);*/
+		_end = _match;
+		ret = _stralloc(_end-_src+1);
+		_match = ret;
+		escape_ncpy(&_match, &_src, _end-_src, (int)*suffix);
+		*_match=0;
+		t->ofs = _end-t->source+1;
+	}
+	/*printf(__FILE__ ":%i\n", __LINE__);*/
+	return newPair(newAtom(ret, t->pos_cache.row, t->pos_cache.col), NULL, t->pos_cache.row, t->pos_cache.col);
+}
 
 /*
  * basic production rule from regexp+replacement : [garbage]token_regexp
@@ -583,20 +660,44 @@ int __fastcall check_trivial_left_rec(ast_node_t node) {
 #define OP_SEQ 8
 #define OP_ALT 9
 #define OP_POSTFX 10
-#define OP_RPL 11
+#define OP_RAWSEQ 11
 #define OP_REP_0N 12
 #define OP_REP_01 13
 #define OP_REP_1N 14
 #define OP_EPSILON 15
+#define OP_RPL 16
+#define OP_STR   17
 
-
-int max_rec_level = 0;
+const char* op2string(int typ) {
+	switch(typ) {
+	case OP_EOF: return STR_EOF;
+	case OP_RE: return STR_RE;
+	case OP_T: return STR_T;
+	case OP_STR: return STR_STR;
+	case OP_RTR: return STR_TransientRule;
+	case OP_ROP: return STR_OperatorRule;
+	case OP_PREFX: return STR_Prefix;
+	case OP_NT: return STR_NT;
+	case OP_SEQ: return STR_Seq;
+	case OP_ALT: return STR_Alt;
+	case OP_POSTFX: return STR_Postfix;
+	case OP_RAWSEQ: return STR_RawSeq;
+	case OP_REP_0N: return STR_Rep0N;
+	case OP_REP_01: return STR_Rep01;
+	case OP_REP_1N: return STR_Rep1N;
+	case OP_EPSILON: return STR_Epsilon;
+	case OP_RPL: return STR_RPL;
+	default: return NULL;
+	};
+}
 
 
 int string2op(const char* tag) {
-	int typ;
+	int typ=0;
 	if(!TINYAP_STRCMP(tag,STR_Seq)) {
 		typ = OP_SEQ;
+	} else if(!TINYAP_STRCMP(tag,STR_RawSeq)) {
+		typ = OP_RAWSEQ;
 	} else if(!TINYAP_STRCMP(tag,STR_Rep0N)) {
 		typ = OP_REP_0N;
 	} else if(!TINYAP_STRCMP(tag,STR_Rep1N)) {
@@ -611,6 +712,8 @@ int string2op(const char* tag) {
 		typ = OP_RPL;
 	} else if(!TINYAP_STRCMP(tag,STR_T)) {
 		typ = OP_T;
+	} else if(!TINYAP_STRCMP(tag,STR_STR)) {
+		typ = OP_STR;
 	} else if(!TINYAP_STRCMP(tag,STR_NT)) {
 		typ = OP_NT;
 	} else if(!TINYAP_STRCMP(tag,STR_Prefix)) {
@@ -642,6 +745,7 @@ ast_node_t __fastcall token_produce_any(token_context_t*t,ast_node_t expr) {
 	size_t dummy;
 	int row,col;
 	ast_node_t nt, re;
+	ast_node_t fail = NULL;
 
 	if(!expr) {
 		return NULL;
@@ -667,10 +771,10 @@ ast_node_t __fastcall token_produce_any(token_context_t*t,ast_node_t expr) {
 			_filter_garbage(t);
 			update_pos_cache(t);
 			if(t->ofs<t->size) {
-				//debug_writeln("EOF not matched at #%u (against #%u)",t->ofs,t->size);
+				/*fprintf(stderr, "EOF not matched at #%u (against #%u) ATOM\n",t->ofs,t->size);*/
 				ret=NULL;
 			} else {
-				//debug_writeln("EOF matched at #%u (against #%u)",t->ofs,t->size);
+				/*fprintf(stderr, "EOF matched at #%u (against #%u) ATOM\n",t->ofs,t->size);*/
 				/*ret=newPair(newAtom(STR_strip_me,t->pos_cache.row,t->pos_cache.col),NULL,t->pos_cache.row,t->pos_cache.col);*/
 				ret = PRODUCTION_OK_BUT_EMPTY;
 			}
@@ -704,11 +808,19 @@ ast_node_t __fastcall token_produce_any(token_context_t*t,ast_node_t expr) {
 			err_tag = Value(Car(Cdr(expr)));
 		default:;	
 	};
+	switch(typ) {
+		case OP_T:
+		case OP_RE:
+		case OP_RPL:
+			fail = expr;
+		default:;
+	};
 
-	/*debug_write("--debug[% 4.4i]-- produce %s ",rec_lvl,tag);*/
-	/*dump_node(getCdr(expr));*/
-	/*fprintf(stderr,"\tsource = %10.10s%s\n",t->source+t->ofs,t->ofs<(strlen(t->source)-10)?"...":"");*/
-
+#if 0
+	debug_write("--debug[% 4.4i]-- produce %s ",rec_lvl,regstr(tag));
+	dump_node(getCdr(expr));
+	fprintf(stderr,"\tsource = %10.10s%s\n",t->source+t->ofs,t->ofs<(strlen(t->source)-10)?"...":"");
+#endif
 
 
 //*
@@ -726,7 +838,14 @@ ast_node_t __fastcall token_produce_any(token_context_t*t,ast_node_t expr) {
 
 	switch(typ) {
 	case OP_SEQ:
+		token_context_enter_raw(t, 0);
 		ret=token_produce_seq(t,getCdr(expr));
+		token_context_leave_raw(t);
+		break;
+	case OP_RAWSEQ:
+		token_context_enter_raw(t, 1);
+		ret=token_produce_seq(t,getCdr(expr));
+		token_context_leave_raw(t);
 		break;
 	case OP_ALT:
 		ret=token_produce_alt(t,getCdr(expr));
@@ -754,6 +873,10 @@ ast_node_t __fastcall token_produce_any(token_context_t*t,ast_node_t expr) {
 		break;
 	case OP_T:
 		ret=token_produce_str(t,Value(getCar(getCdr(expr))));
+//		debug_write("### -=< term %s >=- ###\n",ret?"OK":"failed");
+		break;
+	case OP_STR:
+		ret=token_produce_delimstr(t, expr);
 //		debug_write("### -=< term %s >=- ###\n",ret?"OK":"failed");
 		break;
 	case OP_ROP:
@@ -943,10 +1066,10 @@ ast_node_t __fastcall token_produce_any(token_context_t*t,ast_node_t expr) {
 		_filter_garbage(t);
 		//if(*(t->source+t->ofs)&&t->ofs!=t->length) {
 		if(t->ofs<t->size) {
-			//debug_writeln("EOF not matched at #%u (against #%u)",t->ofs,t->size);
+			/*fprintf(stderr, "EOF not matched at #%u (against #%u)\n",t->ofs,t->size);*/
 			ret=NULL;
 		} else {
-			//debug_writeln("EOF matched at #%u (against #%u)",t->ofs,t->size);
+			/*fprintf(stderr, "EOF matched at #%u (against #%u)\n",t->ofs,t->size);*/
 			/*update_pos_cache(t);*/
 			/*ret=newPair(newAtom(STR_strip_me,t->pos_cache.row,t->pos_cache.col),NULL,t->pos_cache.row,t->pos_cache.col);*/
 			ret = PRODUCTION_OK_BUT_EMPTY;
@@ -965,7 +1088,7 @@ ast_node_t __fastcall token_produce_any(token_context_t*t,ast_node_t expr) {
 		token_context_validate(t);
 		return ret;
 	} else {
-		token_context_pop(t);
+		token_context_pop(t, fail);
 		return NULL;
 	}
 }
@@ -1054,6 +1177,7 @@ const char* parse_error(token_context_t*t) {
 	size_t last_nlofs=0;
 	size_t next_nlofs=0;
 	size_t tab_adjust=0;
+	const char* expected;
 	int i;
 	char*sep,*k;
 
@@ -1085,16 +1209,22 @@ const char* parse_error(token_context_t*t) {
 /**/
 		/*strcat(err_buf,",\n");*/
 	/*}*/
-	
+
+	expected = ast_serialize_to_string(t->expected);
+
 //	sprintf(err_buf,"parse error at line %i :\n%*.*s\n%*.*s^\n",
-	sprintf(err_buf+strlen(err_buf),"%*.*s\n%*.*s^\n",
+	sprintf(err_buf+strlen(err_buf),"%*.*s\n%*.*s^\nExpected one of %s",
 		(int)(next_nlofs-last_nlofs),
 		(int)(next_nlofs-last_nlofs),
 		t->source+last_nlofs,
-		(int)(t->farthest-last_nlofs+tab_adjust-1),
-		(int)(t->farthest-last_nlofs+tab_adjust-1),
-		""
+		(int)(t->farthest-last_nlofs+tab_adjust),
+		(int)(t->farthest-last_nlofs+tab_adjust),
+		"",
+		expected
 	);
+
+	free((char*)expected);
+
 	return err_buf;
 }
 

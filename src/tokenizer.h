@@ -53,6 +53,8 @@ typedef struct _token_context_t {
 	size_t farthest;
 	tinyap_stack_t farthest_stack;
 	tinyap_stack_t node_stack;
+	tinyap_stack_t raw_stack;
+	ast_node_t expected;
 	ast_node_t grammar;
 	struct _pos_cache_t pos_cache;
 	node_cache_t cache;
@@ -115,30 +117,18 @@ static inline int re_exec(const RE_TYPE re, token_context_t* t, int* matches, in
 
 void __fastcall update_pos_cache(token_context_t*t);
 
+static inline int token_context_is_raw(token_context_t*t) {
+	return (int)_peek(t->raw_stack);
+}
+
 /* silent garbage filter, used before each tokenization */
 static inline void _filter_garbage(token_context_t*t) {
-	/*regmatch_t token;*/
 	int token[3];
-//	printf("\tdebug-- current string [[%10.10s...]]\n",t->source+t->ofs);
-	/*if(t->flags&INPUT_IS_CLEAN) {*/
-		/*printf("input already clean.\n");*/
-		/*return;*/
-	/*}*/
-	/*if(regexec(t->garbage,t->source+t->ofs,1,&token,0)!=REG_NOMATCH) {*/
-	/*if(regexec_hack(t->garbage,t,1,&token,0)!=REG_NOMATCH) {*/
-//		printf("\tdebug-- matched garbage [%i-%i]\n",token.rm_so,token.rm_eo);
-		/*assert(token.rm_so==0);*/
-		/*t->ofs+=token.rm_eo;*/
-	if(re_exec(t->garbage, t, token, 3)) {
+	if((!(token_context_is_raw(t)||(t->flags&INPUT_IS_CLEAN)))&&re_exec(t->garbage, t, token, 3)) {
 		t->ofs+=token[1];
-		/*printf("\tdebug-- skipped garbage, now ofs=%u\n",t->ofs);*/
 		update_pos_cache(t);
-	/*} else {*/
-		/*printf("\tdebug-- no garbage\n");*/
 	}
 	t->flags|=INPUT_IS_CLEAN;
-	/*printf("input is now clean.\n");*/
-//	printf("\tdebug-- now string is [[%10.10s...]]\n",t->source+t->ofs);
 }
 
 

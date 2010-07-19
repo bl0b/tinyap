@@ -140,7 +140,14 @@ static void _buf_append(const char* s) {
 	strcpy(_buf+bsz, s);
 }
 
-
+static void _buf_append_chr(char c) {
+	size_t bsz  = _buf_sz;
+	_buf_sz += 1;
+	if( (_buf_sz+1) >= _buf_res) {
+		_buf_realloc();
+	}
+	*(_buf+bsz)=c;
+}
 
 
 const char* wi_op(wast_iterator_t wi) {
@@ -206,7 +213,7 @@ int wa_check_lefty(wast_t rule) {
 	wast_t expr = wa_opd(rule, 1);
 	if(!strcmp(wa_op(expr), "Alt")) {
 		wast_t seq = wa_opd(expr, 0);
-		if(!strcmp(wa_op(seq), "Seq")) {
+		if(!(strcmp(wa_op(seq), "Seq")&&strcmp(wa_op(seq), "RawSeq"))) {
 			wast_t nt = wa_opd(seq, 0);
 			if(!strcmp(wa_op(nt), "NT")) {
 				return !strcmp(wa_op(wa_opd(nt, 0)), wa_op(wa_opd(rule, 0)));
@@ -222,6 +229,7 @@ wast_t wa_dump(wast_t wa) {
 	fputs(str, stdout);
 	free((char*)str);
 	/*free(a);*/
+	delete_node(a);
 	return wa;
 }
 
@@ -282,11 +290,11 @@ int unproduce_rule(wast_iterator_t grammar, wast_iterator_t expr, wast_iterator_
 			if(status) {
 				wi_next(ast);
 			}
-		} else {
+		/*} else {*/
 			/*printf("operator mismatch (%s, %s).\n", wi_string(expr,0), wi_op(ast));*/
 		}
 	} else {
-		printf("Not supposed to handle '%s' rule type.\n", wi_op(expr));
+		fprintf(stderr, "Not supposed to handle '%s' rule type.\n", wi_op(expr));
 		/*status = 1/0;*/
 		status = 0;
 	}
@@ -342,7 +350,7 @@ int unproduce(wast_iterator_t grammar, wast_iterator_t expr, wast_iterator_t ast
 	if(wi_node(expr)==wa_bl_expr) {
 		return 1;
 	}
-	if(!strcmp(wi_op(expr),		"T")) {
+	if(!strcmp(wi_op(expr), "T")) {
 		_buf_append(wi_string(expr,0));
 		return 1;
 	}
@@ -362,7 +370,7 @@ int unproduce(wast_iterator_t grammar, wast_iterator_t expr, wast_iterator_t ast
 		unproduce(grammar, expr, ast);
 		wi_up(expr);
 		status = 1;
-	} else if(!strcmp(wi_op(expr),	"Seq")) {
+	} else if(!(strcmp(wi_op(expr),	"Seq")&&strcmp(wi_op(expr), "RawSeq"))) {
 		wi_down(expr);
 		while((status=unproduce(grammar, expr, ast)) && wi_has_next(expr)) {
 			wi_next(expr);
@@ -404,21 +412,42 @@ int unproduce(wast_iterator_t grammar, wast_iterator_t expr, wast_iterator_t ast
 			_buf_do_dedent();
 			status = 1;
 		} else {
-			int backup = unrepl_context;
-			if(!strcmp(wi_string(expr, 0), "T")) {
-				unrepl_context = _T;
-			} else if(!(strcmp(wi_string(expr, 0), "RE")&&strcmp(wi_string(expr, 0), "RPL"))) {
-				unrepl_context = _RE;
-			}
+			/*int backup = unrepl_context;*/
+			/*if(!strcmp(wi_string(expr, 0), "T")) {*/
+				/*unrepl_context = _T;*/
+			/*} else if(!(strcmp(wi_string(expr, 0), "RE")&&strcmp(wi_string(expr, 0), "RPL"))) {*/
+				/*unrepl_context = _RE;*/
+			/*}*/
 			wast_iterator_t nt_expr = wig_goto_rule(grammar, (char*) wi_string(expr, 0));
 			status = unproduce_rule(grammar, nt_expr, ast);
 			wi_delete(nt_expr);
-			unrepl_context = backup;
+			/*unrepl_context = backup;*/
 		}
 	} else if(wi_node(ast)!=NULL) {
 		if(!strcmp(wi_op(expr),	"RE")) {
 			if(wi_on_leaf(ast)) {
 				_buf_append(str_escape((char*)wi_op(ast)));
+				status = 1;
+				next = 1;
+			}
+		} else if(!strcmp(wi_op(expr),	"STR")) {
+			if(wi_on_leaf(ast)) {
+				const char* tmp = wi_op(ast);
+				const char* end = wi_string(expr, 1);
+				_buf_append(wi_string(expr, 0));
+				while(*tmp) {
+					if(*tmp==*end) {
+						_buf_append_chr('\\');
+					}
+					switch(*tmp) {
+					case '\n' : _buf_append("\\n"); break;
+					case '\r' : _buf_append("\\r"); break;
+					case '\t' : _buf_append("\\t"); break;
+					default: _buf_append_chr(*tmp);
+					};
+					tmp+=1;
+				}
+				_buf_append(end);
 				status = 1;
 				next = 1;
 			}

@@ -91,7 +91,7 @@ int do_args(int argc,char*argv[]) {
 			tinyap_parse(parser);
 			if(tinyap_parsed_ok(parser)&&tinyap_get_output(parser)) {
 				/*tinyap_serialize_to_file(tinyap_get_output(parser),argv[i]);*/
-				printf("parsed %u bytes in %.3f seconds (%.3f kBps)\n",
+				fprintf(stderr, "parsed %u bytes in %.3f seconds (%.3f kBps)\n",
 						tinyap_get_source_buffer_length(parser),
 						tinyap_get_parse_time(parser),
 						tinyap_get_source_buffer_length(parser)/tinyap_get_parse_time(parser)*(1./1024));
@@ -117,32 +117,34 @@ int do_args(int argc,char*argv[]) {
 			up = tinyap_unparse(short_gram, grammar);
 			if(up) {
 				fputs(up, stdout);
+			} else {
+				fputs("Couldn't unparse the AST ! :(\n", stderr);
 			}
 			free((char*)up);
 			wa_del(grammar);
 
 		} else if(cmp_param(0,"--version","-v")) {
-			printf(TINYAP_ABOUT);
-			printf("version " TINYAP_VERSION "\n" );
+			fprintf(stderr, TINYAP_ABOUT);
+			fprintf(stderr, "version " TINYAP_VERSION "\n" );
 		} else if(cmp_param(0,"--help","-h")) {
-			printf(TINYAP_ABOUT);
-			printf("Usage : %s [--input,-i [inputFile]] [--output,-o [outputFile]] [--grammar,-g [grammarFile]] [--parse,-p] [--parse-as-grammar,-pag] [--walk, -w [pilotName]] [--help,-h]\n",argv[0]);
-			printf("\n\t--grammar,-g name\tuse this grammar to parse input\n");
-			printf("\t\t\"" GRAMMAR_EXPLICIT "\"\t(default) selects explicit variant\n");
-			printf("\t\t\"" GRAMMAR_CAMELCASING "\"\tselects CamelCasing variant\n");
-			printf("\t\tany other string is a filename to read grammar from\n");
-			printf("\n\t--print-grammar,-pg\toutput the current grammar in `explicit' dialect\n");
-			printf("\t\targument is the same as above\n");
-			printf("\n\t--input,-i name \ttext source to use\n");
-			printf("\t\t- (default)\tselects standard input\n");
-			printf("\t\tany other string is a filename to read from\n");
-			printf("\n\t--output,-o name\tredirect serialized AST output\n");
-			printf("\t\t- (default)\tselects standard output\n");
-			printf("\t\tany other string is a filename to write to\n");
-			printf("\n\t--parse,-p\t\tparse input text\n");
-			printf("\n\t--parse-as-grammar,-pag\tparse input text and use output AST as new grammar\n");
-			printf("\n\t--walk,-w name\t\twalk the current output tree using named ape\n\t\t\t\t(try prettyprint !)\n");
-			printf("\n\t--help,-h\t\tdisplay this text\n\n");
+			fprintf(stderr, TINYAP_ABOUT);
+			fprintf(stderr, "Usage : %s [--input,-i [inputFile]] [--output,-o [outputFile]] [--grammar,-g [grammarFile]] [--parse,-p] [--parse-as-grammar,-pag] [--walk, -w [pilotName]] [--help,-h]\n",argv[0]);
+			fprintf(stderr, "\n\t--grammar,-g name\tuse this grammar to parse input\n");
+			fprintf(stderr, "\t\t\"" GRAMMAR_EXPLICIT "\"\t(default) selects explicit variant\n");
+			fprintf(stderr, "\t\t\"" GRAMMAR_CAMELCASING "\"\tselects CamelCasing variant\n");
+			fprintf(stderr, "\t\tany other string is a filename to read grammar from\n");
+			fprintf(stderr, "\n\t--print-grammar,-pg\toutput the current grammar in `explicit' dialect\n");
+			fprintf(stderr, "\t\targument is the same as above\n");
+			fprintf(stderr, "\n\t--input,-i name \ttext source to use\n");
+			fprintf(stderr, "\t\t- (default)\tselects standard input\n");
+			fprintf(stderr, "\t\tany other string is a filename to read from\n");
+			fprintf(stderr, "\n\t--output,-o name\tredirect serialized AST output\n");
+			fprintf(stderr, "\t\t- (default)\tselects standard output\n");
+			fprintf(stderr, "\t\tany other string is a filename to write to\n");
+			fprintf(stderr, "\n\t--parse,-p\t\tparse input text\n");
+			fprintf(stderr, "\n\t--parse-as-grammar,-pag\tparse input text and use output AST as new grammar\n");
+			fprintf(stderr, "\n\t--walk,-w name\t\twalk the current output tree using named ape\n\t\t\t\t(try prettyprint !)\n");
+			fprintf(stderr, "\n\t--help,-h\t\tdisplay this text\n\n");
 			exit(0);
 		} else if(cmp_param(1,"--walk","-w")) {
 			i+=1;
@@ -154,7 +156,7 @@ int do_args(int argc,char*argv[]) {
 
 	tinyap_delete(parser);
 
-	printf("maximum recursion level : %i\n", max_rec_level);
+	fprintf(stderr, "maximum recursion level : %i\n", max_rec_level);
 	return 0;
 }
 

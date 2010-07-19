@@ -28,6 +28,7 @@ char* STR_Grammar = NULL;
 char* STR_Comment = NULL;
 char* STR_eos = NULL;
 char* STR_Alt = NULL;
+char* STR_RawSeq = NULL;
 char* STR_Seq = NULL;
 char* STR_NT = NULL;
 char* STR_Epsilon = NULL;
@@ -38,6 +39,7 @@ char* STR_Rep1N = NULL;
 char* STR_RE = NULL;
 char* STR_RPL = NULL;
 char* STR_T = NULL;
+char* STR_STR = NULL;
 char* STR_Prefix = NULL;
 char* STR_Postfix = NULL;
 char* STR_TransientRule = NULL;
@@ -48,8 +50,14 @@ char* STR_Indent = NULL;
 char* STR_Dedent = NULL;
 char* STR_strip_me = NULL;
 
+const char* op2string(int typ); 	/* defined in tokenizer.c */
+
 static inline unsigned int _srh(char*notnull) {
 	register unsigned int accum = 0;
+	/*if(notnull<0x100) {*/
+		/* suspect an optimized tag (not-a-string) */
+		/*notnull = op2string((int)notnull);*/
+	/*}*/
 	while(*notnull) {
 		/*accum = (accum<<5)^((accum>>27) | (int)*notnull);*/
 		accum = (accum<<7) + *notnull;
@@ -71,6 +79,7 @@ void init_strreg() {
 	STR_Comment		= regstr("Comment");
 	STR_eos			= regstr("eos");
 	STR_Alt			= regstr("Alt");
+	STR_RawSeq		= regstr("RawSeq");
 	STR_Seq			= regstr("Seq");
 	STR_NT			= regstr("NT");
 	STR_Epsilon		= regstr("Epsilon");
@@ -80,6 +89,7 @@ void init_strreg() {
 	STR_Rep1N		= regstr("Rep1N");
 	STR_RE			= regstr("RE");
 	STR_RPL			= regstr("RPL");
+	STR_STR			= regstr("STR");
 	STR_T			= regstr("T");
 	STR_Prefix		= regstr("Prefix");
 	STR_Postfix		= regstr("Postfix");
@@ -94,7 +104,7 @@ void init_strreg() {
 }
 
 char* regstr(const char* str) {
-	htab_entry_t e = hash_find_e(&str_registry, (hash_key) str);
+	htab_entry_t e = hash_find_e(&str_registry, (hash_key) ((int)str)<0x100?op2string((int)str):str);
 	char* ret;
 	if(!e) {
 		ret = _strdup(str);

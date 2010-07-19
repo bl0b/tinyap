@@ -25,7 +25,7 @@ struct _esc_chr {
 extern const struct _esc_chr escape_characters[];
 
 /* unescape first character in *src, put it in *dest, and advance pointers */
-static inline void unescape_chr(char**src,char**dest, int context) {
+static inline void unescape_chr(char**src,char**dest, int context, int delim) {
 	/* index to search for character escaping combination */
 	int i, c;
 	char ret=**src;
@@ -35,17 +35,22 @@ static inline void unescape_chr(char**src,char**dest, int context) {
 	}
 	*src+=1;
 	if(ret=='\\') {
-		i=0;
-		/* there may be an escaped character following */
-		while(escape_characters[i].escaped!=0&&**src!=escape_characters[i].escaped) {
-			i+=1;
-		}
-		c = escape_characters[i].context;
-		if(escape_characters[i].escaped && (context&c)==context) {
-			/* if we do have an escaped character, swallow it before returning */
-//			debug_writeln("unescaping \\%c",escape_characters[i].escaped);
-			ret=escape_characters[i].unescaped;
+		if(**src==delim) {
+			ret=**src;
 			*src+=1;
+		} else {
+			i=0;
+			/* there may be an escaped character following */
+			while(escape_characters[i].escaped!=0&&**src!=escape_characters[i].escaped) {
+				i+=1;
+			}
+			c = escape_characters[i].context;
+			if(escape_characters[i].escaped && (context&c)==context) {
+				/* if we do have an escaped character, swallow it before returning */
+	//			debug_writeln("unescaping \\%c",escape_characters[i].escaped);
+				ret=escape_characters[i].unescaped;
+				*src+=1;
+			}
 		}
 	}
 	/* either ret is not \ or there's no valid escaped character following, thus we push raw ret in dest */
