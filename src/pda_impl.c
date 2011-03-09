@@ -33,7 +33,9 @@ void pda_error_expected(pda_t pda) {
 		return;
 	}
 	if(pda->farthest<pda->ofs) {
-		delete_node(pda->expected);
+		if(pda->expected) {
+			delete_node(pda->expected);
+		}
 		pda->expected=NULL;
 		pda->farthest=pda->ofs;
 	}
@@ -77,7 +79,7 @@ int pda_compute_conditions(pda_t pda, int conds) {
 
 char step_buffer[42];
 
-#if 1
+#ifdef DEBUG
 #define PDA_TRACE_STEP(_step) \
 	do { \
 		char*s = (char*)(pda->source+pda->ofs); \
@@ -91,11 +93,11 @@ char step_buffer[42];
 #endif
 
 int pda_step_DUMMY(pda_t pda, int flags) {
-	char*s = (char*)(pda->source+pda->ofs);
-	size_t _slen = strlen(s);
-	char*d = step_buffer;
-	escape_ncpy(&d, &s, _slen<40?_slen:40, -1);
-	fprintf(stderr, "     %5.5lu     %-80.80s   ((%10.10s))   %80.80s     %u:<< %40s%s >>\n", pda->states->sp, tinyap_serialize_to_string(pda_state(pda)->gram_iter), funcs_names[(*pda_state(pda)->state_iter)&_PS_MASK], tinyap_serialize_to_string(peek(ast_node_t, pda->productions)), pda->ofs, step_buffer, _slen>=40?"...":"");
+	/*char*s = (char*)(pda->source+pda->ofs);*/
+	/*size_t _slen = strlen(s);*/
+	/*char*d = step_buffer;*/
+	/*escape_ncpy(&d, &s, _slen<40?_slen:40, -1);*/
+	/*fprintf(stderr, "     %5.5lu     %-80.80s   ((%10.10s))   %80.80s     %u:<< %40s%s >>\n", pda->states->sp, tinyap_serialize_to_string(pda_state(pda)->gram_iter), funcs_names[(*pda_state(pda)->state_iter)&_PS_MASK], tinyap_serialize_to_string(peek(ast_node_t, pda->productions)), pda->ofs, step_buffer, _slen>=40?"...":"");*/
 	return 0;
 }
 
@@ -160,8 +162,8 @@ int pda_step_SKIP(pda_t pda, int flags) {
 
 int pda_step_SET_TAG(pda_t pda, int flags) {
 	PDA_TRACE_STEP(SET_TAG);
-	/*pda_state(pda)->tag = Value(Car(pda_state(pda)->gram_iter));*/
-	push(pda->productions, Car(pda_state(pda)->gram_iter));
+	pda_state(pda)->tag = Value(Car(pda_state(pda)->gram_iter));
+	/*push(pda->productions, Car(pda_state(pda)->gram_iter));*/
 	return pda_step_NEXT(pda, flags);
 }
 
@@ -211,7 +213,7 @@ int pda_step_DONE(pda_t pda, int flags) {
 	/*}*/
 	_pop(pda->states);
 	pda->status |= PDA_STATUS_SUCCEEDED;
-	fprintf(stderr, "pop state\n");
+	/*fprintf(stderr, "pop state\n");*/
 	return 0;
 }
 
@@ -249,7 +251,7 @@ int pda_fork_next(pda_t pda, int flags) {
 			size_t _slen = strlen(s);
 			char*d = step_buffer;
 			escape_ncpy(&d, &s, _slen<20?_slen:20, -1);
-			fprintf(stderr, "FORK:%lu:SWITCH TO %s at <<%s>>\n", pda->forks->sp, tinyap_serialize_to_string(Car(f->alternatives)), step_buffer);
+			/*fprintf(stderr, "FORK:%lu:SWITCH TO %s at <<%s>>\n", pda->forks->sp, tinyap_serialize_to_string(Car(f->alternatives)), step_buffer);*/
 			pda->ofs = f->offset;
 			f->alternatives = Cdr(f->alternatives);
 			return 0;
@@ -286,7 +288,7 @@ void pda_check_fork_productions(pda_t pda, int n_elems) {
 		struct _fork_entry* f = peek(struct _fork_entry*, pda->forks);
 		if(f->productions_sp==(pda->productions->sp+1-n_elems)) {
 			f->productions_backup=stack_dup(pda->productions);
-			fprintf(stderr, "BACKUP PRODUCTION STACK IN FORK #%li\n", pda->forks->sp);
+			/*fprintf(stderr, "BACKUP PRODUCTION STACK IN FORK #%li\n", pda->forks->sp);*/
 		}
 	}
 }
@@ -304,8 +306,8 @@ int pda_step_MAKE_OP(pda_t pda, int flags) {
 	push(pda->productions, 
 		newPair(
 			newPair(
-				copy_node(head),
-				/*newAtom(pda_state(pda)->tag, pda->pos_cache.row, pda->pos_cache.col),*/
+				/*copy_node(head),*/
+				newAtom(pda_state(pda)->tag, pda->pos_cache.row, pda->pos_cache.col),
 				body==PRODUCTION_OK_BUT_EMPTY?NULL:body,
 				pda->pos_cache.row, pda->pos_cache.col),
 			NULL,
@@ -341,14 +343,35 @@ int pda_step_DISCARD(pda_t pda, int flags) {
 
 int pda_step_PREFIX(pda_t pda, int flags) {
 	PDA_TRACE_STEP(PREFIX);
-	ast_node_t prefix, op;
+	ast_node_t pfx, ret;
 	pda_check_fork_productions(pda, 2);
-	op = pop(ast_node_t, pda->productions);
-	prefix = SafeAppend(pop(ast_node_t, pda->productions), Cdr(op));
-	if(prefix != PRODUCTION_OK_BUT_EMPTY) {
-		Cdr(op)=prefix;
+	ret = pop(ast_node_t, pda->productions);
+	pfx = pop(ast_node_t, pda->productions);
+
+	fprintf(stderr, "have prefix %s\n",tinyap_serialize_to_string(pfx));
+	fprintf(stderr, "have expr %s\n",tinyap_serialize_to_string(ret));
+	if(ret==PRODUCTION_OK_BUT_EMPTY) {
+		push(pda->productions, pfx);
+	} else if(pfx&&pfx!=PRODUCTION_OK_BUT_EMPTY &&
+		  ret && ret->pair._car) {
+		ast_node_t tail;
+		/* these copies are necessary because of structural hack.
+		 * Not copying botches the node cache.
+		 */
+		ret=copy_node(ret);
+		pfx=copy_node(pfx);
+
+		tail=pfx;
+		//ret->pair._car->pair._cdr = Append(pfx,ret->pair._car->pair._cdr);
+		/* FIXME ? Dirty hack. */
+		while(tail->pair._cdr) {
+			tail = tail->pair._cdr;
+		}
+		tail->pair._cdr = ret->pair._car->pair._cdr;
+		ret->pair._car->pair._cdr = pfx;
+		fprintf(stderr, "\nhave merged into %s\n\n",tinyap_serialize_to_string(ret));
+		push(pda->productions, ret);
 	}
-	push(pda->productions, op);
 	return 0;
 }
 
@@ -357,11 +380,17 @@ int pda_step_PREFIX(pda_t pda, int flags) {
 
 int pda_step_POSTFIX(pda_t pda, int flags) {
 	PDA_TRACE_STEP(POSTFIX);
-	ast_node_t postfix, op;
+	ast_node_t pfx, ret;
 	pda_check_fork_productions(pda, 2);
-	op = pop(ast_node_t, pda->productions);
-	postfix = SafeAppend(pop(ast_node_t, pda->productions), Cdr(op));
-	push(pda->productions, SafeAppend(op, postfix));
+	ret = pop(ast_node_t, pda->productions);
+	if(ret==PRODUCTION_OK_BUT_EMPTY) {
+		return 0;
+	}
+	pfx = pop(ast_node_t, pda->productions);
+	if(pfx!=PRODUCTION_OK_BUT_EMPTY) {
+		ret->pair._car = Append(ret->pair._car,copy_node(pfx));
+	}
+	push(pda->productions, ret);
 	return 0;
 }
 
@@ -382,7 +411,7 @@ int pda_step_FORK(pda_t pda, int flags) {
 		f->state = pda_state(pda);
 		f->alternatives = pda_state(pda)->gram_iter;
 		push(pda->forks, f);
-		fprintf(stderr, "FORK:%lu %s\n", pda->forks->sp, tinyap_serialize_to_string(pda_state(pda)->gram_iter));
+		/*fprintf(stderr, "FORK:%lu %s\n", pda->forks->sp, tinyap_serialize_to_string(pda_state(pda)->gram_iter));*/
 		pda_fork_next(pda, flags);
 	}
 	/*pda_step_PRODUCE(pda, flags);*/
@@ -568,24 +597,41 @@ int pda_step_PRODUCE_EPSILON(pda_t pda, int flags) {
 
 
 
+int is_leftrec(const char* name, ast_node_t expr) {
+	const char* tag = Value(Car(expr));
+	if(!(TINYAP_STRCMP(tag, STR_Seq)
+			&&
+		 TINYAP_STRCMP(tag, STR_Alt)
+			&&
+		 TINYAP_STRCMP(tag, STR_Prefix)
+			&&
+		 TINYAP_STRCMP(tag, STR_Postfix)
+	)) {
+		return is_leftrec(name, Car(Cdr(expr)));
+	}
+	if(!TINYAP_STRCMP(tag, STR_NT)) {
+		return !strcmp(Value(Car(Cdr(expr))), name);
+	}
+	return 0;
+}
+
 
 void split_leftrec(const char* name, ast_node_t alt, ast_node_t* non_rec, ast_node_t* rec) {
-	ast_node_t seq, first;
+	ast_node_t seq;
 	if(!alt) { return; }
 	seq = Car(alt);
 	split_leftrec(name, Cdr(alt), non_rec, rec);
-	if(!TINYAP_STRCMP(Value(Car(seq)), STR_Seq)) {
-		first = Car(Cdr(seq));
-		if(!TINYAP_STRCMP(Value(Car(first)), STR_NT)) {
-			if(!strcmp(Value(Car(Cdr(first))), name)) {
-				*rec = newPair(copy_node(Cdr(seq)), *rec, 0, 0);
-				alt = Cdr(alt);
-				return;
-			}
+	if(is_leftrec(name, seq)) {
+		ast_node_t tmp;
+		if(Cdr(Cdr(Cdr(seq)))) {
+			tmp = newPair(Car(seq), Cdr(Cdr(seq)), 0, 0);
+		} else {
+			tmp = Car(Cdr(Cdr(seq)));
 		}
+		*rec = newPair(tmp, *rec, 0, 0);
+	} else {
+		*non_rec = newPair(copy_node(seq), *non_rec, 0, 0);
 	}
-	*non_rec = newPair(copy_node(seq), *non_rec, 0, 0);
-	alt = Cdr(alt);
 }
 
 
@@ -614,9 +660,10 @@ struct _nt_cache_entry* pda_find_nterm(pda_t pda, const char* tag) {
 		if(!TINYAP_STRCMP(Value(Car(Car(Cdr(Cdr(rule))))), STR_Alt)) {
 			split_leftrec(Value(Car(Cdr(rule))), Cdr(Car(Cdr(Cdr(rule)))), &non_rec, &rec);
 			c->productions = newPair(newAtom(tag, 0, 0), newPair(
-				newPair(newAtom(STR_Alt, 0, 0), non_rec, 0, 0),
-				rec	? newPair(	newPair(newAtom(STR_Alt, 0, 0), rec, 0, 0),
-							NULL, 0, 0)
+				Cdr(non_rec)?newPair(newAtom(STR_Alt, 0, 0), non_rec, 0, 0):Car(non_rec),
+				rec	? Cdr(rec) 	? newPair(	newPair(newAtom(STR_Alt, 0, 0), rec, 0, 0),
+													NULL, 0, 0)
+								: rec
 					: NULL,
 				0, 0), 0, 0);
 		} else {
@@ -648,7 +695,7 @@ int pda_step_PRODUCE_NT(pda_t pda, int flags) {
 		s->state_iter = nt->steps;
 		pda->current_gram_node = nt->original_node;
 		s->flags = flags;
-		/*s->tag = NULL;*/
+		s->tag = NULL;
 		s->while_ = NULL;
 		/*fprintf(stderr, "\nENTER NT  steps=%p  prods=%s\n", nt->steps, tinyap_serialize_to_string(nt->productions));*/
 		push(pda->states, s);
@@ -685,7 +732,7 @@ ProductionState
 	s_nt[] = { PS_FAIL, PS_PRODUCE_NT, PS_DONE }, /* NT */
 	s_seq[] = { PS_FAIL, PS_PRODUCE, PS_NEXT, PS_WHILE, PS_PRODUCE, PS_APPEND, PS_NEXT, PS_LOOP|COND_ITER_VALID, PS_DONE }, /* SEQ */
 	s_alt[] = { PS_FAIL, PS_FORK, PS_PRODUCE, PS_DONE }, /* ALT */
-	s_sfx[] = { PS_FAIL, PS_PRODUCE, PS_NEXT, PS_PRODUCE, PS_POSTFIX, PS_APPEND , PS_DONE }, /* POSTFX */
+	s_sfx[] = { PS_FAIL, PS_PRODUCE, PS_NEXT, PS_PRODUCE, PS_POSTFIX, PS_DONE }, /* POSTFX */
 	s_rseq[] = { PS_FAIL, PS_PRODUCE|FLAG_RAW, PS_NEXT, PS_WHILE, PS_PRODUCE|FLAG_RAW, PS_APPEND, PS_NEXT, PS_LOOP|COND_ITER_VALID, PS_DONE }, /* RAWSEQ */
 	s_r0n[] = { PS_FAIL, PS_PRODUCE|FLAG_EMPTY, PS_WHILE|COND_SUCCEEDED, PS_PRODUCE|FLAG_EMPTY, PS_APPEND|COND_SUCCEEDED, PS_LOOP|COND_SUCCEEDED, PS_DONE }, /* REP_0N */
 	s_r01[] = { PS_FAIL, PS_PRODUCE|FLAG_EMPTY, PS_DONE }, /* REP_01 */
@@ -722,7 +769,9 @@ const char* prods_names[] = {
 	"bow",
 	"atb",
 	"bkp",
-	"init"
+	"init",
+	"rtr_lr",
+	"rop_lr"
 };
 
 
@@ -785,26 +834,28 @@ ProductionState* prods[] = {
 
 
 ProductionState RTR_leftrec[] = {
+	PS_FAIL,
 	PS_NEXT,
 	PS_PRODUCE,
 	PS_NEXT|COND_SUCCEEDED,
 	PS_WHILE|COND_SUCCEEDED,
+		PS_PRODUCE|FLAG_EMPTY,
 		PS_APPEND|COND_SUCCEEDED,
-		PS_PRODUCE|COND_SUCCEEDED,
 	PS_LOOP|COND_SUCCEEDED,
-	PS_APPEND|COND_SUCCEEDED };
+	PS_DONE };
 
 ProductionState ROP_leftrec[] = {
+	PS_FAIL,
 	PS_SET_TAG,
 	PS_PRODUCE,
 	PS_NEXT|COND_SUCCEEDED,
 	PS_WHILE|COND_SUCCEEDED,
-		PS_MAKE_OP|COND_SUCCEEDED,
-		PS_PRODUCE|COND_SUCCEEDED,
+		PS_MAKE_OP,
+		PS_PRODUCE|FLAG_EMPTY,
 		PS_APPEND|COND_SUCCEEDED,
 	PS_LOOP|COND_SUCCEEDED,
-	PS_MAKE_OP|COND_SUCCEEDED,
-	PS_APPEND|COND_SUCCEEDED };
+	PS_MAKE_OP,
+	PS_DONE };
 
 
 pda_step_t funcs[_PS_COUNT][2] = {

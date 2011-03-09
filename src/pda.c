@@ -31,6 +31,7 @@ pda_t pda_new(ast_node_t grammar, const char* whitespace) {
 	init_hashtab(ret->nt_cache, hash_str, (compare_func)strcmp);
 	ret->garbage = token_regcomp(whitespace);
 	ret->grammar = grammar;
+	ret->expected = NULL;
 	return ret;
 }
 
@@ -51,8 +52,9 @@ ast_node_t pda_parse(pda_t pda, const char* source, unsigned long size, ast_node
 	unsigned long flags, conditions;
 	unsigned long step_count = 0;
 	ast_node_t begin = newPair(newAtom(Value(Car(Cdr(start))), 0, 0), NULL, 0, 0);
-	struct _pda_state* s = tinyap_alloc(struct _pda_state);
+	struct _pda_state* genesis = tinyap_alloc(struct _pda_state);
 	ast_node_t ret = NULL;
+	int g = 0, s = 0;
 
 	pda->states = new_stack();
 	pda->productions = new_stack();
@@ -61,22 +63,24 @@ ast_node_t pda_parse(pda_t pda, const char* source, unsigned long size, ast_node
 	pda->ofs = 0;
 	pda->size = size;
 	pda->farthest = 0;
+	pda->current_gram_node=begin;
+	pda->expected=NULL;
 
 	fprintf(stderr, "<< %s >>\n", pda->source);
 
-	s->gram_iter = begin;
-	s->state_iter = s_init+1;
+	genesis->gram_iter = begin;
+	genesis->state_iter = s_init+1;
 	/*s->tag = NULL;*/
-	s->while_ = NULL;
-	s->prod_sp_backup = pda->productions->sp;
-	push(pda->states, s);
+	genesis->while_ = NULL;
+	genesis->prod_sp_backup = pda->productions->sp;
+	push(pda->states, genesis);
 
 	do {
 		while(!((pda->status&PDA_STATUS_FAILED)||is_empty(pda->states))) {
 #define FLAG_IS_SET(_v, _b) (!!((_v)&(_b)))
-			int g = !!pda_state(pda)->gram_iter;
-			int s = FLAG_IS_SET(pda->status,PDA_STATUS_SUCCEEDED);
-			/*DBG*/ProductionState backup;
+			g = !!pda_state(pda)->gram_iter;
+			s = FLAG_IS_SET(pda->status,PDA_STATUS_SUCCEEDED);
+			ProductionState backup; // DBG
 			step = *pda_state(pda)->state_iter;
 			backup = step;
 			conditions = 0; /*pda_compute_conditions(pda, step&_COND_MASK);*/
@@ -90,7 +94,7 @@ ast_node_t pda_parse(pda_t pda, const char* source, unsigned long size, ast_node
 			conditions = !!conditions;
 			flags = (step&_FLAG_MASK);
 			step &= _PS_MASK;
-#if 1
+#ifdef DEBUG
 			fprintf(stderr, "# %-8.8lu  :%u:%lu=%c%c%c%c:%c%c:%c%c:   %s\n",
 					step_count,
 					step,
@@ -111,7 +115,7 @@ ast_node_t pda_parse(pda_t pda, const char* source, unsigned long size, ast_node
 			if(not_empty(pda->states)) {
 				if(status) {
 					if(pda_state(pda)->flags&FLAG_EMPTY) {
-						fprintf(stderr, "   IGNORE FAILURE\n");
+						/*fprintf(stderr, "   IGNORE FAILURE\n");*/
 						pda->productions->sp = pda_state(pda)->prod_sp_backup;
 						push(pda->productions, PRODUCTION_OK_BUT_EMPTY);
 						(void)_pop(pda->states);
@@ -126,9 +130,11 @@ ast_node_t pda_parse(pda_t pda, const char* source, unsigned long size, ast_node
 				}
 			}
 		}
-		fprintf(stderr, "Now forks.sp = %li\n", pda->forks->sp);
-		if(pda->ofs==pda->size) {
-			ret = newPair( peek(ast_node_t, pda->productions), ret, 0, 0);
+		/*fprintf(stderr, "Now forks.sp = %li\n", pda->forks->sp);*/
+		/*if(pda->ofs==pda->size) {*/
+		if(pda->status&PDA_STATUS_SUCCEEDED) {
+			fprintf(stderr, "Success ! %s\n", tinyap_serialize_to_string(peek(ast_node_t, pda->productions)));
+			ret = SafeAppend(peek(ast_node_t, pda->productions), ret);
 		}
 	} while(!pda_fork_next(pda));
 	/*return pda->ofs!=pda->size?NULL:peek(ast_node_t, pda->productions);*/

@@ -27,6 +27,10 @@
 #include "stack.h"
 #include "hashtab.h"
 
+
+#define DEBUG
+
+
 #define OP_EOF       1 // immed
 #define OP_RE        2 // immed, append or fail
 #define OP_T         3 // immed, skip or fail
@@ -95,7 +99,7 @@ extern ProductionState RTR_leftrec[], ROP_leftrec[];
 struct _pda_state {
 	ast_node_t gram_iter;
 	ProductionState* state_iter;
-	/*const char* tag;*/
+	const char* tag;
 	unsigned long flags;
 	ProductionState* while_;
 	unsigned long prod_sp_backup;
