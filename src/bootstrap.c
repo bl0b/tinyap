@@ -34,7 +34,7 @@ ast_node_t  ast_unserialize(const char*input);
  */
 
 const char*short_rules = "((Grammar\n"
-"(TransientRule	_start			(Seq (Alt (NT test_postfix1) (NT test_prefix1)"/* )( */"(NT test_leftrec) (NT test_rep) (NT test_alt1)) (EOF)))"
+"(TransientRule	_start			(Seq (Alt (NT test_postfix1) (NT test_prefix1) )(EOF))( (NT test_leftrec) (NT test_rep) (NT test_alt1)) (EOF))"
 "(OperatorRule	test_seq		(Seq (RE a) (RE b+) (EOF)))"
 "(OperatorRule	test_alt1		(Alt (NT test_prefix1) (NT test_seq) (Seq (RE a) (RE b+) (EOF))))"
 "(OperatorRule	test_prefix1	(Prefix (RE a) (NT PFX)))"

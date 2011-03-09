@@ -299,10 +299,10 @@ void pda_check_fork_productions(pda_t pda, int n_elems) {
 
 int pda_step_MAKE_OP(pda_t pda, int flags) {
 	PDA_TRACE_STEP(MAKE_OP);
-	ast_node_t body, head;
-	pda_check_fork_productions(pda, 2);
+	ast_node_t body/*, head*/;
+	pda_check_fork_productions(pda, 1);
 	body = pop(ast_node_t, pda->productions);
-	head = pop(ast_node_t, pda->productions);
+	/*head = pop(ast_node_t, pda->productions);*/
 	push(pda->productions, 
 		newPair(
 			newPair(
@@ -342,14 +342,16 @@ int pda_step_DISCARD(pda_t pda, int flags) {
 
 
 int pda_step_PREFIX(pda_t pda, int flags) {
-	PDA_TRACE_STEP(PREFIX);
 	ast_node_t pfx, ret;
+	PDA_TRACE_STEP(PREFIX);
 	pda_check_fork_productions(pda, 2);
 	ret = pop(ast_node_t, pda->productions);
+	/*PDA_TRACE_STEP(PREFIX);*/
 	pfx = pop(ast_node_t, pda->productions);
+	/*PDA_TRACE_STEP(PREFIX);*/
 
-	fprintf(stderr, "have prefix %s\n",tinyap_serialize_to_string(pfx));
-	fprintf(stderr, "have expr %s\n",tinyap_serialize_to_string(ret));
+	/*fprintf(stderr, "have prefix %s\n",tinyap_serialize_to_string(pfx));*/
+	/*fprintf(stderr, "have expr %s\n",tinyap_serialize_to_string(ret));*/
 	if(ret==PRODUCTION_OK_BUT_EMPTY) {
 		push(pda->productions, pfx);
 	} else if(pfx&&pfx!=PRODUCTION_OK_BUT_EMPTY &&
@@ -360,6 +362,8 @@ int pda_step_PREFIX(pda_t pda, int flags) {
 		 */
 		ret=copy_node(ret);
 		pfx=copy_node(pfx);
+		/*fprintf(stderr, "\thave prefix %s\n",tinyap_serialize_to_string(pfx));*/
+		/*fprintf(stderr, "\thave expr %s\n",tinyap_serialize_to_string(ret));*/
 
 		tail=pfx;
 		//ret->pair._car->pair._cdr = Append(pfx,ret->pair._car->pair._cdr);
@@ -842,7 +846,8 @@ ProductionState RTR_leftrec[] = {
 		PS_PRODUCE|FLAG_EMPTY,
 		PS_APPEND|COND_SUCCEEDED,
 	PS_LOOP|COND_SUCCEEDED,
-	PS_DONE };
+	PS_DONE
+};
 
 ProductionState ROP_leftrec[] = {
 	PS_FAIL,
@@ -855,7 +860,8 @@ ProductionState ROP_leftrec[] = {
 		PS_APPEND|COND_SUCCEEDED,
 	PS_LOOP|COND_SUCCEEDED,
 	PS_MAKE_OP,
-	PS_DONE };
+	PS_DONE
+};
 
 
 pda_step_t funcs[_PS_COUNT][2] = {
