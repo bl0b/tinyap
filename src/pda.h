@@ -31,6 +31,13 @@ struct _pos_cache_t {
 	int col;
 };
 
+
+struct _pda_output_t {
+	ast_node_t output;
+	unsigned long final_offset;
+	ast_node_t _cdr;
+};
+
 typedef struct _pda* pda_t;
 
 pda_t pda_new(ast_node_t grammar, const char* whitespace);

@@ -154,7 +154,8 @@ static void _buf_append_chr(char c) {
 
 
 const char* wi_op(wast_iterator_t wi) {
-	return wa_op(tinyap_wi_node(wi));
+	ast_node_t n = tinyap_wi_node(wi);
+	return n?wa_op(n):"(nil)";
 }
 
 const char* wi_string(wast_iterator_t wi, size_t n) {
@@ -204,7 +205,7 @@ wast_iterator_t wig_goto_rule(wast_iterator_t grammar, char* name) {
  *   	
  *
  */
-#define __brv(_op) do { /*printf("%s:%u\n", __FILE__, __LINE__);*/ /*printf("DEBUG : " #_op "\n");*/ _buf_##_op(); wi_##_op(expr); wi_##_op(ast); } while(0)
+#define __brv(_op) do { /*printf("%s:%u  " #_op "\n", __FILE__, __LINE__);*/ _buf_##_op(); wi_##_op(expr); wi_##_op(ast); } while(0)
 
 #define BACKUP __brv(backup)
 #define RESTORE do { /*printf("BUF WAS : %s\n", _buf);*/ __brv(restore); /*printf("BUF RESTORED TO : %s\n", _buf);*/ } while(0)
@@ -249,9 +250,9 @@ int unproduce_rule(wast_iterator_t grammar, wast_iterator_t expr, wast_iterator_
 	/*if(wi_node(ast)==NULL) {*/
 		/*return 0;*/
 	/*}*/
-	/*_rec+=1;*/
-	/*printf("[%i] ON rule %s\n", _rec, wi_op(expr));*/
-	/*BACKUP;*/
+	_rec+=1;
+	/*printf("[%i] ON rule %s\n", _rec, wi_string(expr, 1));*/
+	BACKUP;
 
 	if(!strcmp(wi_op(expr), "TransientRule")) {
 		if(wa_check_lefty(wi_node(expr))) {
@@ -302,24 +303,24 @@ int unproduce_rule(wast_iterator_t grammar, wast_iterator_t expr, wast_iterator_
 			/*printf("operator mismatch (%s, %s).\n", wi_string(expr,0), wi_op(ast));*/
 		}
 	} else {
-		fprintf(stderr, "Not supposed to handle '%s' rule type.\n", wi_op(expr));
+		/*fprintf(stderr, "Not supposed to handle '%s' rule type.\n", wi_op(expr));*/
 		/*status = 1/0;*/
 		status = 0;
 	}
-	/*if(status) {*/
-		/*VALIDATE;*/
+	if(status) {
+		VALIDATE;
 		/*printf("[%i] SUCCESS\n", _rec);*/
 		/*printf("---------- buffer so far ----------\n");*/
 		/*printf("<<<%s>>>\n", _buf);*/
 		/*printf("-----------------------------------\n\n");*/
-	/*} else {*/
-		/*RESTORE;*/
+	} else {
+		RESTORE;
 		/*printf("[%i] FAILURE\n", _rec);*/
 		/*printf("---------- buffer so far ----------\n");*/
 		/*printf("<<<%*.*s>>>\n", _buf_sz, _buf_sz, _buf);*/
 		/*printf("-----------------------------------\n\n");*/
-	/*}*/
-	/*_rec-=1;*/
+	}
+	_rec-=1;
 	return status;
 }
 
@@ -357,14 +358,14 @@ int unproduce(wast_iterator_t grammar, wast_iterator_t expr, wast_iterator_t ast
 	/*ast_node_t a;*/
 	/**next = 0;*/
 	if(wi_node(expr)==NULL) {
-		printf("[%i] null element\n", _rec);
+		/*printf("[%i] null element\n", _rec);*/
 		return 0;
 	}
 	if(wi_node(ast) == wa_bl_ast) {
 		wi_next(ast);
 	}
 	if(wi_node(expr)==wa_bl_expr) {
-		printf("[%i] skipping blacklisted element\n", _rec);
+		/*printf("[%i] skipping blacklisted element\n", _rec);*/
 		return 1;
 	}
 	_rec += 1;
@@ -377,7 +378,7 @@ int unproduce(wast_iterator_t grammar, wast_iterator_t expr, wast_iterator_t ast
 		/*printf("Rep0N\n");*/
 		/*_rec += 1;*/
 		wi_down(expr);
-		while(unproduce(grammar, expr, ast));
+		while(wi_node(ast)&&unproduce(grammar, expr, ast));
 		wi_up(expr);
 		/*_rec -= 1;*/
 		/*wi_next(expr);*/
@@ -447,9 +448,14 @@ int unproduce(wast_iterator_t grammar, wast_iterator_t expr, wast_iterator_t ast
 	} else if(wi_node(ast)!=NULL) {
 		if(!strcmp(wi_op(expr),	"RE")) {
 			if(wi_on_leaf(ast)) {
+				unrepl_context = _RE;
 				_buf_append(str_escape((char*)wi_op(ast)));
 				status = 1;
 				next = 1;
+		/*printf("<<<%*.*s>>>\n", _buf_sz, _buf_sz, _buf);*/
+			} else {
+				/*printf("NOT WI_ON_LEAF ast = "); wa_dump(wi_node(ast)); printf("\n");*/
+		/*printf("<<<%*.*s>>>\n", _buf_sz, _buf_sz, _buf);*/
 			}
 		} else if(!strcmp(wi_op(expr),	"STR")) {
 			if(wi_on_leaf(ast)) {
@@ -471,6 +477,8 @@ int unproduce(wast_iterator_t grammar, wast_iterator_t expr, wast_iterator_t ast
 				_buf_append(end);
 				status = 1;
 				next = 1;
+			} else {
+				/*printf("NOT WI_ON_LEAF ast = "); wa_dump(wi_node(ast)); printf("\n");*/
 			}
 		} else if(!strcmp(wi_op(expr),	"Prefix")) {
 			wast_t backup;
@@ -514,7 +522,7 @@ int unproduce(wast_iterator_t grammar, wast_iterator_t expr, wast_iterator_t ast
 			status = unproduce(grammar, wi_down(expr), ast);
 			/*printf("Rep1N status = %i\n", status);*/
 			if(status) {
-				while(unproduce(grammar, expr, ast));
+				while(wi_node(ast)&&unproduce(grammar, expr, ast));
 			}
 			wi_up(expr);
 		} else if(!strcmp(wi_op(expr),	"RPL")) {
@@ -526,12 +534,14 @@ int unproduce(wast_iterator_t grammar, wast_iterator_t expr, wast_iterator_t ast
 				_buf_append(unrep);
 				status = 1;
 				next = 1;
+			/*} else {*/
+				/*printf("NOT WI_ON_LEAF ast = "); wa_dump(wi_node(ast)); printf("\n");*/
 			}
-		} else {
-			printf("[%i] Won't handle %s\n", _rec, wi_op(expr));
+		/*} else {*/
+			/*printf("[%i] Won't handle %s\n", _rec, wi_op(expr));*/
 		}
-	} else {
-		printf("[%i] Won't handle %s\n", _rec, wi_op(expr));
+	/*} else {*/
+		/*printf("[%i] Won't handle %s, AST is NULL\n", _rec, wi_op(expr));*/
 	}
 	if(status) {
 		VALIDATE;

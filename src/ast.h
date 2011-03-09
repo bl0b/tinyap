@@ -162,9 +162,10 @@ static inline ast_node_t _atc_fail(const ast_node_t n,const ast_type_t expected,
 }
 
 static inline ast_node_t ast_type_check(const ast_node_t n,const ast_type_t expected,const char*_f,const int _l) {
-	return n	? n->type==expected	? n
-						:_atc_fail(n, expected, _f, _l)
-			: NULL;
+	return n	? n->type==expected
+					? n
+					: _atc_fail(n, expected, _f, _l)
+				: NULL;
 	/*if((!n)&&expected==ast_Nil) {*/
 		/*return NULL;*/
 	/*} else if((!n)||n->type!=expected) {*/

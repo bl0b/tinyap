@@ -195,6 +195,7 @@ const char* tinyap_get_grammar(tinyap_t t) {
 void init_grammar(tinyap_t t) {
 	ast_node_t ws_node=find_nterm(t->grammar,STR__whitespace);
 	t->start=find_nterm(t->grammar,STR__start);
+	fprintf(stderr, "[DBG] got start rule %s\n", tinyap_serialize_to_string(t->start));
 	if(!t->start) {
 //		printf("Dump de la grammaire %s\n",tinyap_serialize_to_string(t->grammar));
 		t->start=getCar(getCdr(getCar(t->grammar)));
@@ -220,6 +221,7 @@ void init_grammar(tinyap_t t) {
 void tinyap_set_grammar(tinyap_t t,const char*g) {
 	if(t->grammar_source) {
 		free(t->grammar_source);
+		t->grammar_source=NULL;
 	}
 	t->grammar_source=strdup(g);
 	if(t->grammar) {

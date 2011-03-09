@@ -24,9 +24,9 @@
 #include "tinyap_alloc.h"
 #include "string_registry.h"
 #include "serialize.h"
-#include "stack.h"
+/*#include "stack.h"*/
 #include "hashtab.h"
-
+/*#include "pda_stack.h"*/
 
 #define DEBUG
 
@@ -76,6 +76,9 @@ typedef enum ProductionState_ {
 	PS_POSTFIX,
 	PS_ADDTOBOW,
 	PS_OBSOLETE,
+	PS_PUBLISH,
+	PS_CHECK_OR_FAIL,
+	PS_CHECK_EMPTY,
 	_PS_COUNT,
 	_PS_MASK=0xFFFF,
 	
@@ -96,15 +99,6 @@ extern ProductionState* prods[];
 extern ProductionState RTR_leftrec[], ROP_leftrec[];
 
 
-struct _pda_state {
-	ast_node_t gram_iter;
-	ProductionState* state_iter;
-	const char* tag;
-	unsigned long flags;
-	ProductionState* while_;
-	unsigned long prod_sp_backup;
-};
-
 #define PDA_STATUS_SUCCEEDED 1
 #define PDA_STATUS_RAW 2
 #define PDA_STATUS_ITER_VALID 4
@@ -113,6 +107,53 @@ struct _pda_state {
 
 #define PDA_FLAG_FULL_PARSE 1
 #define PDA_FLAG_INPUT_IS_CLEAN 2
+
+#define STEP_NEXT 0
+#define STEP_FAIL 1
+#define STEP_DOWN 2
+#define STEP_UP 3
+
+
+
+struct _pda_state {
+	struct _pda_state* next;
+	ast_node_t gram_iter;
+	ProductionState* state_iter;
+	const char* tag;
+	unsigned long flags;
+	ProductionState* while_;
+	/*unsigned long prod_sp_backup;*/
+	struct _nt_cache_entry* nt;
+	ast_node_t productions;
+};
+
+
+
+
+struct _nt_cache_entry {
+	ast_node_t productions; /* left-recursive rules are rewritten into pair { (non-recursive productions), (Rep0N (recursive productions, first element skipped)) } */
+	ast_node_t original_node;
+	ProductionState* steps; /* either RTR or ROP... */
+	unsigned long current_offset; /* to prevent cycles */
+};
+
+
+
+struct _fork_entry {
+	struct _fork_entry* next;
+	long productions_sp;
+	long states_sp;
+	unsigned long offset;
+	/*ast_node_t alt_iter;*/
+	ast_node_t alternatives;
+	ProductionState* iter;
+	/*tinyap_stack_t productions_backup;*/
+	/*tinyap_stack_t states_backup;*/
+	struct _pda_state* state;
+};
+
+
+
 
 struct _pda {
 	/* buffer info */
@@ -125,10 +166,14 @@ struct _pda {
 	/* parse state */
 	unsigned int ofs;
 	unsigned int status;
-	tinyap_stack_t states;
-	tinyap_stack_t productions;
-	tinyap_stack_t forks;
+	/*tinyap_stack_t states;*/
+	/*tinyap_stack_t productions;*/
+	/*tinyap_stack_t forks;*/
+	struct _fork_entry* forks;
+	struct _pda_state* states;
 	struct _pos_cache_t pos_cache;
+	/* output */
+	ast_node_t outputs;
 	/* error handling */
 	unsigned int farthest;
 	ast_node_t expected;
@@ -138,26 +183,9 @@ struct _pda {
 	struct _hashtable bows;
 };
 
+
 /*typedef struct _pda* pda_t;*/
 
-struct _nt_cache_entry {
-	ast_node_t productions; /* left-recursive rules are rewritten into pair { (non-recursive productions), (Rep0N (recursive productions, first element skipped)) } */
-	ast_node_t original_node;
-	ProductionState* steps; /* either RTR or ROP... */
-	unsigned long current_offset; /* to prevent cycles */
-};
-
-struct _fork_entry {
-	long productions_sp;
-	long states_sp;
-	unsigned long offset;
-	/*ast_node_t alt_iter;*/
-	ast_node_t alternatives;
-	ProductionState* iter;
-	tinyap_stack_t productions_backup;
-	tinyap_stack_t states_backup;
-	struct _pda_state* state;
-};
 
 
 typedef int(*pda_step_t)(struct _pda*, int flags);
@@ -183,10 +211,70 @@ static inline int re_exec(const RE_TYPE re, pda_t pda, int* matches, int sz) {
 
 
 static inline struct _pda_state* pda_state(pda_t pda) {
-	return peek(struct _pda_state*, pda->states);
+	/*return peek(struct _pda_state*, pda->states);*/
+	return pda->states;
 }
 
 extern ProductionState s_init[];
+
+
+
+static inline void pda_push_production(pda_t pda, ast_node_t p) {
+	pda_state(pda)->productions = newPair(p, pda_state(pda)->productions, 0, 0);
+}
+
+static inline ast_node_t pda_pop_production(pda_t pda) {
+	ast_node_t p = pda_state(pda)->productions, car;
+	if(!p) {
+		return NULL;
+	}
+	pda_state(pda)->productions = Cdr(p);
+	car = Car(p);
+	Car(p)=NULL;
+	Cdr(p)=NULL;
+	/*delete_node(p);*/
+	return car;
+}
+
+static inline ast_node_t pda_peek_production(pda_t pda) {
+	return pda_state(pda)->productions ? Car(pda_state(pda)->productions) : NULL;
+}
+
+static inline void pda_poke_production(pda_t pda, ast_node_t p) {
+	if(pda_state(pda)->productions) {
+		Car(pda_state(pda)->productions) = p;
+	} else {
+		pda_state(pda)->productions = newPair(p, NULL, 0, 0);
+	}
+}
+
+
+
+
+static inline struct _pda_state* pda_push_state(pda_t pda, ast_node_t gram_node, ProductionState* steps, struct _nt_cache_entry* nt) {
+	/*struct _pda_state* s = pda_state_push(pda->*/
+}
+
+
+
+#include <stdarg.h>
+static inline int debug_printf(int depth, int cross, char* fmt, ...) {
+	va_list va;
+	int ret;
+	while(depth>!!cross) {
+		fprintf(stderr, "|  ");
+		depth-=1;
+	}
+	if(depth>0) {
+		fprintf(stderr, "+- ");
+	}
+
+	va_start(va, fmt);
+	ret = vfprintf(stderr, fmt, va);
+	va_end(va);
+	return ret;
+}
+
 
 #endif
 

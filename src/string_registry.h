@@ -32,12 +32,12 @@ void deinit_strreg();
 
 static inline char* _stralloc(unsigned long l) {
 	struct __allocator* A = _select_alloca(l);
-	return A?_alloc(A):malloc(l);
+	return (char*) (A?_alloc(A):malloc(l));
 }
 
 static inline char* _strdup(const char*str) {
 	unsigned long l = strlen(str)+1;
-	return memcpy(_stralloc(l), str, l);
+	return (char*) memcpy(_stralloc(l), str, l);
 }
 
 static inline void _strfree(char*str) {
