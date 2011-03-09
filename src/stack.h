@@ -23,13 +23,14 @@
 #include <malloc.h>
 
 typedef struct _stack_t {
-	unsigned long sz;
-	unsigned long sp;
+	long sz;
+	long sp;
 	void** stack;
 }* tinyap_stack_t;
 
 tinyap_stack_t new_stack();
 tinyap_stack_t stack_dup(tinyap_stack_t);
+tinyap_stack_t stack_clone(tinyap_stack_t, void*(*clone_entry)(void*));
 /*void push(tinyap_stack_t s, void* w);*/
 /*void* _pop(tinyap_stack_t s);*/
 #define pop(__t,__s) ((__t)_pop(__s))

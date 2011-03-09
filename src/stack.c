@@ -64,3 +64,15 @@ tinyap_stack_t stack_dup(tinyap_stack_t s) {
 	return ret;
 }
 
+tinyap_stack_t stack_clone(tinyap_stack_t s, void*(*clone_entry)(void*)) {
+	tinyap_stack_t ret = new_stack();
+	long i;
+	ret->stack = malloc( s->sz*sizeof(void*));
+	ret->sp = s->sp;
+	ret->sz = s->sz;
+	for(i=0;i<=s->sp;i+=1) {
+		ret->stack[i] = clone_entry(s->stack[i]);
+	}
+	return ret;
+}
+

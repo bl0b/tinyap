@@ -228,6 +228,7 @@ void ast_serialize(const ast_node_t ast,int(*func)(int,void*),void*param) {
 		func('P', param);
 		func('T', param);
 		func('Y', param);
+		func(0, param);
 		return;
 	}
 	if(!ast) {

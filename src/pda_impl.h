@@ -144,14 +144,15 @@ struct _nt_cache_entry {
 };
 
 struct _fork_entry {
-	unsigned long productions_sp;
-	unsigned long states_sp;
+	long productions_sp;
+	long states_sp;
 	unsigned long offset;
 	/*ast_node_t alt_iter;*/
 	ast_node_t alternatives;
 	ProductionState* iter;
 	tinyap_stack_t productions_backup;
 	tinyap_stack_t states_backup;
+	struct _pda_state* state;
 };
 
 
@@ -180,6 +181,8 @@ static inline int re_exec(const RE_TYPE re, pda_t pda, int* matches, int sz) {
 static inline struct _pda_state* pda_state(pda_t pda) {
 	return peek(struct _pda_state*, pda->states);
 }
+
+extern ProductionState s_init[];
 
 #endif
 

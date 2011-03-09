@@ -5,6 +5,16 @@
 
 const char* funcs_names[_PS_COUNT];
 
+const char* step2str(ProductionState*iter);
+
+
+void* clone_state(void* s) {
+	void* ret = tinyap_alloc(struct _pda_state);
+	memcpy(ret, s, sizeof(struct _pda_state));
+	return ret;
+}
+
+
 /* silent garbage filter, used before each tokenization */
 static inline void _filter_garbage(pda_t t) {
 	int token[3];
@@ -74,7 +84,7 @@ char step_buffer[42];
 		size_t _slen = strlen(s); \
 		char*d = step_buffer; \
 		escape_ncpy(&d, &s, _slen<40?_slen:40, -1); \
-		fprintf(stderr, "     % 5.5lu     %-80.80s     %10.10s     %80.80s     %u:<< %40s%s >>\n", pda->states->sp, tinyap_serialize_to_string(pda_state(pda)->gram_iter), #_step, tinyap_serialize_to_string(peek(ast_node_t, pda->productions)), pda->ofs, step_buffer, _slen>=40?"...":""); \
+		fprintf(stderr, "     %5.5lu     %-80.80s     %10.10s    %80.80s     %u:<< %40s%s >>\n", pda->states->sp, tinyap_serialize_to_string(pda_state(pda)->gram_iter), #_step, tinyap_serialize_to_string(peek(ast_node_t, pda->productions)), pda->ofs, step_buffer, _slen>=40?"...":""); \
 	} while(0)
 #else
 #define PDA_TRACE_STEP(_step) ((void)0)
@@ -85,7 +95,7 @@ int pda_step_DUMMY(pda_t pda, int flags) {
 	size_t _slen = strlen(s);
 	char*d = step_buffer;
 	escape_ncpy(&d, &s, _slen<40?_slen:40, -1);
-	fprintf(stderr, "     % 5.5lu     %-80.80s   ((%10.10s))   %80.80s     %u:<< %40s%s >>\n", pda->states->sp, tinyap_serialize_to_string(pda_state(pda)->gram_iter), funcs_names[(*pda_state(pda)->state_iter)&_PS_MASK], tinyap_serialize_to_string(peek(ast_node_t, pda->productions)), pda->ofs, step_buffer, _slen>=40?"...":"");
+	fprintf(stderr, "     %5.5lu     %-80.80s   ((%10.10s))   %80.80s     %u:<< %40s%s >>\n", pda->states->sp, tinyap_serialize_to_string(pda_state(pda)->gram_iter), funcs_names[(*pda_state(pda)->state_iter)&_PS_MASK], tinyap_serialize_to_string(peek(ast_node_t, pda->productions)), pda->ofs, step_buffer, _slen>=40?"...":"");
 	return 0;
 }
 
@@ -191,20 +201,19 @@ int pda_step_DONE(pda_t pda, int flags) {
 	PDA_TRACE_STEP(DONE);
 	/* pop step, copy if beyond innermost fork */
 	/*struct _pda_state*s;*/
-	struct _fork_entry*f;
-	if(not_empty(pda->forks)
-		&&
-	   pda->states->sp==(f=peek(struct _fork_entry*, pda->forks))->states_sp)
-	{
-		f->states_backup = stack_dup(pda->states);
-	}
+	/*struct _fork_entry*f;*/
+	/*if(not_empty(pda->forks)*/
+		/*&&*/
+	   /*pda->states->sp==((f=peek(struct _fork_entry*, pda->forks))->states_sp-1))*/
+	/*{*/
+		/*f->states_backup = stack_clone(pda->states, clone_state);*/
+		/*f->states_backup = stack_dup(pda->states);*/
+	/*}*/
 	_pop(pda->states);
 	pda->status |= PDA_STATUS_SUCCEEDED;
-	/*fprintf(stderr, "\n");*/
+	fprintf(stderr, "pop state\n");
 	return 0;
 }
-
-
 
 
 int pda_fork_next(pda_t pda, int flags) {
@@ -212,28 +221,44 @@ int pda_fork_next(pda_t pda, int flags) {
 		struct _fork_entry* f = peek(struct _fork_entry*, pda->forks);
 		/*if(pda_state(pda)->gram_iter&&Cdr(pda_state(pda)->gram_iter)) {*/
 		/*{FIXME}*/
+		while(pda->states->sp > f->states_sp) {
+			struct _pda_state*s = peek(struct _pda_state*, pda->states);
+			if(s->flags&FLAG_EMPTY) {
+				return 0;
+			}
+			(void)_pop(pda->states);
+		}
+		if(f->productions_backup) {
+			free_stack(pda->productions);
+			pda->productions = stack_dup(f->productions_backup);
+			/* FIXME mustn't discard other parse trees in the end */
+		}
+		pda->productions->sp = f->productions_sp;
+		/*if((pda->states->sp < f->states_sp) && f->states_backup) {*/
+		if(f->states_backup) {
+			free_stack(pda->states);
+			/*pda->states = stack_dup(f->states_backup);*/
+			pda->states = stack_clone(f->states_backup, clone_state);
+			/* FIXME must COPY states too */
+		}
+		pda->states->sp = f->states_sp;
+		pda_state(pda)->state_iter = f->iter;
+		pda_state(pda)->gram_iter = f->alternatives;
 		if(f->alternatives) {
 			char*s = (char*)(pda->source+f->offset);
 			size_t _slen = strlen(s);
 			char*d = step_buffer;
 			escape_ncpy(&d, &s, _slen<20?_slen:20, -1);
 			fprintf(stderr, "FORK:%lu:SWITCH TO %s at <<%s>>\n", pda->forks->sp, tinyap_serialize_to_string(Car(f->alternatives)), step_buffer);
-			if(f->productions_backup) {
-				free_stack(pda->productions);
-				pda->productions = stack_dup(f->productions_backup);
-			} else {
-				pda->productions->sp = f->productions_sp;
-			}
-			if(f->states_backup) {
-				free_stack(pda->states);
-				pda->states = stack_dup(f->states_backup);
-			} else {
-				pda->states->sp = f->states_sp;
-			}
 			pda->ofs = f->offset;
-			pda_state(pda)->state_iter = f->iter;
-			pda_state(pda)->gram_iter = f->alternatives;
 			f->alternatives = Cdr(f->alternatives);
+			return 0;
+		} else if(pda_state(pda)->flags&FLAG_EMPTY) {
+			_pop(pda->states);
+			pda->status &= ~PDA_STATUS_SUCCEEDED;
+			if(f->state==pda_state(pda)) {
+				_pop(pda->forks);
+			}
 			return 0;
 		} else {
 			_pop(pda->forks);
@@ -247,9 +272,10 @@ int pda_fork_next(pda_t pda, int flags) {
 
 int pda_step_FAIL(pda_t pda, int flags) {
 	PDA_TRACE_STEP(FAIL);
-	if(pda_fork_next(pda, flags)) {
+	if(pda_fork_next(pda, flags)&&!(pda_state(pda)->flags&FLAG_EMPTY)) {
 		/*abort();*/
 		pda->status|=PDA_STATUS_FAILED;
+		pda->status&=~PDA_STATUS_SUCCEEDED;
 	}
 }
 
@@ -260,6 +286,7 @@ void pda_check_fork_productions(pda_t pda, int n_elems) {
 		struct _fork_entry* f = peek(struct _fork_entry*, pda->forks);
 		if(f->productions_sp==(pda->productions->sp+1-n_elems)) {
 			f->productions_backup=stack_dup(pda->productions);
+			fprintf(stderr, "BACKUP PRODUCTION STACK IN FORK #%li\n", pda->forks->sp);
 		}
 	}
 }
@@ -348,9 +375,11 @@ int pda_step_FORK(pda_t pda, int flags) {
 		f->productions_sp = pda->productions->sp;
 		f->productions_backup = NULL;
 		f->states_sp = pda->states->sp;
-		f->states_backup = NULL;
+		/*f->states_backup = NULL;*/
+		f->states_backup = stack_clone(pda->states, clone_state);
 		f->iter = pda_state(pda)->state_iter;
 		f->offset = pda->ofs;
+		f->state = pda_state(pda);
 		f->alternatives = pda_state(pda)->gram_iter;
 		push(pda->forks, f);
 		fprintf(stderr, "FORK:%lu %s\n", pda->forks->sp, tinyap_serialize_to_string(pda_state(pda)->gram_iter));
@@ -666,10 +695,66 @@ ProductionState
 	s_str[] = { PS_FAIL, PS_PRODUCE_STR, PS_DONE }, /* STR */
 	s_bow[] = { PS_FAIL, PS_PRODUCE_BOW, PS_DONE }, /* BOW */
 	s_atb[] = { PS_FAIL, PS_PRODUCE, PS_NEXT, PS_ADDTOBOW, PS_DONE }, /* ADDTOBAG */
-	s_bkp[] = { PS_FAIL, PS_FAIL } /* BKEEP */
+	s_bkp[] = { PS_FAIL, PS_FAIL }, /* BKEEP */
+	s_init[] = { PS_FAIL, PS_PRODUCE_NT, PS_DONE } /* BKEEP */
 	;
 
 
+const char* prods_names[] = {
+	"fail",
+	"eof",
+	"re",
+	"t", 
+	"rtr",
+	"rop",
+	"pfx",
+	"nt",
+	"seq",
+	"alt",
+	"sfx",
+	"rseq",
+	"r0n",
+	"r01",
+	"r1n",
+	"eps",
+	"rpl",
+	"str",
+	"bow",
+	"atb",
+	"bkp",
+	"init"
+};
+
+
+const char* step2str(ProductionState*iter) {
+	int i, imin=0;
+	ptrdiff_t min=100, tmp;
+	static char buf[20];
+	for(i=0;i<24;i+=1) {
+		tmp = iter - prods[i];
+		if(tmp<min&&tmp>=0) {
+			min=tmp;
+			imin=i;
+		}
+	}
+	sprintf(buf, "%3.3s+%i", prods_names[imin], min);
+	return buf;
+}
+
+const char* step_stack_to_string(tinyap_stack_t s) {
+	static char buffer[4096];
+	char*buf = buffer;
+	int i;
+	if(is_empty(s)) {
+		return "(empty)";
+	}
+	for(i=0;i<s->sp;i+=1) {
+		sprintf(buf, "%s, ", step2str(((struct _pda_state*)s->stack[i])->state_iter));
+		buf+=strlen(buf);
+	}
+	strcpy(buf, step2str(((struct _pda_state*)s->stack[i])->state_iter));
+	return buffer;
+}
 
 ProductionState* prods[] = {
 	s_fail,
@@ -692,7 +777,10 @@ ProductionState* prods[] = {
 	s_str,
 	s_bow,
 	s_atb,
-	s_bkp
+	s_bkp,
+	s_init,
+	RTR_leftrec,
+	ROP_leftrec
 };
 
 

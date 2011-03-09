@@ -43,6 +43,8 @@ void pda_free(pda_t ret) {
 	free(ret);
 }
 
+const char* step_stack_to_string(tinyap_stack_t s);
+
 ast_node_t pda_parse(pda_t pda, const char* source, unsigned long size, ast_node_t start, int pda_flags) {
 	int status;
 	ProductionState step;
@@ -50,6 +52,7 @@ ast_node_t pda_parse(pda_t pda, const char* source, unsigned long size, ast_node
 	unsigned long step_count = 0;
 	ast_node_t begin = newPair(newAtom(Value(Car(Cdr(start))), 0, 0), NULL, 0, 0);
 	struct _pda_state* s = tinyap_alloc(struct _pda_state);
+	ast_node_t ret = NULL;
 
 	pda->states = new_stack();
 	pda->productions = new_stack();
@@ -62,62 +65,74 @@ ast_node_t pda_parse(pda_t pda, const char* source, unsigned long size, ast_node
 	fprintf(stderr, "<< %s >>\n", pda->source);
 
 	s->gram_iter = begin;
-	s->state_iter = (ProductionState[]){ PS_PRODUCE_NT, PS_DONE };
+	s->state_iter = s_init+1;
 	/*s->tag = NULL;*/
 	s->while_ = NULL;
 	s->prod_sp_backup = pda->productions->sp;
 	push(pda->states, s);
 
-	while(!((pda->status&PDA_STATUS_FAILED)||is_empty(pda->states))) {
+	do {
+		while(!((pda->status&PDA_STATUS_FAILED)||is_empty(pda->states))) {
 #define FLAG_IS_SET(_v, _b) (!!((_v)&(_b)))
-		/*DBG*/int g = !!pda_state(pda)->gram_iter;
-		/*DBG*/int s = FLAG_IS_SET(pda->status,PDA_STATUS_SUCCEEDED);
-		/*DBG*/ProductionState backup;
-		step = *pda_state(pda)->state_iter;
-		backup = step;
-		conditions = 0; /*pda_compute_conditions(pda, step&_COND_MASK);*/
-		conditions += ( (step&COND_SUCCEEDED ? !s : 0)
-							+
-						(step&COND_FAILED ? s : 0)
-							+
-						(step&COND_ITER_VALID ? !g : 0)
-							+
-						(step&COND_ITER_NULL ? g : 0));
-		conditions = !!conditions;
-		flags = (step&_FLAG_MASK);
-		step &= _PS_MASK;
-		fprintf(stderr, "# %-8.8lu  :%u:%lu=%c%c%c%c:%c%c:%c%c:   @%p - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -\n",
-				step_count,
-				step,
-				conditions,
-				backup&COND_SUCCEEDED? s?'S':'s' : '_',
-				backup&COND_FAILED? s?'f':'F' : '_',
-				backup&COND_ITER_VALID? g?'V':'v' : '_',
-				backup&COND_ITER_NULL? g?'n':'N' : '_',
-				/*backup&~_PS_MASK,*/
-				backup&FLAG_RAW?'R':'_',
-				backup&FLAG_EMPTY?'E':'_',
-				pda_state(pda)->flags&FLAG_RAW?'r':'_',
-				pda_state(pda)->flags&FLAG_EMPTY?'e':'_',
-				pda_state(pda)->state_iter);
-		status = funcs[step][conditions](pda, flags);
-		step_count+=1;
-		if(status) {
-			if(pda_state(pda)->flags&FLAG_EMPTY) {
-				fprintf(stderr, "   IGNORE FAILURE\n");
-				pda->productions->sp = pda_state(pda)->prod_sp_backup;
-				push(pda->productions, PRODUCTION_OK_BUT_EMPTY);
-				(void)_pop(pda->states);
-				pda->status&=~PDA_STATUS_SUCCEEDED;
-				pda_state(pda)->state_iter+=1;
-			} else {
-				pda_step_FAIL(pda, 0);
+			int g = !!pda_state(pda)->gram_iter;
+			int s = FLAG_IS_SET(pda->status,PDA_STATUS_SUCCEEDED);
+			/*DBG*/ProductionState backup;
+			step = *pda_state(pda)->state_iter;
+			backup = step;
+			conditions = 0; /*pda_compute_conditions(pda, step&_COND_MASK);*/
+			conditions += ( (step&COND_SUCCEEDED ? !s : 0)
+								+
+							(step&COND_FAILED ? s : 0)
+								+
+							(step&COND_ITER_VALID ? !g : 0)
+								+
+							(step&COND_ITER_NULL ? g : 0));
+			conditions = !!conditions;
+			flags = (step&_FLAG_MASK);
+			step &= _PS_MASK;
+#if 1
+			fprintf(stderr, "# %-8.8lu  :%u:%lu=%c%c%c%c:%c%c:%c%c:   %s\n",
+					step_count,
+					step,
+					conditions,
+					backup&COND_SUCCEEDED? s?'S':'s' : '_',
+					backup&COND_FAILED? s?'f':'F' : '_',
+					backup&COND_ITER_VALID? g?'V':'v' : '_',
+					backup&COND_ITER_NULL? g?'n':'N' : '_',
+					/*backup&~_PS_MASK,*/
+					backup&FLAG_RAW?'R':'_',
+					backup&FLAG_EMPTY?'E':'_',
+					pda_state(pda)->flags&FLAG_RAW?'r':'_',
+					pda_state(pda)->flags&FLAG_EMPTY?'e':'_',
+					step_stack_to_string(pda->states));
+#endif
+			status = funcs[step][conditions](pda, flags);
+			step_count+=1;
+			if(not_empty(pda->states)) {
+				if(status) {
+					if(pda_state(pda)->flags&FLAG_EMPTY) {
+						fprintf(stderr, "   IGNORE FAILURE\n");
+						pda->productions->sp = pda_state(pda)->prod_sp_backup;
+						push(pda->productions, PRODUCTION_OK_BUT_EMPTY);
+						(void)_pop(pda->states);
+						pda->status&=~PDA_STATUS_SUCCEEDED;
+						pda_state(pda)->state_iter+=1;
+					} else {
+						fprintf(stderr, "   FAILURE\n");
+						pda_step_FAIL(pda, 0);
+					}
+				} else {
+					pda_state(pda)->state_iter+=1;
+				}
 			}
-		} else {
-			pda_state(pda)->state_iter+=1;
 		}
-	}
-	return pda->ofs!=pda->size?NULL:peek(ast_node_t, pda->productions);
+		fprintf(stderr, "Now forks.sp = %li\n", pda->forks->sp);
+		if(pda->ofs==pda->size) {
+			ret = newPair( peek(ast_node_t, pda->productions), ret, 0, 0);
+		}
+	} while(!pda_fork_next(pda));
+	/*return pda->ofs!=pda->size?NULL:peek(ast_node_t, pda->productions);*/
+	return ret;
 }
 
 
