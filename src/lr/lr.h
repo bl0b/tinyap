@@ -7,7 +7,7 @@
 #include "lr_grammar.h"
 #include "lr_visitors.h"
 
-
+#include <algorithm>
 
 
 namespace lr {
@@ -175,21 +175,26 @@ namespace lr {
 
 	typedef std::set<state*, ptr_less<state> > state_set;
 
+	struct process;
 
 	class gss {
 		public:
 			struct node {
 				state* s;
 				ast_node_t prod;
+				item_set match;
 
-				node(state* s_, ast_node_t prod_, node* pred)
-					: s(s_), prod(prod_), preds(), succs()
+				node(state* s_, ast_node_t prod_, node* pred, item_set& m)
+					: s(s_), prod(prod_), match(m), preds(), succs()
 				{
 					preds.push_back(pred);
 				}
 
 				private:
 					friend class gss;
+					node()
+						: s(), prod(), match(), preds(), succs()
+					{}
 					std::list<node*> preds;
 					std::list<node*> succs;
 					bool remove_succ(node*succ) { succs.remove(succ); return !succs.size(); }
@@ -197,6 +202,14 @@ namespace lr {
 					bool remove_pred(node*pred) { preds.remove(pred); return !preds.size(); }
 					void add_pred(node*pred) { preds.push_front(pred); }
 			};
+
+			node root;
+
+			gss() : root() {}
+
+			void shift(process* p, item_set& matching, ast_node_t prod);
+			void reduce(process* p, item_set& candidates);
+			bool is_root(node*n) const { return n==&root; }
 	};
 
 	struct process {
@@ -412,6 +425,23 @@ push u onto stack
 				for(i=states.begin();i!=j;++i) {
 					std::cout << (*i)->items << std::endl;
 				}
+			}
+
+			bool recognize(const char* buffer) {
+				parse_context pc;
+				pc.source = buffer;
+				pc.ofs = 0;
+				pc.size = strlen(buffer);
+				pc.farthest = 0;
+				pc.pos_cache.row = 0;
+				pc.pos_cache.col = 0;
+				pc.pos_cache.last_nlofs = 0;
+				pc.pos_cache.last_ofs = 0;
+
+
+
+
+				return false;
 			}
 	};
 
