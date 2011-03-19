@@ -132,9 +132,13 @@ namespace lr {
 
 			typedef grammar::rule::internal::append appender;
 
+			/* in stack reduction, i is always at_end() to start with */
 			node* reduce(node* n, item i) {
 				unsigned int offset = n->id.O;
-				appender append;
+				/*appender append;*/
+				ast_node_t ast;
+
+				/* this is a helper routine which helps track the item path back to the start of the rule in the stack */
 				struct {
 					bool operator()(node*&p, const grammar::item::base*k) {
 						grammar::visitors::lr_item_debugger d;
@@ -150,36 +154,54 @@ namespace lr {
 						return false;
 					}
 				} find_pred;
-				ast_node_t ast;
+
+				/* special treatment for epsilon rules */
 				if(i.at_start()) {
 					/* epsilon rule : reduce ZERO node, and shift from current node. */
+					grammar::visitors::reducer red(PRODUCTION_OK_BUT_EMPTY, n->id.O);
+					ast_node_t output = red(((grammar::rule::base*)i.rule()));
 					std::cout << "epsilon reduction" << std::endl;
-					return shift(n, (grammar::item::base*)*i, n->id.S->transitions.from_stack[i.rule()->tag()], i.rule()->reduce_ast(PRODUCTION_OK_BUT_EMPTY), n->id.O);
+					return shift(n, new grammar::item::token::Nt(i.rule()->tag()), n->id.S->transitions.from_stack[i.rule()->tag()], output, n->id.O);
 				}
+
+				/* now for the general case, track down the start of the rule in stack */
+				const grammar::rule::base* R = i.rule();
+				const bool drop_empty = !R->keep_empty();
 				--i;
-				ast = n->ast;
-				/*if(!n->id.P->is_same(*i)) {*/
-					/*return NULL;*/
-				/*}*/
+				ast = n->ast==PRODUCTION_OK_BUT_EMPTY ? PRODUCTION_OK_BUT_EMPTY : newPair(n->ast, NULL);
+				std::cout << ast << std::endl;
 				while(find_pred(n, *i) && (!i.at_start())) {
 					--i;
 					n = n->pred;
-					ast = append(n->ast, ast);
+					if(!(drop_empty && n->ast==PRODUCTION_OK_BUT_EMPTY)) {
+						if(ast==PRODUCTION_OK_BUT_EMPTY&&drop_empty) {
+							ast = n->ast==PRODUCTION_OK_BUT_EMPTY ? PRODUCTION_OK_BUT_EMPTY : newPair(n->ast, NULL);
+						} else {
+							ast = newPair(n->ast, ast);
+						}
+						std::cout << ast << std::endl;
+					}
 				}
+				std::cout << ast << std::endl;
+
+				/* if we reach start, we good */
 				if(i.at_start()&&find_pred(n, *i)) {	/* if tracking failed, n is NULL, because tracking failed BECAUSE n became NULL. */
-					const grammar::rule::base* R = i.rule();
 					if(initial==i) {
 						if(offset != size) {
+							std::cout << "can't accept at offset " << offset << " because size is " << size << std::endl;
 							return NULL;
 						}
 						/* accept */
-						/*std::cout << "ACCEPT ! " << ast_serialize_to_string(ast) << std::endl;*/
+						std::cout << "ACCEPT ! " << ast_serialize_to_string(ast) << std::endl;
 						if(ast) {
-							accepted = newPair(R->reduce_ast(ast), accepted);
+							grammar::visitors::reducer red(ast, n->id.O);
+							ast_node_t output = red((grammar::rule::base*)R);
+							accepted = grammar::rule::internal::append()(output, accepted);
 						}
 						return NULL;
 					} else {
-						ast_node_t redast = R->reduce_ast(ast);
+						grammar::visitors::reducer red(ast, n->id.O);
+						ast_node_t redast = red((grammar::rule::base*)R);
 						grammar::item::base* nt = grammar::item::gc(new grammar::item::token::Nt(R->tag()));
 						/*std::cout << "Reducing " << ast_serialize_to_string(ast) << " into " << ast_serialize_to_string(redast) << std::endl;*/
 						state* Sprime = n->pred->id.S->transitions.from_stack[R->tag()];
@@ -192,7 +214,7 @@ namespace lr {
 							/*throw "coin";*/
 							return NULL;
 						}
-						return shift(n->pred, nt, Sprime, newPair(redast, NULL), offset);
+						return shift(n->pred, nt, Sprime, redast, offset);
 					}
 				} else {
 					return NULL;

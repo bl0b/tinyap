@@ -97,5 +97,9 @@ static inline void escape_chr(char**src,int(*func)(int,void*),void*param, int co
 	*src+=1;
 }
 
+
+
+
+
 #endif
 

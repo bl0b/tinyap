@@ -56,6 +56,27 @@ namespace grammar {
 		class iterator;
 		class base;
 
+		extern ext::hash_map<
+					const ast_node_t,
+					grammar::item::base*,
+					lr::hash_an, lr::ptr_eq<_ast_node_t>
+				> registry;
+
+		class registry_t : public std::vector<base*> {
+			public:
+				registry_t() : std::vector<base*>() {}
+				static registry_t& instance() {
+					static registry_t _;
+					return _;
+				}
+				~registry_t();
+		};
+
+		template<class I> I* gc(I* x) {
+			registry_t::instance().push_back(x);
+			return x;
+		}
+
 		namespace token {
 			class Re;
 			class Str;

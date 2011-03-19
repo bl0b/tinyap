@@ -7,6 +7,13 @@ extern "C" {
 namespace grammar {
 namespace item {
 
+	registry_t::~registry_t() {
+		std::vector<base*>::iterator i,j;
+		for(i=begin(), j=end();i!=j;++i) {
+			delete *i;
+		}
+	}
+
 namespace token {
 	bool Nt::is_same(const base* i) const {
 		if(!i) {
@@ -38,18 +45,131 @@ namespace token {
 	} _clean_registry_at_exit;
 
 	base* base::from_ast(const ast_node_t n, Grammar* g) {
+		base* ret=NULL;
 		base* cached = registry[n];
 		if(cached) {
-			/*std::cout << "reusing cached item ";*/
-			/*visitors::debugger d;*/
-			/*cached->accept(&d);*/
-			/*std::cout << std::endl;*/
+			std::cout << "reusing cached item ";
+			visitors::debugger d;
+			cached->accept(&d);
+			std::cout << std::endl;
 			return cached;
 		} else {
-			/*std::cout << "no cached item for node " << ast_serialize_to_string(n) << std::endl;*/
-			registry[n] = cached;
+			std::cout << "no cached item for node " << ast_serialize_to_string(n) << std::endl;
 		}
+		const char* tag = Value(Car(n));
+		if(tag==STR_RE) {
+			ret = cached = new token::Re(Value(Car(Cdr(n))));
+		} else if(tag==STR_T) {
+			ret = cached = new token::T(Value(Car(Cdr(n))));
+		} else if(tag==STR_EOF) {
+			ret = cached = new token::Eof();
+		} else if(tag==STR_Epsilon) {
+			ret = cached = new token::Epsilon();
+		} else if(tag==STR_Comment) {
+			ret = cached = new token::Comment(Value(Car(Cdr(n))));
+		} else if(tag==STR_NT) {
+			ret = cached = new token::Nt(Value(Car(Cdr(n))));
+		} else if(tag==STR_Alt) {
+			combination::Alt* edit = new combination::Alt();
+			ast_node_t m=Cdr(n);
+			while(m) {
+				base* i = from_ast(Car(m), g);
+				if(i) { edit->insert(i); }
+				m=Cdr(m);
+			}
+			ret = cached = edit;
+		} else if(tag==STR_RawSeq) {
+			combination::RawSeq* edit = new combination::RawSeq();
+			ast_node_t m=Cdr(n);
+			while(m) {
+				base* i = from_ast(Car(m), g);
+				if(i) { edit->push_back(i); }
+				m=Cdr(m);
+			}
+			ret = cached = edit;
+		} else if(tag==STR_Seq) {
+			combination::Seq* edit = new combination::Seq();
+			ast_node_t m=Cdr(n);
+			while(m) {
+				base* i = from_ast(Car(m), g);
+				if(i) { edit->push_back(i); }
+				m=Cdr(m);
+			}
+			ret = cached = edit;
+		} else if(tag==STR_Rep0N) {
+			ret = cached = new combination::Rep0N(g, from_ast(Car(Cdr(n)), g));
+		} else if(tag==STR_Rep01) {
+			ret = cached = new combination::Rep01(g, from_ast(Car(Cdr(n)), g));
+		} else if(tag==STR_Rep1N) {
+			ret = cached = new combination::Rep1N(g, from_ast(Car(Cdr(n)), g));
+		} else if(tag==STR_RPL) {
+			ret = cached = NULL;
+		} else if(tag==STR_STR) {
+			ast_node_t x = Cdr(n);
+			ret = cached = new token::Str(Value(Car(x)), Value(Car(Cdr(x))));
+		} else if(tag==STR_BOW) {
+			ast_node_t x = Cdr(n);
+			cached = new token::Bow(Value(Car(x)), !!Cdr(x));
+		} else if(tag==STR_AddToBag) {
+			ret = cached = NULL;
+		} else if(tag==STR_Prefix) {
+			ast_node_t x = Cdr(n);
+			ast_node_t nt = Car(Cdr(x));
+			ret = cached = new combination::Prefix(g, from_ast(Car(x), g), Value(Car(Cdr(nt))));
+		} else if(tag==STR_Postfix) {
+			ast_node_t x = Cdr(n);
+			ast_node_t nt = Car(Cdr(x));
+			ret = cached = new combination::Postfix(g, from_ast(Car(x), g), Value(Car(Cdr(nt))));
+		} else if(tag==STR_TransientRule) {
+			ast_node_t x = Cdr(n);
+			ret = new rule::Transient(Value(Car(x)), from_ast(Car(Cdr(x)), g), g);
+			cached = NULL;
+		} else if(tag==STR_OperatorRule) {
+			ast_node_t x = Cdr(n);
+			ret = new rule::Operator(Value(Car(x)), from_ast(Car(Cdr(x)), g), g);
+			cached = NULL;
+		} else if(tag==STR_Space) {
+			/*cached = new token::Nt(STR_Space);*/
+			ret = cached = NULL;
+		} else if(tag==STR_NewLine) {
+			/*cached = new token::Nt(STR_NewLine);*/
+			ret = cached = NULL;
+		} else if(tag==STR_Indent) {
+			/*cached = new token::Nt(STR_Indent);*/
+			ret = cached = NULL;
+		} else if(tag==STR_Dedent) {
+			/*cached = new token::Nt(STR_Dedent);*/
+			ret = cached = NULL;
+		}
+		/*std::cout << "adding item ";*/
+		/*visitors::debugger d;*/
+		/*cached->accept(&d);*/
+		/*std::cout << " in cache for node " << ast_serialize_to_string(n) << std::endl;*/
+
+
+		registry[n] = cached;
+
+		
+		/*std::cout << "now registry[" << ast_serialize_to_string(n) << "] = ";*/
+		/*registry[n]->accept(&d);*/
+		/*std::cout << std::endl;*/
+		return ret;
+	}
+
+
+#if 0
+	base* base::from_ast(const ast_node_t n, Grammar* g) {
+		base* cached = registry[n];
 		visitors::item_rewriter rw(g);
+		if(cached) {
+			std::cout << "reusing cached item ";
+			visitors::debugger d;
+			cached->accept(&d);
+			std::cout << std::endl;
+			return rw.process(cached);
+		} else {
+			std::cout << "no cached item for node " << ast_serialize_to_string(n) << std::endl;
+		}
 		const char* tag = Value(Car(n));
 		if(tag==STR_RE) {
 			cached = new token::Re(Value(Car(Cdr(n))));
@@ -91,11 +211,11 @@ namespace token {
 			}
 			cached = edit;
 		} else if(tag==STR_Rep0N) {
-			cached = new combination::Rep0N(rw(Car(Cdr(n))));
+			cached = new combination::Rep0N(g, rw(Car(Cdr(n))));
 		} else if(tag==STR_Rep01) {
-			cached = new combination::Rep01(rw(Car(Cdr(n))));
+			cached = new combination::Rep01(g, rw(Car(Cdr(n))));
 		} else if(tag==STR_Rep1N) {
-			cached = new combination::Rep1N(rw(Car(Cdr(n))));
+			cached = new combination::Rep1N(g, rw(Car(Cdr(n))));
 		} else if(tag==STR_RPL) {
 			cached = NULL;
 		} else if(tag==STR_STR) {
@@ -109,11 +229,11 @@ namespace token {
 		} else if(tag==STR_Prefix) {
 			ast_node_t x = Cdr(n);
 			ast_node_t nt = Car(Cdr(x));
-			cached = new combination::Prefix(rw(Car(x)), Value(Car(Cdr(nt))));
+			cached = new combination::Prefix(g, rw(Car(x)), Value(Car(Cdr(nt))));
 		} else if(tag==STR_Postfix) {
 			ast_node_t x = Cdr(n);
 			ast_node_t nt = Car(Cdr(x));
-			cached = new combination::Postfix(rw(Car(x)), Value(Car(Cdr(nt))));
+			cached = new combination::Postfix(g, rw(Car(x)), Value(Car(Cdr(nt))));
 		} else if(tag==STR_TransientRule) {
 			ast_node_t x = Cdr(n);
 			cached = new rule::Transient(Value(Car(x)), from_ast(Car(Cdr(x)), g), g);
@@ -137,12 +257,17 @@ namespace token {
 		/*visitors::debugger d;*/
 		/*cached->accept(&d);*/
 		/*std::cout << " in cache for node " << ast_serialize_to_string(n) << std::endl;*/
+
+
 		registry[n] = cached;
+
+		
 		/*std::cout << "now registry[" << ast_serialize_to_string(n) << "] = ";*/
 		/*registry[n]->accept(&d);*/
 		/*std::cout << std::endl;*/
-		return cached;
+		return rw.process(cached);
 	}
+#endif
 
 
 	ext::hash_map<const char*, trie_t> token::Bow::all;
@@ -189,13 +314,13 @@ namespace rule {
 		if(!_) { std::cout << "NULL rmember !" << std::endl; throw "COIN!"; return; }
 		visitors::rmember_rewriter rw(g, this);
 		visitors::debugger debug;
-		/*std::cout << " adding rmember "; _->accept(&debug); std::cout << std::endl;*/
+		std::cout << " adding rmember "; _->accept(&debug); std::cout << std::endl;
 		item::base* rmb = rw(_);
 		if(rmb) {
-			/*std::cout << "  => as "; _->accept(&debug); std::cout << std::endl;*/
+			std::cout << "  => as "; _->accept(&debug); std::cout << std::endl;
 			/*push_back(rmb);*/
 			insert(rmb);
-		/*} else {*/
+		} else {
 			/*std::cout << "  => skipped rmb in " << name << std::endl;*/
 			/*push_back(new item::token::Epsilon());*/
 			/*insert(new item::token::Epsilon());*/
@@ -205,15 +330,17 @@ namespace rule {
 
 
 Grammar::Grammar(ast_node_t rules) {
-	std::cout << "DEBUG GRAMMAR " << ast_serialize_to_string(rules) << std::endl;
-	std::cout << "pouet" << std::endl;
-	while(rules) {
-		ast_node_t rule = Car(rules);
-		if(regstr(Value(Car(rule)))!=STR_Comment) {
-			const char* tag = Value(Car(Cdr(rule)));
-			add_rule(tag, dynamic_cast<rule::base*>(item::base::from_ast(rule, this)));
+	if(rules) {
+		std::cout << "DEBUG GRAMMAR " << ast_serialize_to_string(rules) << std::endl;
+		std::cout << "pouet" << std::endl;
+		while(rules) {
+			ast_node_t rule = Car(rules);
+			if(regstr(Value(Car(rule)))!=STR_Comment) {
+				const char* tag = Value(Car(Cdr(rule)));
+				add_rule(tag, dynamic_cast<rule::base*>(item::base::from_ast(rule, this)));
+			}
+			rules = Cdr(rules);
 		}
-		rules = Cdr(rules);
 	}
 	/* initialize whitespace-skipping subsystem */
 	rule::base* WS = (*this)["_whitespace"];

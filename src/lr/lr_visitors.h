@@ -2,34 +2,6 @@
 #define _TINYAP_LR_VISITORS_H_
 
 namespace grammar {
-	namespace item {
-		extern ext::hash_map<
-					const ast_node_t,
-					grammar::item::base*,
-					lr::hash_an, lr::ptr_eq<_ast_node_t>
-				> registry;
-
-		class registry_t : public std::vector<base*> {
-			public:
-				registry_t() : std::vector<base*>() {}
-				static registry_t& instance() {
-					static registry_t _;
-					return _;
-				}
-				~registry_t() {
-					std::vector<base*>::iterator i,j;
-					for(i=begin(), j=end();i!=j;++i) {
-						delete *i;
-					}
-				}
-		};
-
-		template<class I> I* gc(I* x) {
-			registry_t::instance().push_back(x);
-			return x;
-		}
-
-	}
 	namespace visitors {
 		template <typename O>
 			class evaluator : public visitor {
@@ -96,6 +68,39 @@ namespace grammar {
 					virtual O eval(Grammar*) = 0;
 		};
 
+
+		template <typename R>
+		class dummy_filter : public evaluator<R> {
+			public:
+				R operator() (item::base* _) {
+					return evaluator<R>::process(_);
+				}
+
+				virtual R eval(item::token::Str*) { return NULL; }
+				virtual R eval(item::token::Re*) { return NULL; }
+				virtual R eval(item::token::Epsilon*) { return NULL; }
+				virtual R eval(item::token::Eof*) { return NULL; }
+				virtual R eval(item::token::Comment*) { return NULL; }
+				virtual R eval(item::token::T*) { return NULL; }
+				virtual R eval(item::token::Nt*) { return NULL; }
+				virtual R eval(item::token::Bow*) { return NULL; }
+
+				virtual R eval(item::combination::Rep01*) { return NULL; }
+				virtual R eval(item::combination::Rep0N*) { return NULL; }
+				virtual R eval(item::combination::Rep1N*) { return NULL; }
+				virtual R eval(item::combination::Prefix*) { return NULL; }
+				virtual R eval(item::combination::Postfix*) { return NULL; }
+				virtual R eval(item::combination::Seq*) { return NULL; }
+				virtual R eval(item::combination::RawSeq*) { return NULL; }
+				virtual R eval(item::combination::Alt*) { return NULL; }
+
+				virtual R eval(rule::Transient*) { return NULL; }
+				virtual R eval(rule::Operator*) { return NULL; }
+				virtual R eval(rule::Prefix*) { return NULL; }
+				virtual R eval(rule::Postfix*) { return NULL; }
+
+				virtual R eval(Grammar*) { return NULL; }
+		};
 
 		class filter : public evaluator<item::base*> {
 			public:
@@ -384,25 +389,27 @@ namespace grammar {
 				}
 
 				virtual void visit(item::combination::Rep01* x) {
-					os << '(';
+					/*os << '(';*/
 					x->contents()->accept(this);
-					os << ")?";
+					/*os << ")?";*/
 				}
 				virtual void visit(item::combination::Rep0N* x) {
-					os << '(';
+					/*os << '(';*/
 					x->contents()->accept(this);
-					os << ")*";
+					/*os << ")*";*/
 				}
 				virtual void visit(item::combination::Rep1N* x) {
-					os << '(';
+					/*os << '(';*/
 					x->contents()->accept(this);
-					os << ")+";
+					/*os << ")+";*/
 				}
 				virtual void visit(item::combination::Prefix* x) {
-					os << "Prefix";
+					/*os << "Prefix";*/
+					x->contents()->accept(this);
 				}
 				virtual void visit(item::combination::Postfix* x) {
-					os << "Postfix";
+					/*os << "Postfix";*/
+					x->contents()->accept(this);
 				}
 				virtual void visit(item::combination::Seq* x) {
 					/*prefix();*/
@@ -528,6 +535,133 @@ namespace grammar {
 				}
 		};
 
+
+
+
+
+
+
+		class item_rewriter : public evaluator<item::base*> {
+			private:
+				Grammar* g;
+			public:
+				item_rewriter(Grammar*_) : g(_) {}
+
+				item::base* operator() (ast_node_t _) {
+					item::base* orig = item::base::from_ast(_, g);
+					if(orig) {
+						item::base* ret = process(orig);
+						if(orig!=ret) {
+							/*delete orig;*/
+						}
+						return ret;
+					}
+					return NULL;
+				}
+
+				virtual item::base* eval(item::token::Str* x) {
+					/*std::cout << "eval(Str)" << std::endl;*/
+					return x;
+				}
+				virtual item::base* eval(item::token::Re* x) {
+					/*std::cout << "eval(Re)" << std::endl;*/
+					return x;
+				}
+				virtual item::base* eval(item::token::Epsilon* x) {
+					/*std::cout << "eval(Epsilon)" << std::endl;*/
+					return x;
+				}
+				virtual item::base* eval(item::token::Eof* x) {
+					/*std::cout << "eval(Eof)" << std::endl;*/
+					return x;
+				}
+				virtual item::base* eval(item::token::Comment* x) {
+					/*std::cout << "eval(Comment)" << std::endl;*/
+					/*delete x;*/
+					/*return NULL;*/
+					return x;
+				}
+				virtual item::base* eval(item::token::T* x) {
+					/*std::cout << "eval(T)" << std::endl;*/
+					return x;
+				}
+				virtual item::base* eval(item::token::Nt* x) {
+					/*std::cout << "eval(Nt)" << std::endl;*/
+					return x;
+				}
+
+				virtual item::base* eval(item::token::Bow* x) {
+					/*std::cout << "eval(Bow)" << std::endl;*/
+					return x;
+				}
+
+				virtual item::base* eval(item::combination::Rep01* x) {
+					debugger d(std::cout);
+					std::cout << "eval(Rep01:" << x << ") "; d << x; std::cout << std::endl;
+					return x->commit(g);
+				}
+				virtual item::base* eval(item::combination::Rep0N* x) {
+					std::cout << "eval(Rep0N)" << std::endl;
+					return x->commit(g);
+				}
+				virtual item::base* eval(item::combination::Rep1N* x) {
+					std::cout << "eval(Rep1N)" << std::endl;
+					return x->commit(g);
+				}
+				virtual item::base* eval(item::combination::Prefix* x) {
+					/*std::cout << "eval(Prefix)" << std::endl;*/
+					return x->commit(g);
+				}
+				virtual item::base* eval(item::combination::Postfix* x) {
+					/*std::cout << "eval(Postfix)" << std::endl;*/
+					return x->commit(g);
+				}
+				virtual item::base* eval(item::combination::Seq* x) {
+					/*std::cout << "eval(Seq)" << std::endl;*/
+					item::combination::Seq::iterator i, j;
+					for(i=x->begin(), j=x->end();i!=j;++i) {
+						process(*i);
+					}
+					return x;
+				}
+				virtual item::base* eval(item::combination::RawSeq* x) {
+					/*std::cout << "eval(RawSeq)" << std::endl;*/
+					return x;
+				}
+				virtual item::base* eval(item::combination::Alt* x) {
+					/*std::cout << "eval(Alt)" << std::endl;*/
+					item::combination::Alt::iterator i, j;
+					for(i=x->begin(), j=x->end();i!=j;++i) {
+						process(*i);
+					}
+					return x->commit(g);
+				}
+
+				virtual item::base* eval(rule::Transient* x) {
+					/*std::cout << "eval(Transient)" << std::endl;*/
+					return x;
+				}
+				virtual item::base* eval(rule::Operator* x) {
+					/*std::cout << "eval(Operator)" << std::endl;*/
+					return x;
+				}
+				virtual item::base* eval(rule::Prefix* x) {
+					/*std::cout << "eval(Prefix)" << std::endl;*/
+					return x;
+				}
+				virtual item::base* eval(rule::Postfix* x) {
+					/*std::cout << "eval(Postfix)" << std::endl;*/
+					return x;
+				}
+
+				virtual item::base* eval(Grammar* x) {
+					/*std::cout << "eval(Grammar)" << std::endl;*/
+					return NULL;
+				}
+
+		};
+
+#if 0
 		class item_rewriter : public evaluator<item::base*> {
 			private:
 				Grammar* g;
@@ -683,7 +817,7 @@ namespace grammar {
 					alt->insert(Epsilon::instance());
 					/*debugger d;*/
 					/*alt->accept(&d); std::cout << std::endl;*/
-					g->add_rule(prefix, item::gc(new rule::Transient(prefix, item::gc(alt), g)));
+					g->add_rule(prefix, item::gc(new rule::Transient(prefix, alt, g)));
 				}
 
 				void expand(item::combination::Rep1N* x, const char* prefix, const char* contents) {
@@ -717,8 +851,8 @@ namespace grammar {
 					seq->push_back(item::gc(new Nt(x->tag())));
 					g->add_rule(prefix, item::gc(new rule::Postfix(prefix, gc(seq), g)));
 				}
-	};
-
+		};
+#endif
 
 #if 0
 		class token_producer : public evaluator<ast_node_t> {
@@ -808,11 +942,33 @@ namespace grammar {
 					}
 					item::combination::Alt::iterator i=x->begin(), j=x->end();
 					for(;i!=j;++i) {
-						if(*i) { r->insert(*i); }
+						/*if(*i) { r->insert(*i); }*/
+						item::base* tmp = process(*i);
+						if(tmp) { r->insert(tmp); }
 					}
 					/*x->clear();*/
 					/*delete x;*/
 					return NULL;
+				}
+		};
+
+		class reducer : public dummy_filter<ast_node_t> {
+			private:
+				ast_node_t ast;
+				unsigned int o;
+			public:
+				reducer(ast_node_t _, unsigned int o_) : ast(_), o(o_) {}
+				virtual ast_node_t eval(rule::Transient* x) {
+					return x->reduce_ast(ast, o);
+				}
+				virtual ast_node_t eval(rule::Operator* x) {
+					return x->reduce_ast(ast, o);
+				}
+				virtual ast_node_t eval(rule::Prefix* x) {
+					return x->reduce_ast(ast, o);
+				}
+				virtual ast_node_t eval(rule::Postfix* x) {
+					return x->reduce_ast(ast, o);
 				}
 		};
 	}

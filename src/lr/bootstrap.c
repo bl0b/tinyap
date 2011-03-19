@@ -96,7 +96,7 @@ const char*test_rules = "((Grammar\n"
 										 /*"(NT test_prefix1)"*/
 										 /*"(NT test_leftrec)"*/
 										 "(NT test_epsilon)"
-										 /*"(NT test_rep)"*/
+										 "(NT test_rep)"
 										 /*"(NT test_alt1)"*/
 										 /*"(NT test_alt_in_rep)"*/
 									") (EOF)))"
@@ -107,11 +107,11 @@ const char*test_rules = "((Grammar\n"
 /*"(OperatorRule	test_postfix1	(Postfix (RE a) (NT PFX)))"*/
 /*"(OperatorRule	PFX				(RE b+))"*/
 /*"(OperatorRule	test_leftrec	(Alt (Seq (NT test_leftrec) (RE bb?)) (RE a)))"*/
-/*"(TransientRule	test_rep		(Alt (NT test_r01) (NT test_r0N) (NT test_r1N)))"*/
-/*"(OperatorRule	test_r01        (Seq (Rep01 (RE a)) (Rep01 (T toto)) (RE b+)))"*/
-/*"(OperatorRule	test_r0N        (Seq (RE a) (Rep0N (RE b))))"*/
-/*"(OperatorRule	test_r1N        (Seq (RE a) (Rep1N (RE b))))"*/
-/*"(OperatorRule	test_r1N        (Rep1N (RE a?b)))"*/
+"(TransientRule	test_rep		(Alt (NT test_r01) (NT test_r0N) (NT test_r1N)))"
+"(OperatorRule	test_r01        (Seq (Rep01 (RE a)) (Rep01 (T toto)) (RE b+)))"
+"(OperatorRule	test_r0N        (Seq (RE a) (Rep0N (RE b))))"
+"(OperatorRule	test_r1N        (Seq (RE a) (Rep1N (RE b))))"
+"(OperatorRule	test_r1N        (Rep1N (RE a?b)))"
 /*"(OperatorRule  test_alt_in_rep (Rep0N (Alt (RE a) (RE b))))"*/
 "))";
 

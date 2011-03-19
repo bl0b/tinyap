@@ -12,6 +12,15 @@
 #include <iomanip>
 
 
+
+extern "C" {
+ast_node_t  ast_unserialize(const char*input);
+const char* ast_serialize_to_string(const ast_node_t ast);
+void ast_serialize_to_file(const ast_node_t ast,FILE*f);
+}
+
+
+
 namespace lr {
 	class item {
 		private:
@@ -437,11 +446,11 @@ push u onto stack
 				grammar::rule::base* rule = (*G)["_start"];
 				grammar::item::iterator iter = grammar::item::iterator::create(rule);
 				item_set s0, tmp;
-				while(!iter.at_end()) {
+				do {
 					item i0(rule, iter);
 					tmp.insert(i0);
 					++iter;
-				}
+				} while(!iter.at_end());
 				closure(tmp, s0);
 				std::vector<state*> stack;
 				S0 = items_commit(s0, stack);
@@ -577,6 +586,38 @@ push u onto stack
 				}
 				furthest=farthest;
 				return stack.accepted;
+			}
+
+
+			static bool test(const char* gram, const char* txt, const char* expected) {
+				std::string grammar;
+				grammar = "((Grammar (TransientRule _start (NT X)) ";
+				grammar += gram;
+				grammar += "))";
+				ast_node_t g = gram?Cdr(Car(ast_unserialize(grammar.c_str()))):NULL;
+				grammar::Grammar gg(g);
+				automaton r2d2(&gg);
+				std::cout << "===========================================================" << std::endl;
+				std::cout << "===========================================================" << std::endl;
+				std::cout << "Grammar : " << grammar << std::endl;
+				grammar::visitors::debugger d;
+				gg.accept(&d);
+				std::cout << "Input : " << txt << std::endl;
+				std::cout << "===========================================================" << std::endl;
+				r2d2.dump_states();
+				ast_node_t ret = r2d2.recognize(txt, strlen(txt));
+				char* tmp = (char*)(ret?ast_serialize_to_string(ret):strdup("nil"));
+				bool ok = false;
+				if(!ret) {
+					ok = !expected;
+				} else {
+					ok = !strcmp(tmp, expected);
+				}
+				if(!ok) {
+					std::cout << "[TEST] With grammar " << gram << " and input \"" << txt << "\", expected --" << (expected?expected:"nil") << "-- and got --" << tmp << "--" << std::endl;
+				}
+				free(tmp);
+				return ok;
 			}
 	};
 
