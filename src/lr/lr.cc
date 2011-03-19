@@ -1,7 +1,9 @@
 #include "lr.h"
+
 extern "C" {
 	const char* ast_serialize_to_string(ast_node_t);
 }
+
 namespace grammar {
 namespace item {
 	struct hash_an {
