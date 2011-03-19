@@ -23,19 +23,13 @@ namespace token {
 		}
 		return false;
 	}
-}
+} /* namespace token */
 
-	struct hash_an {
-		size_t operator()(const ast_node_t x) const {
-			return (size_t)x;
-		}
-	};
-
-	static ext::hash_map<const ast_node_t, base*, hash_an, lr::ptr_eq<_ast_node_t> > registry;
+	ext::hash_map<const ast_node_t, base*, lr::hash_an, lr::ptr_eq<_ast_node_t> > registry;
 
 	struct clean_registry_at_exit {
 		~clean_registry_at_exit() {
-			ext::hash_map<const ast_node_t, base*, hash_an, lr::ptr_eq<_ast_node_t> >::iterator
+			ext::hash_map<const ast_node_t, base*, lr::hash_an, lr::ptr_eq<_ast_node_t> >::iterator
 				i, j=registry.end();
 			for(i=registry.begin();i!=j;++i) {
 				delete (*i).second;
@@ -46,13 +40,13 @@ namespace token {
 	base* base::from_ast(const ast_node_t n, Grammar* g) {
 		base* cached = registry[n];
 		if(cached) {
-			std::cout << "reusing cached item ";
-			visitors::debugger d;
-			cached->accept(&d);
-			std::cout << std::endl;
+			/*std::cout << "reusing cached item ";*/
+			/*visitors::debugger d;*/
+			/*cached->accept(&d);*/
+			/*std::cout << std::endl;*/
 			return cached;
 		} else {
-			std::cout << "no cached item for node " << ast_serialize_to_string(n) << std::endl;
+			/*std::cout << "no cached item for node " << ast_serialize_to_string(n) << std::endl;*/
 			registry[n] = cached;
 		}
 		visitors::item_rewriter rw(g);

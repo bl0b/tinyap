@@ -48,28 +48,31 @@ void test_lr(lr::automaton& a, const char* text) {
 void test_nl() {
 	grammar::Grammar g(Cdr(Car(tinyap_get_ruleset("debug_nl"))));
 	lr::automaton nl(&g);
-	nl.dump_states();
+	/*nl.dump_states();*/
 	const char* pouet = "I saw a man in the park with a telescope";
 	ast_node_t ast = nl.recognize(pouet, strlen(pouet));
 	char* str = (char*)tinyap_serialize_to_string(ast);
 	std::cout << '"' << pouet << "\" => " << str << std::endl;
 	while(ast) {
-		tinyap_walk(make_wast(Car(Car(ast))), "prettyprint", NULL);
+		wast_t wa = make_wast(Car(Car(ast)));
+		tinyap_walk(wa, "prettyprint", NULL);
+		wa_del(wa);
 		ast = Cdr(ast);
 	}
+	free(str);
 	grammar::visitors::debugger debug;
 	g.accept(&debug);
 }
 
 int main(int argc, char**argv) {
 	tinyap_init();
-	/*grammar::Grammar g(Cdr(Car(tinyap_get_ruleset("slr"))));*/
+	grammar::Grammar g(Cdr(Car(tinyap_get_ruleset("slr"))));
 	grammar::Grammar short_gram(Cdr(Car(tinyap_get_ruleset(GRAMMAR_SHORT))));
 	/*grammar::Grammar g(Cdr(Car(tinyap_get_ruleset(GRAMMAR_SHORT))));*/
 
 	/*grammar::item::token::Re* re = new grammar::item::token::Re("");*/
 
-	grammar::visitors::debugger debug;
+	/*grammar::visitors::debugger debug;*/
 
 	/*grammar::Grammar::iterator i=g.begin(), j=g.end();*/
 	/*for(;i!=j;++i) {*/
@@ -82,18 +85,19 @@ int main(int argc, char**argv) {
 	/*std::cout << g.size() << ' ' << (void*)toto << ' ' << g[toto] << std::endl;*/
 	/*debug.visit(&g);*/
 
-	std::cout << "v " << sizeof(std::vector<void*>) << std::endl;
-	std::cout << "m " << sizeof(ext::hash_map<const char*, void*>) << std::endl;
-	std::cout << "s " << sizeof(std::set<void*>) << std::endl;
+	/*std::cout << "v " << sizeof(std::vector<void*>) << std::endl;*/
+	/*std::cout << "m " << sizeof(ext::hash_map<const char*, void*>) << std::endl;*/
+	/*std::cout << "s " << sizeof(std::set<void*>) << std::endl;*/
 
 
-	/*lr::automaton d2(&g);*/
+	lr::automaton d2(&g);
 	lr::automaton tinyaglrp(&short_gram);
 	/*tinyaglrp.dump_states();*/
 	/*d2.dump_states();*/
-	/*test_lr(d2, "*id");*/
-	/*test_lr(d2, "id=id");*/
-	/*test_lr(d2, "*id=*id=id");*/
+	test_lr(d2, "*id");
+	test_lr(d2, "id=id");
+	test_lr(d2, "*id=*id=id");
+	test_lr(d2, "*id=toto");
 
 	/*grammar::Grammar g(Cdr(Car(tinyap_get_ruleset("debug_nl"))));*/
 	/*lr::automaton nl(&g);*/

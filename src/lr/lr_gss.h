@@ -164,15 +164,15 @@ namespace lr {
 							return NULL;
 						}
 						/* accept */
-						std::cout << "ACCEPT ! " << ast_serialize_to_string(ast) << std::endl;
+						/*std::cout << "ACCEPT ! " << ast_serialize_to_string(ast) << std::endl;*/
 						if(ast) {
 							accepted = newPair(R->reduce_ast(ast), accepted);
 						}
 						return NULL;
 					} else {
 						ast_node_t redast = R->reduce_ast(ast);
-						grammar::item::base* nt = new grammar::item::token::Nt(R->tag());
-						std::cout << "Reducing " << ast_serialize_to_string(ast) << " into " << ast_serialize_to_string(redast) << std::endl;
+						grammar::item::base* nt = grammar::item::gc(new grammar::item::token::Nt(R->tag()));
+						/*std::cout << "Reducing " << ast_serialize_to_string(ast) << " into " << ast_serialize_to_string(redast) << std::endl;*/
 						state* Sprime = n->pred->id.S->transitions.from_stack[R->tag()];
 						/*state* Sprime = n->id.S->transitions.from_stack[R->tag()];*/
 						if(!Sprime) {
@@ -183,7 +183,7 @@ namespace lr {
 							/*throw "coin";*/
 							return NULL;
 						}
-						return shift(n->pred, nt, Sprime, newPair(R->reduce_ast(ast), NULL), offset);
+						return shift(n->pred, nt, Sprime, newPair(redast, NULL), offset);
 					}
 				} else {
 					return NULL;
@@ -191,7 +191,7 @@ namespace lr {
 			}
 			void activate(node*n) {
 				if(!n->active) {
-					std::cout << "activating node " << n << std::endl;
+					/*std::cout << "activating node " << n << std::endl;*/
 					n->active = true;
 					active.push(n);
 				}

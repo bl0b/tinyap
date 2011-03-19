@@ -5,14 +5,14 @@ COBJ=$(subst .c,.o,$(CSRC))
 CPPOBJ=$(subst .cc,.o,$(CPPSRC))
 
 
-CFLAGS=-ggdb -Wall -O2
-CPPFLAGS=-ggdb -Wno-deprecated -Wall
+CFLAGS=-ggdb -Wall -O2 -pg
+CPPFLAGS=-ggdb -Wno-deprecated -Wall -pg
 
 TARGET=tinyap
 
 CC=gcc $(CFLAGS)
 CXX=g++ $(CPPFLAGS)
-LD=g++ -ldl -lpcre -rdynamic
+LD=g++ -ldl -lpcre -rdynamic -pg
 
 all: $(TARGET)
 

@@ -24,6 +24,30 @@ extern "C" {
 }
 
 #include "ast.h"
+
+namespace lr {
+	template <class C>
+		struct ptr_less {
+			bool operator()(const C*a, const C*b) const {
+				return *a < *b;
+			}
+	};
+
+	template <class C>
+		struct ptr_eq {
+			bool operator()(const C*a, const C*b) const {
+				return a == b;
+			}
+	};
+
+	struct hash_an {
+		size_t operator()(const ast_node_t x) const {
+			return (size_t)x;
+		}
+	};
+
+}
+
 namespace grammar {
 	class Grammar;
 

@@ -2,6 +2,34 @@
 #define _TINYAP_LR_VISITORS_H_
 
 namespace grammar {
+	namespace item {
+		extern ext::hash_map<
+					const ast_node_t,
+					grammar::item::base*,
+					lr::hash_an, lr::ptr_eq<_ast_node_t>
+				> registry;
+
+		class registry_t : public std::vector<base*> {
+			public:
+				registry_t() : std::vector<base*>() {}
+				static registry_t& instance() {
+					static registry_t _;
+					return _;
+				}
+				~registry_t() {
+					std::vector<base*>::iterator i,j;
+					for(i=begin(), j=end();i!=j;++i) {
+						delete *i;
+					}
+				}
+		};
+
+		template<class I> I* gc(I* x) {
+			registry_t::instance().push_back(x);
+			return x;
+		}
+
+	}
 	namespace visitors {
 		template <typename O>
 			class evaluator : public visitor {
@@ -187,7 +215,7 @@ namespace grammar {
 				}
 				virtual return_type eval(item::combination::RawSeq* x) {
 					/*std::cout << "iterator RawSeq" << std::endl;*/
-					return new item::iterators::iterator_vector(x);
+					return new item::iterators::iterator_single(x);
 				}
 				virtual return_type eval(item::combination::Alt* x) {
 					/*std::cout << "iterator Alt" << std::endl;*/
@@ -225,18 +253,13 @@ namespace grammar {
 				virtual item::base* eval(item::token::T*x) { return x; }
 				virtual item::base* eval(item::token::Bow*x) { return x; }
 
+				virtual item::base* eval(item::combination::RawSeq*x) { return x; }
+
 				virtual item::base* eval(item::token::Nt*x) { return x; }
 		};
 
-		class producer_filter : public filter {
+		class producer_filter : public token_filter {
 			public:
-				virtual item::base* eval(item::token::Str*x) { return x; }
-				virtual item::base* eval(item::token::Re*x) { return x; }
-				virtual item::base* eval(item::token::Epsilon*x) { return x; }
-				virtual item::base* eval(item::token::Eof*x) { return x; }
-				virtual item::base* eval(item::token::T*x) { return x; }
-				virtual item::base* eval(item::token::Bow*x) { return x; }
-
 				virtual item::base* eval(item::token::Nt*x) { return NULL; }
 		};
 
@@ -558,29 +581,29 @@ namespace grammar {
 
 				virtual item::base* eval(item::combination::Rep01* x) {
 					debugger d(std::cout);
-					std::cout << "eval(Rep01:" << x << ") "; d << x; std::cout << std::endl;
+					/*std::cout << "eval(Rep01:" << x << ") "; d << x; std::cout << std::endl;*/
 					const char* tag = expand(x);
-					return new item::token::Nt(tag);
+					return item::gc(new item::token::Nt(tag));
 				}
 				virtual item::base* eval(item::combination::Rep0N* x) {
 					/*std::cout << "eval(Rep0N)" << std::endl;*/
 					const char* tag = expand(x);
-					return new item::token::Nt(tag);
+					return item::gc(new item::token::Nt(tag));
 				}
 				virtual item::base* eval(item::combination::Rep1N* x) {
 					/*std::cout << "eval(Rep1N)" << std::endl;*/
 					const char* tag = expand(x);
-					return new item::token::Nt(tag);
+					return item::gc(new item::token::Nt(tag));
 				}
 				virtual item::base* eval(item::combination::Prefix* x) {
 					/*std::cout << "eval(Prefix)" << std::endl;*/
 					const char* tag = expand(x);
-					return new item::token::Nt(tag);
+					return item::gc(new item::token::Nt(tag));
 				}
 				virtual item::base* eval(item::combination::Postfix* x) {
 					/*std::cout << "eval(Postfix)" << std::endl;*/
 					const char* tag = expand(x);
-					return new item::token::Nt(tag);
+					return item::gc(new item::token::Nt(tag));
 				}
 				virtual item::base* eval(item::combination::Seq* x) {
 					/*std::cout << "eval(Seq)" << std::endl;*/
@@ -596,9 +619,9 @@ namespace grammar {
 				virtual item::base* eval(item::combination::Alt* x) {
 					/*std::cout << "eval(Alt)" << std::endl;*/
 					const char* prefix = rule::base::auto_tag<item::combination::Alt>();
-					g->add_rule(prefix, new rule::Transient(prefix, x, g));
+					g->add_rule(prefix, item::gc(new rule::Transient(prefix, x, g)));
 					/*x->contents(NULL);*/
-					return new item::token::Nt(prefix);
+					return item::gc(new item::token::Nt(prefix));
 				}
 
 				virtual item::base* eval(rule::Transient* x) {
@@ -627,7 +650,7 @@ namespace grammar {
 				const char* expand(COMBO* x) {
 					const char* prefix = rule::base::auto_tag<COMBO>();
 					const char* ps = rule::base::auto_tag<COMBO>();
-					rule::Transient* R = new rule::Transient(ps, x->contents(), g);
+					rule::Transient* R = item::gc(new rule::Transient(ps, x->contents(), g));
 					g->add_rule(R);
 					expand(x, prefix, ps);
 					/*x->contents(NULL);*/
@@ -638,10 +661,10 @@ namespace grammar {
 					using item::combination::Alt;
 					using item::token::Epsilon;
 					using item::token::Nt;
-					Alt* alt = new Alt();
-					alt->insert(new Epsilon());
-					alt->insert(new Nt(contents));
-					g->add_rule(prefix, new rule::Transient(prefix, alt, g));
+					Alt* alt = item::gc(new Alt());
+					alt->insert(Epsilon::instance());
+					alt->insert(item::gc(new Nt(contents)));
+					g->add_rule(prefix, item::gc(new rule::Transient(prefix, alt, g)));
 				}
 
 				void expand(item::combination::Rep0N* x, const char* prefix, const char* contents) {
@@ -649,47 +672,47 @@ namespace grammar {
 					using item::combination::Seq;
 					using item::token::Epsilon;
 					using item::token::Nt;
-					Alt* alt = new Alt();
-					Seq* seq = new Seq();
-					seq->push_back(new Nt(contents));
-					seq->push_back(new Nt(prefix));
+					Alt* alt = item::gc(new Alt());
+					Seq* seq = item::gc(new Seq());
+					seq->push_back(item::gc(new Nt(contents)));
+					seq->push_back(item::gc(new Nt(prefix)));
 					alt->insert(seq);
-					alt->insert(new Epsilon());
-					debugger d;
-					alt->accept(&d); std::cout << std::endl;
-					g->add_rule(prefix, new rule::Transient(prefix, alt, g));
+					alt->insert(Epsilon::instance());
+					/*debugger d;*/
+					/*alt->accept(&d); std::cout << std::endl;*/
+					g->add_rule(prefix, item::gc(new rule::Transient(prefix, item::gc(alt), g)));
 				}
 
 				void expand(item::combination::Rep1N* x, const char* prefix, const char* contents) {
 					using item::combination::Alt;
 					using item::combination::Seq;
 					using item::token::Nt;
-					Alt* alt = new Alt();
-					Seq* seq = new Seq();
-					seq->push_back(new Nt(contents));
-					seq->push_back(new Nt(prefix));
+					Alt* alt = item::gc(new Alt());
+					Seq* seq = item::gc(new Seq());
+					seq->push_back(item::gc(new Nt(contents)));
+					seq->push_back(item::gc(new Nt(prefix)));
 
 					alt->insert(seq);
-					alt->insert(new Nt(contents));
-					g->add_rule(prefix, new rule::Transient(prefix, alt, g));
+					alt->insert(item::gc(new Nt(contents)));
+					g->add_rule(prefix, item::gc(new rule::Transient(prefix, alt, g)));
 				}
 
 				void expand(item::combination::Prefix* x, const char* prefix, const char* contents) {
 					using item::token::Nt;
 					using item::combination::Seq;
-					Seq* seq = new Seq();
-					seq->push_back(new Nt(contents));
-					seq->push_back(new Nt(x->tag()));
-					g->add_rule(prefix, new rule::Prefix(prefix, seq, g));
+					Seq* seq = item::gc(new Seq());
+					seq->push_back(item::gc(new Nt(contents)));
+					seq->push_back(item::gc(new Nt(x->tag())));
+					g->add_rule(prefix, item::gc(new rule::Prefix(prefix, gc(seq), g)));
 				}
 
 				void expand(item::combination::Postfix* x, const char* prefix, const char* contents) {
 					using item::token::Nt;
 					using item::combination::Seq;
-					Seq* seq = new Seq();
-					seq->push_back(new Nt(contents));
-					seq->push_back(new Nt(x->tag()));
-					g->add_rule(prefix, new rule::Postfix(prefix, seq, g));
+					Seq* seq = item::gc(new Seq());
+					seq->push_back(item::gc(new Nt(contents)));
+					seq->push_back(item::gc(new Nt(x->tag())));
+					g->add_rule(prefix, item::gc(new rule::Postfix(prefix, gc(seq), g)));
 				}
 	};
 

@@ -139,7 +139,7 @@ ast_node_t  _qlp_elem(parse_context_t t) {
 	char*cur=(char*)(t->source+t->ofs);
 	char*token;
 
-	debug_enter();
+	/*debug_enter();*/
 
 	cur=(char*)(t->source+t->ofs);
 
@@ -152,11 +152,11 @@ ast_node_t  _qlp_elem(parse_context_t t) {
 	} else if(!*token) {
 		ret=NULL;
 	} else {
-		debug_write("token='%s' ",token);
+		/*debug_write("token='%s' ",token);*/
 		ret=newAtom(token,0);
 	}
 
-	debug_leave();
+	/*debug_leave();*/
 	return ret;
 }
 

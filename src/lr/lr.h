@@ -110,24 +110,6 @@ namespace lr {
 	}
 
 
-	template <class C>
-		struct ptr_less {
-			bool operator()(const C*a, const C*b) const {
-				return *a < *b;
-			}
-	};
-
-
-
-	template <class C>
-		struct ptr_eq {
-			bool operator()(const C*a, const C*b) const {
-				return a == b;
-			}
-	};
-
-
-
 	
 	template <> struct ptr_less<grammar::item::base> {
 		bool operator()(const grammar::item::base* a,
@@ -277,7 +259,7 @@ push u onto stack
 						grammar::Grammar::iterator S = G->find(nt->tag());
 						rule::base* r = (S==G->end()) ? NULL : S->second;
 						if(!r) {
-							std::cout << "couldn't find rule !" << std::endl;
+							std::cout << "couldn't find rule " << nt->tag() << " !" << std::endl;
 							continue;
 						}
 						/* and we add an iterator to each variant of the rule */
@@ -486,19 +468,26 @@ push u onto stack
 			/*node* shift(node* p, grammar::item::base* producer, state* s, ast_node_t ast, unsigned int offset) {*/
 			ast_node_t recognize(const char* buffer, unsigned int size) {
 				grammar::visitors::lr_item_debugger debug;
+				std::list<gss::node*> farthest_nodes;
+				unsigned int farthest=0;
 				gss stack(item((*G)["_start"], grammar::item::iterator::create((*G)["_start"])), size);
 				/*int a=0;*/
 				stack.shift(NULL, NULL, S0, NULL, 0);
 				while(!stack.active.empty()) {
 					gss::node* n = stack.consume_active();
+					if(n->id.O>=farthest) {
+						farthest = n->id.O;
+						farthest_nodes.clear();
+						farthest_nodes.push_front(n);
+					}
 					state* S = n->id.S;
-					std::cout << " ===  ACTIVE STATE === #" << n->id.O << ':' << (buffer+n->id.O) << std::endl << "ast : " << ast_serialize_to_string(n->ast) << std::endl << S->items << std::endl;
+					/*std::cout << " ===  ACTIVE STATE === #" << n->id.O << ':' << (buffer+n->id.O) << std::endl << "ast : " << ast_serialize_to_string(n->ast) << std::endl << S->items << std::endl;*/
 					item_set::iterator i, j;
 					for(i=S->reductions.begin(), j=S->reductions.end();i!=j;++i) {
 						gss::node*ok = stack.reduce(n, *i);
 						item x = *i;
 						if(ok) {}
-						std::cout << "reduce by " << x << " => " << ok << std::endl;
+						/*std::cout << "reduce by " << x << " => " << ok << std::endl;*/
 					}
 					follow_set_text::iterator ti, tj;
 					unsigned int ofs = n->id.O;
@@ -506,11 +495,29 @@ push u onto stack
 					for(ti=S->transitions.from_text.begin(), tj=S->transitions.from_text.end();ti!=tj;++ti) {
 						const grammar::item::base* token = (*ti).first;
 						std::pair<ast_node_t, unsigned int> ret = token->recognize(buffer, ofs, size);
-						std::cout << "follow by "; ((grammar::item::base*)token)->accept(&debug); std::cout << " => " << ret.first << " (" << ret.second << ')' << std::endl;
+						/*std::cout << "follow by "; ((grammar::item::base*)token)->accept(&debug); std::cout << " => " << ret.first << " (" << ret.second << ')' << std::endl;*/
 						if(ret.first) {
 							stack.shift(n, (grammar::item::base*)(*ti).first, (*ti).second, ret.first, ret.second);
 						}
 					}
+				}
+				if(farthest!=size) {
+					std::cout << "parsing stopped at offset " << farthest << std::endl;
+					std::list<gss::node*>::iterator i, j;
+					for(i=farthest_nodes.begin(), j=farthest_nodes.end();i!=j;++i) {
+						follow_set_text::iterator ti, tj;
+						state* S = (*i)->id.S;
+						if(S->transitions.from_text.size()) {
+							std::cout << "expected one of ";
+							grammar::visitors::debugger d;
+							for(ti=S->transitions.from_text.begin(), tj=S->transitions.from_text.end();ti!=tj;++ti) {
+								((grammar::item::base*)(*ti).first)->accept(&d); std::cout << ' ';
+							}
+						} else {
+							std::cout << "expected end of text";
+						}
+					}
+					std::cout << std::endl;
 				}
 				return stack.accepted;
 			}

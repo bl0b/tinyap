@@ -399,6 +399,10 @@ namespace grammar {
 					virtual std::pair<ast_node_t, unsigned int> recognize(const char* source, unsigned int offset, unsigned int size) const {
 						return std::pair<ast_node_t, unsigned int>(PRODUCTION_OK_BUT_EMPTY, offset);
 					}
+					static Epsilon* instance() {
+						static Epsilon pouet;
+						return &pouet;
+					}
 			};
 
 			class Eof : public impl<Eof> {
@@ -620,6 +624,15 @@ namespace grammar {
 
 	class Grammar : public map_type, public item::item_with_class_id<Grammar> {
 		public:
+			struct _whitespace {
+				virtual unsigned int trim(const char* source, unsigned int offset) = 0;
+			};
+
+
+			unsigned int skip(const char* ptr, unsigned int ofs, unsigned int sz) {
+				return ofs;
+			}
+
 			Grammar(ast_node_t rules);
 			~Grammar();
 			void add_rule(const char* tag, rule::base* rule) {
@@ -639,7 +652,7 @@ namespace grammar {
 				/*std::cout << "Grammar{"<<this<<"}->add_rule("<<rule->tag()<<") DONE size now = "<<size()<<std::endl;*/
 				/*visitors::debugger d;*/
 				/*(*this)[tag]->accept(&d);*/
-				std::cout << (*this)[tag] << std::endl;
+				/*std::cout << (*this)[tag] << std::endl;*/
 			}
 			void add_rule(rule::base* rule) {
 				add_rule(rule->tag(), rule);
@@ -691,7 +704,7 @@ namespace grammar {
 						const char* _t;
 					public:
 						tagged_single(const char* tag, item::base* contents) : single<C>(contents), _t(tag) {}
-						const char* tag() const { std::cout << "asking for tag in tagged_single => " << _t << std::endl; return _t; }
+						const char* tag() const { /*std::cout << "asking for tag in tagged_single => " << _t << std::endl;*/ return _t; }
 			};
 
 
@@ -709,7 +722,24 @@ namespace grammar {
 				};
 
 			class Seq : public seq_base<Seq> {};
-			class RawSeq : public seq_base<RawSeq> {};
+			class RawSeq : public seq_base<RawSeq> {
+				public:
+					virtual std::pair<ast_node_t, unsigned int> recognize(const char* source, unsigned int offset, unsigned int size) const {
+						rule::internal::append append;
+						RawSeq::const_iterator i, j;
+						std::pair<ast_node_t, unsigned int> ret(NULL, offset);
+						for(i=begin(), j=end();i!=j&&ret.second<=size;++i) {
+							std::pair<ast_node_t, unsigned int> tmp = (*i)->recognize(source, ret.second, size);
+							if(tmp.first) {
+								ret.first = append(tmp.first, ret.first);
+								ret.second = tmp.second;
+							} else {
+								return std::pair<ast_node_t, unsigned int>(NULL, offset);
+							}
+						}
+						return ret;
+					}
+			};
 			class Alt : public impl<Alt>, public std::set<item::base*> {
 					public:
 						virtual ~Alt() {
@@ -724,8 +754,8 @@ namespace grammar {
 
 			class Rep01 : public single<Rep01> {
 				public:
-					Rep01(item::base* _i) : single<Rep01>(_i) { std::cout << "Rep01 contents="<<_i<<std::endl; _=_i; }
-					virtual item::base* contents() const { std::cout << "asking for contents ? got " << _ << std::endl; return _; }
+					Rep01(item::base* _i) : single<Rep01>(_i) { /*std::cout << "Rep01 contents="<<_i<<std::endl;*/ _=_i; }
+					virtual item::base* contents() const { /*std::cout << "asking for contents ? got " << _ << std::endl;*/ return _; }
 					virtual void contents(item::base* i) { _=i; }
 			};
 
