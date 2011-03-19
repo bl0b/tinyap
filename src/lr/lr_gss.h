@@ -58,9 +58,10 @@ namespace lr {
 			};
 
 			struct node_allocator {
+				unsigned int alloc_count;
 				node* free_;
 				std::vector<node_segment*> segments;
-				node_allocator() : free_(NULL), segments() {}
+				node_allocator() : alloc_count(0), free_(NULL), segments() {}
 				~node_allocator() {
 					std::vector<node_segment*>::iterator i, j=segments.end();
 					for(i=segments.begin();i!=j;++i) {
@@ -68,6 +69,7 @@ namespace lr {
 					}
 				}
 				node* alloc() {
+					static unsigned int target=0;
 					node* ret;
 					if(!free_) {
 						node_segment* ns = new node_segment();
@@ -76,11 +78,17 @@ namespace lr {
 					}
 					ret = free_;
 					free_ = free_->pred;
+					++alloc_count;
+					if(alloc_count>target) {
+						std::cout << "gss:: alloc'ed " << alloc_count << " nodes" << std::endl;
+						target+=100;
+					}
 					return ret;
 				}
 				void free(node* n) {
 					n->pred = free_;
 					free_ = n;
+					--alloc_count;
 				}
 			} alloc;
 
@@ -144,8 +152,9 @@ namespace lr {
 				} find_pred;
 				ast_node_t ast;
 				if(i.at_start()) {
-					/* epsilon rule */
-						return shift(n->pred, (grammar::item::base*)*i, n->pred->id.S->transitions.from_stack[i.rule()->tag()], PRODUCTION_OK_BUT_EMPTY, n->id.O);
+					/* epsilon rule : reduce ZERO node, and shift from current node. */
+					std::cout << "epsilon reduction" << std::endl;
+					return shift(n, (grammar::item::base*)*i, n->id.S->transitions.from_stack[i.rule()->tag()], i.rule()->reduce_ast(PRODUCTION_OK_BUT_EMPTY), n->id.O);
 				}
 				--i;
 				ast = n->ast;

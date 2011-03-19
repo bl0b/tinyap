@@ -355,27 +355,31 @@ namespace grammar {
 
 			class Str : public impl<Str> {
 				private:
-					const char* start_, * end_;
+					const char* delim_start, * delim_end;
 					unsigned int sslen, eslen;
 				public:
-					Str(const char* s, const char* e) : start_(s), end_(e), sslen(strlen(s)), eslen(strlen(e)) {}
-					Str(const Str& _) : start_(_.start_), end_(_.end_) {}
-					const char* start() const { return start_; }
-					const char* end() const { return end_; }
+					Str(const char* s, const char* e) : delim_start(s), delim_end(e), sslen(strlen(s)), eslen(strlen(e)) {}
+					Str(const Str& _) : delim_start(_.delim_start), delim_end(_.delim_end) {}
+					const char* start() const { return delim_start; }
+					const char* end() const { return delim_end; }
 					virtual std::pair<ast_node_t, unsigned int> recognize(const char* source, unsigned int offset, unsigned int size) const {
 						char* _src;
 						char* _end;
 						char* _match;
 						char* ret;
 						unsigned int ofs = offset;
-						_src = (char*)(ofs+source+sslen);
-						if(!*end_) {
+						_src = (char*)(ofs+source);
+						if(strncmp(delim_start, source+ofs, sslen)) {
+							return std::pair<ast_node_t, unsigned int>(NULL, offset);
+						}
+						_src += sslen;
+						if(!*delim_end) {
 							_match = ret = _stralloc(source+size-_src+1);
 							escape_ncpy(&_match, &_src, source+size-_src, -1);
 							ofs = size;
 						} else {
 							_end = _src;
-							while((_match=strchr(_end, (int)*end_))&&_match>_end&&*(_match-1)=='\\') {
+							while((_match=strchr(_end, (int)*delim_end))&&_match>_end&&*(_match-1)=='\\') {
 								_end = _match+1;
 							}
 							if(!_match) {
@@ -384,7 +388,7 @@ namespace grammar {
 							_end = _match;
 							ret = _stralloc(_end-_src+1);
 							_match = ret;
-							escape_ncpy(&_match, &_src, _end-_src, (int)*end_);
+							escape_ncpy(&_match, &_src, _end-_src, (int)*delim_end);
 							*_match=0;
 							ofs = _end-source+1;
 						}
@@ -625,13 +629,44 @@ namespace grammar {
 	class Grammar : public map_type, public item::item_with_class_id<Grammar> {
 		public:
 			struct _whitespace {
-				virtual unsigned int trim(const char* source, unsigned int offset) = 0;
+				const char* s;
+				_whitespace(const char*_) : s(_) {}
+				virtual ~_whitespace() {}
+				virtual unsigned int trim(const char* source, unsigned int offset, unsigned int size) = 0;
 			};
 
+			struct ws_str : public _whitespace {
+				ws_str(const char*_) : _whitespace(_) {}
+				virtual unsigned int trim(const char* source, unsigned int offset, unsigned int size) {
+					while(offset<size&&strchr(s, *(source+offset))) {
+						++offset;
+					}
+					return offset;
+				}
+			};
+
+			struct ws_re : public _whitespace {
+				RE_TYPE cache;
+				ws_re(const char*_) : _whitespace(_) {
+					const char* error;
+					int error_ofs;
+					cache = pcre_compile(_, 0, &error, &error_ofs, NULL);
+				}
+				~ws_re() { pcre_free(cache); }
+				virtual unsigned int trim(const char* source, unsigned int offset, unsigned int size) {
+					int token[3];
+					if(re_exec(cache, source, offset, size, token, 3)) {
+						return offset+token[1];
+					}
+					return offset;
+				}
+			};
 
 			unsigned int skip(const char* ptr, unsigned int ofs, unsigned int sz) {
-				return ofs;
+				return ws->trim(ptr, ofs, sz);
 			}
+
+			_whitespace* ws;
 
 			Grammar(ast_node_t rules);
 			~Grammar();
@@ -724,21 +759,7 @@ namespace grammar {
 			class Seq : public seq_base<Seq> {};
 			class RawSeq : public seq_base<RawSeq> {
 				public:
-					virtual std::pair<ast_node_t, unsigned int> recognize(const char* source, unsigned int offset, unsigned int size) const {
-						rule::internal::append append;
-						RawSeq::const_iterator i, j;
-						std::pair<ast_node_t, unsigned int> ret(NULL, offset);
-						for(i=begin(), j=end();i!=j&&ret.second<=size;++i) {
-							std::pair<ast_node_t, unsigned int> tmp = (*i)->recognize(source, ret.second, size);
-							if(tmp.first) {
-								ret.first = append(tmp.first, ret.first);
-								ret.second = tmp.second;
-							} else {
-								return std::pair<ast_node_t, unsigned int>(NULL, offset);
-							}
-						}
-						return ret;
-					}
+					virtual std::pair<ast_node_t, unsigned int> recognize(const char* source, unsigned int offset, unsigned int size) const;
 			};
 			class Alt : public impl<Alt>, public std::set<item::base*> {
 					public:

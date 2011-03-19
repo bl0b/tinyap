@@ -1,36 +1,44 @@
-CSRC=ape_prettyprint.c bootstrap.c parse_context.c pilot_manager.c serialize.c stack.c string_registry.c tinyap_alloc.c tinyap.c token_utils.c trie.c walkableast.c walker.c
-CPPSRC=lr.cc test.cc ast.cc
+CSRC=ape_prettyprint.c bootstrap.c parse_context.c pilot_manager.c serialize.c stack.c string_registry.c tinyap_alloc.c token_utils.c trie.c walkableast.c walker.c unparser.c
+CPPSRC=lr.cc ast.cc tinyap.cc
+
+COMMON_SRC = $(CSRC) $(CPPSRC)
 
 COBJ=$(subst .c,.o,$(CSRC))
 CPPOBJ=$(subst .cc,.o,$(CPPSRC))
 
 
-CFLAGS=-ggdb -Wall -O2 -pg
-CPPFLAGS=-ggdb -Wno-deprecated -Wall -pg
+#PROF=-pg
+
+CFLAGS=-ggdb -Wall $(PROF)
+CPPFLAGS=-ggdb -Wno-deprecated -Wall $(PROF)
 
 TARGET=tinyap
+TEST=test
 
 CC=gcc $(CFLAGS)
 CXX=g++ $(CPPFLAGS)
-LD=g++ -ldl -lpcre -rdynamic -pg
+LD=g++ -ldl -lpcre -rdynamic $(PROF)
 
-all: $(TARGET)
+all: $(TARGET) $(TEST)
 
 -include .depend
 
 clean:
 	rm -f *.o $(TARGET)
 
-$(TARGET): $(COBJ) $(CPPOBJ)
-	$(LD) $(COBJ) $(CPPOBJ) -o $@
+$(TARGET): $(COBJ) $(CPPOBJ) main.o
+	$(LD) $(COBJ) $(CPPOBJ) main.o -o $@
 
-.depend: $(CSRC) $(CPPSRC) Makefile
+$(TEST): $(COBJ) $(CPPOBJ) test.o
+	$(LD) $(COBJ) $(CPPOBJ) test.o -o $@
+
+.depend: $(CSRC) $(CPPSRC) main.c test.cc Makefile
 	$(CC) --depend $(CSRC) > $@
 	$(CXX) --depend $(CPPSRC) >> $@
 
-$(COBJ): %.o: %.c Makefile
+main.o $(COBJ):%.o:%.c Makefile
 	$(CC) -c $< -o $@
 
-$(CPPOBJ): %.o: %.cc Makefile
+test.o $(CPPOBJ):%.o:%.cc Makefile
 	$(CXX) -c $< -o $@
 

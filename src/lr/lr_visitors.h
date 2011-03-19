@@ -248,7 +248,7 @@ namespace grammar {
 			public:
 				virtual item::base* eval(item::token::Str*x) { return x; }
 				virtual item::base* eval(item::token::Re*x) { return x; }
-				virtual item::base* eval(item::token::Epsilon*x) { return x; }
+				virtual item::base* eval(item::token::Epsilon*x) { return NULL; }
 				virtual item::base* eval(item::token::Eof*x) { return x; }
 				virtual item::base* eval(item::token::T*x) { return x; }
 				virtual item::base* eval(item::token::Bow*x) { return x; }
@@ -348,9 +348,11 @@ namespace grammar {
 					Grammar::iterator i = x->begin(), j = x->end();
 					++rec;
 					while(i!=j) {
-						/*prefix();*/
-						/*os << (*i).first << " : " << (*i).second->size() << std::endl;;*/
-						((*i).second)->accept(this);
+						if((*i).second) {
+							/*prefix();*/
+							/*os << (*i).first << " : " << (*i).second->size() << std::endl;;*/
+							((*i).second)->accept(this);
+						}
 						os << std::endl;
 						++i;
 					}
@@ -413,13 +415,14 @@ namespace grammar {
 					}
 				}
 				virtual void visit(item::combination::RawSeq* x) {
-					os << ".raw";
+					os << "(.raw";
 					item::combination::RawSeq::iterator i=x->begin(), j=x->end();
 					while(i!=j) {
 						os << ' ';
 						if(*i) { (*i)->accept(this); }
 						++i;
 					}
+					os << ')';
 				}
 				virtual void visit(item::combination::Alt* x) {
 					char c = '(';
@@ -674,8 +677,8 @@ namespace grammar {
 					using item::token::Nt;
 					Alt* alt = item::gc(new Alt());
 					Seq* seq = item::gc(new Seq());
-					seq->push_back(item::gc(new Nt(contents)));
 					seq->push_back(item::gc(new Nt(prefix)));
+					seq->push_back(item::gc(new Nt(contents)));
 					alt->insert(seq);
 					alt->insert(Epsilon::instance());
 					/*debugger d;*/
@@ -689,8 +692,8 @@ namespace grammar {
 					using item::token::Nt;
 					Alt* alt = item::gc(new Alt());
 					Seq* seq = item::gc(new Seq());
-					seq->push_back(item::gc(new Nt(contents)));
 					seq->push_back(item::gc(new Nt(prefix)));
+					seq->push_back(item::gc(new Nt(contents)));
 
 					alt->insert(seq);
 					alt->insert(item::gc(new Nt(contents)));

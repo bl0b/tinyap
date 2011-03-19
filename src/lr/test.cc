@@ -66,9 +66,9 @@ void test_nl() {
 
 int main(int argc, char**argv) {
 	tinyap_init();
-	grammar::Grammar g(Cdr(Car(tinyap_get_ruleset("slr"))));
-	grammar::Grammar short_gram(Cdr(Car(tinyap_get_ruleset(GRAMMAR_SHORT))));
-	/*grammar::Grammar g(Cdr(Car(tinyap_get_ruleset(GRAMMAR_SHORT))));*/
+	grammar::Grammar dbg_g(Cdr(Car(tinyap_get_ruleset("test"))));
+	/*grammar::Grammar g(Cdr(Car(tinyap_get_ruleset("slr"))));*/
+	/*grammar::Grammar short_gram(Cdr(Car(tinyap_get_ruleset(GRAMMAR_SHORT))));*/
 
 	/*grammar::item::token::Re* re = new grammar::item::token::Re("");*/
 
@@ -89,20 +89,24 @@ int main(int argc, char**argv) {
 	/*std::cout << "m " << sizeof(ext::hash_map<const char*, void*>) << std::endl;*/
 	/*std::cout << "s " << sizeof(std::set<void*>) << std::endl;*/
 
+	lr::automaton dbg_a(&dbg_g);
+	dbg_a.dump_states();
+	std::cout << "parse epsilon ? " << dbg_a.recognize("", 0) << std::endl;
 
-	lr::automaton d2(&g);
-	lr::automaton tinyaglrp(&short_gram);
+	/*test_nl();*/
+
+	/*lr::automaton d2(&g);*/
+	/*lr::automaton tinyaglrp(&short_gram);*/
 	/*tinyaglrp.dump_states();*/
 	/*d2.dump_states();*/
-	test_lr(d2, "*id");
-	test_lr(d2, "id=id");
-	test_lr(d2, "*id=*id=id");
-	test_lr(d2, "*id=toto");
+	/*test_lr(d2, "*id");*/
+	/*test_lr(d2, "id=id");*/
+	/*test_lr(d2, "*id=*id=id");*/
+	/*test_lr(d2, "*id=toto");*/
 
 	/*grammar::Grammar g(Cdr(Car(tinyap_get_ruleset("debug_nl"))));*/
 	/*lr::automaton nl(&g);*/
 	/*nl.dump_states();*/
-	test_nl();
 #if 0
 	/*grammar::rule::base* start = g["_start"];*/
 	/*grammar::rule_iterator is(start);*/

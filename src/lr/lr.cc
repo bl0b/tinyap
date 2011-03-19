@@ -121,13 +121,17 @@ namespace token {
 			ast_node_t x = Cdr(n);
 			cached = new rule::Operator(Value(Car(x)), from_ast(Car(Cdr(x)), g), g);
 		} else if(tag==STR_Space) {
-			cached = new token::Nt(STR_Space);
+			/*cached = new token::Nt(STR_Space);*/
+			cached = NULL;
 		} else if(tag==STR_NewLine) {
-			cached = new token::Nt(STR_NewLine);
+			/*cached = new token::Nt(STR_NewLine);*/
+			cached = NULL;
 		} else if(tag==STR_Indent) {
-			cached = new token::Nt(STR_Indent);
+			/*cached = new token::Nt(STR_Indent);*/
+			cached = NULL;
 		} else if(tag==STR_Dedent) {
-			cached = new token::Nt(STR_Dedent);
+			/*cached = new token::Nt(STR_Dedent);*/
+			cached = NULL;
 		}
 		/*std::cout << "adding item ";*/
 		/*visitors::debugger d;*/
@@ -147,6 +151,35 @@ namespace token {
 		visitors::iterator_factory f;
 		return iterator(f(item));
 	}
+
+namespace combination {
+	std::pair<ast_node_t, unsigned int> RawSeq::recognize(const char* source, unsigned int offset, unsigned int size) const
+	{
+		/*visitors::debugger d;*/
+		rule::internal::append append;
+		RawSeq::const_iterator i, j;
+		std::pair<ast_node_t, unsigned int> ret(NULL, offset);
+		/*std::cout << "matching rawseq ? " << std::string(source+offset, source+offset+20) << std::endl;*/
+		for(i=begin(), j=end();ret.second<size&&i!=j&&ret.second<=size;++i) {
+			/*(*i)->accept(&d);*/
+			std::pair<ast_node_t, unsigned int> tmp = (*i)->recognize(source, ret.second, size);
+			if(tmp.first) {
+				/*std::cout << " matched" << std::endl;*/
+				ret.first = append(tmp.first, ret.first);
+				ret.second = tmp.second;
+			} else {
+				/*std::cout << " failed" << std::endl;*/
+				return std::pair<ast_node_t, unsigned int>(NULL, offset);
+			}
+		}
+		if(i!=j) {
+			/*std::cout << "failed at end of text" << std::endl;*/
+			return std::pair<ast_node_t, unsigned int>(NULL, offset);
+		}
+		/*std::cout << "OK ! new offset = " << ret.second << std::endl;*/
+		return ret;
+	}
+}
 }
 
 namespace rule {
@@ -172,15 +205,43 @@ namespace rule {
 
 
 Grammar::Grammar(ast_node_t rules) {
+	std::cout << "DEBUG GRAMMAR " << ast_serialize_to_string(rules) << std::endl;
+	std::cout << "pouet" << std::endl;
 	while(rules) {
 		ast_node_t rule = Car(rules);
-		const char* tag = Value(Car(Cdr(rule)));
-		add_rule(tag, dynamic_cast<rule::base*>(item::base::from_ast(rule, this)));
+		if(regstr(Value(Car(rule)))!=STR_Comment) {
+			const char* tag = Value(Car(Cdr(rule)));
+			add_rule(tag, dynamic_cast<rule::base*>(item::base::from_ast(rule, this)));
+		}
 		rules = Cdr(rules);
+	}
+	/* initialize whitespace-skipping subsystem */
+	rule::base* WS = (*this)["_whitespace"];
+	ws = NULL;
+	if(WS) {
+		/*std::cout << "have user-defined whitespaces" << std::endl;*/
+		item::iterator WSi = item::iterator::create(WS);
+		item::iterator expri = item::iterator::create(*WSi);
+		const item::token::Re* check_re = dynamic_cast<const item::token::Re*>(*expri);
+		if(check_re) {
+			/*std::cout << "     user-defined whitespaces /" << check_re->pattern() << '/' << std::endl;*/
+			ws = new ws_re(check_re->pattern());
+		} else {
+			const item::token::T* check_t = dynamic_cast<const item::token::T*>(*expri);
+			if(check_t) {
+				/*std::cout << "     user-defined whitespaces \"" << check_re->pattern() << '"' << std::endl;*/
+				ws = new ws_str(check_t->str());
+			}
+		}
+	}
+	/* default to basic whitespace definition */
+	if(!ws) {
+		ws = new ws_str(" \t\n\r");
 	}
 }
 
 Grammar::~Grammar() {
+	delete ws;
 	/*iterator i=begin(), j=end();*/
 	/*for(;i!=j;++i) {*/
 		/*delete i->second;*/

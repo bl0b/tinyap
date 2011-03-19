@@ -15,7 +15,11 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
-#define _GNU_SOURCE
+#include "lr.h"
+
+extern "C" {
+
+/*#define _GNU_SOURCE*/
 
 #include "config.h"
 #include "ast.h"
@@ -40,7 +44,9 @@ pda_t pda_new() { return 0; }
 struct _tinyap_t {
 	/*token_context_t*toktext;*/
 	/*pda_t pda;*/
-	parse_context_t context;
+	/*parse_context_t context;*/
+	lr::automaton* A;
+	grammar::Grammar* G;
 	
 	char*grammar_source;
 	ast_node_t grammar;
@@ -102,8 +108,8 @@ void tinyap_init() {
 
 void tinyap_delete(tinyap_t t) {
 //	printf("before tinyap_delete : %li nodes (%i alloc'd so far)\n",node_pool_size(),_node_alloc_count);
-	/*if(t->toktext) token_context_free(t->toktext);*/
-	/*if(t->pda) pda_free(t->pda);*/
+	if(t->A) delete t->A;
+	if(t->G) delete t->G;
 
 	if(t->grammar_source) free(t->grammar_source);
 	/*if(t->grammar) delete_node(t->grammar);*/
@@ -189,29 +195,12 @@ const char* tinyap_get_grammar(tinyap_t t) {
 
 /* common to set_grammar and set_grammar_ast */
 void init_grammar(tinyap_t t) {
-	ast_node_t ws_node=find_nterm(t->grammar,STR__whitespace);
-	t->start=find_nterm(t->grammar,STR__start);
-	fprintf(stderr, "[DBG] got start rule %s\n", tinyap_serialize_to_string(t->start));
-	if(!t->start) {
-//		printf("Dump de la grammaire %s\n",tinyap_serialize_to_string(t->grammar));
-		t->start=getCar(getCdr(getCar(t->grammar)));
-	}
-	if(ws_node) {
-		char*ws_tag;
-		ws_node=getCar(getCdr(getCdr(ws_node)));
-//		printf("whitespace : %s\n",tinyap_serialize_to_string(ws_node));
-
-		ws_tag=Value(getCar(ws_node));
-
-		if(!strcmp(ws_tag,"T")) {
-			tinyap_set_whitespace(t,Value(getCar(getCdr(ws_node))));
-		} else if(!strcmp(ws_tag,"RE")) {
-			tinyap_set_whitespace_regexp(t,Value(getCar(getCdr(ws_node))));
-		}
-	}
-	if(t->ws==NULL) {
-		tinyap_set_whitespace(t," \t\r\n");
-	}
+	if(t->G) { delete t->G; }
+	if(t->A) { delete t->A; t->A = NULL; }
+	t->G = new grammar::Grammar(Cdr(Car(t->grammar)));
+	grammar::visitors::debugger d;
+	t->G->accept(&d);
+	std::cout << std::endl;
 }
 
 void tinyap_set_grammar(tinyap_t t,const char*g) {
@@ -345,22 +334,18 @@ int tinyap_parse(tinyap_t t) {
 	struct timeval t0, t1;
 	unsigned long deltasec;
 
+	if(!t->A) {
+		gettimeofday(&t1, NULL);
+		t->A = new lr::automaton(t->G);
+		if(tinyap_verbose) {
+			gettimeofday(&t0, NULL);
+			fprintf(stderr, "took %.3f seconds to compute automaton.\n", 1.e-6f*(t0.tv_usec-t1.tv_usec)+t0.tv_sec-t1.tv_sec);
+
+		}
+		t->A->dump_states();
+	}
+
 	gettimeofday(&t1, NULL);
-
-	/*if(t->toktext) {*/
-		/*token_context_free(t->toktext);*/
-	/*}*/
-	/*if(t->pda) {*/
-		/*pda_free(t->pda);*/
-	/*}*/
-
-	/*t->toktext=token_context_new(*/
-			/*t->source_buffer,*/
-			/*t->source_buffer_sz,*/
-			/*t->ws,*/
-			/*t->grammar,*/
-			/*t->flags);*/
-	/*t->pda = pda_new(t->grammar, t->ws);*/
 
 	if(t->output) {
 		delete_node(t->output);
@@ -369,17 +354,17 @@ int tinyap_parse(tinyap_t t) {
 	if(tinyap_verbose) {
 		gettimeofday(&t0, NULL);
 		fprintf(stderr, "took %.3f seconds to init parsing context.\n", 1.e-6f*(t0.tv_usec-t1.tv_usec)+t0.tv_sec-t1.tv_sec);
-
 	}
 
 	gettimeofday(&t0, NULL);
+	t->output = t->A->recognize(t->source_buffer, t->source_buffer_sz);
 	/*t->output = token_produce_any(t->toktext, t->start, NULL);*/
 	/*t->output = pda_parse(t->pda, t->source_buffer, t->source_buffer_sz, t->start, t->flags);*/
 	gettimeofday(&t1, NULL);
 
 	if(tinyap_verbose) {
 		/*fprintf(stderr, "TinyaP parsed %u of %u characters.\n",t->toktext->farthest,t->toktext->size);*/
-		fprintf(stderr, "TinyaP parsed %lu of %lu characters.\n",t->context->farthest,t->context->size);
+		fprintf(stderr, "TinyaP parsed %u of %u characters.\n",t->A->furthest,t->source_buffer_sz);
 	}
 //	token_context_free(t->toktext);
 //	t->toktext=NULL;
@@ -402,15 +387,15 @@ int tinyap_parse_as_grammar(tinyap_t t) {
 }
 
 /*int tinyap_parsed_ok(const tinyap_t t) { return t->error||(t->toktext->ofs!=t->source_buffer_sz); }*/
-int tinyap_parsed_ok(const tinyap_t t) { return t->error||(t->context->ofs!=t->source_buffer_sz); }
+int tinyap_parsed_ok(const tinyap_t t) { return t->error||(t->A->furthest!=t->source_buffer_sz); }
 
 ast_node_t tinyap_get_output(const tinyap_t t) { return t->output; }
 void tinyap_set_output(const tinyap_t t, ast_node_t o) { t->output = o; }
 
 #if 1
-int tinyap_get_error_col(const tinyap_t t) { return parse_error_column(t->context); }
-int tinyap_get_error_row(const tinyap_t t) { return parse_error_line(t->context); }
-const char* tinyap_get_error(const tinyap_t t) { return parse_error(t->context); }
+int tinyap_get_error_col(const tinyap_t t) { return -1 /*parse_error_column(t->context)*/; }
+int tinyap_get_error_row(const tinyap_t t) { return -1 /*parse_error_line(t->context)*/; }
+const char* tinyap_get_error(const tinyap_t t) { return "TODO" /*parse_error(t->context)*/; }
 #endif
 
 int tinyap_node_is_nil(const ast_node_t  n) {
@@ -549,9 +534,12 @@ void tinyap_plug(tinyap_t parser, const char*plugin, const char*plug) {
 
 
 void tinyap_append_grammar(tinyap_t parser, ast_node_t supp) {
-	/* yet another little hack */
-	Append(parser->grammar->pair._car,supp->pair._cdr);
+	grammar::rule::internal::append append;
+	parser->grammar = append(Car(parser->grammar), Cdr(supp));
+	///* yet another little hack */
+	//Append(parser->grammar->pair._car,supp->pair._cdr);
 }
 
+} /* extern "C" */
 
 
