@@ -1,5 +1,5 @@
-CSRC=ape_prettyprint.c bootstrap.c parse_context.c pilot_manager.c serialize.c stack.c string_registry.c tinyap_alloc.c token_utils.c trie.c walkableast.c walker.c unparser.c
-CPPSRC=lr.cc ast.cc tinyap.cc
+CSRC=ape_prettyprint.c bootstrap.c parse_context.c pilot_manager.c serialize.c stack.c string_registry.c tinyap_alloc.c token_utils.c trie.c walkableast.c walker.c
+CPPSRC=lr.cc ast.cc tinyap.cc unparser.cc
 
 COMMON_SRC = $(CSRC) $(CPPSRC)
 
@@ -24,7 +24,7 @@ all: $(TARGET) $(TEST)
 -include .depend
 
 clean:
-	rm -f *.o $(TARGET)
+	rm -f *.o $(TARGET) .depend
 
 $(TARGET): $(COBJ) $(CPPOBJ) main.o
 	$(LD) $(COBJ) $(CPPOBJ) main.o -o $@

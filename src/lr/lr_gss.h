@@ -102,11 +102,20 @@ namespace lr {
 
 			gss_node_registry registry;
 
+			/* FIXME without unicity, it's a tree stack
+			 * FIXME but to make a proper gss, the ast and states must be pushed separately
+			 * FIXME (merging is on state and not on output, and stack reduction is to follow all possible paths)
+			 * FIXME is there a way to cleanly postpone reductions ?
+			 *
+			 * maybe just merging the ASTs and re-using the FOREST flag is enough
+			 * or use a std::vector
+			 */
 			node* alloc_node(node_id&id) {
 				node* ret = NULL; //registry[&id];
 				if(!ret) {
 					ret = alloc.alloc();
 					ret->id = id;
+					ret->ast = NULL;
 					/*registry[&id] = ret;*/
 				}
 				return ret;
@@ -133,15 +142,19 @@ namespace lr {
 			typedef grammar::rule::internal::append appender;
 
 			/* in stack reduction, i is always at_end() to start with */
-			node* reduce(node* n, item i) {
-				unsigned int offset = n->id.O;
+			node* reduce(node* n, item i, unsigned int offset) {
+				/*unsigned int offset = n->id.O;*/
 				/*appender append;*/
 				ast_node_t ast;
 
+#if 0
 				/* this is a helper routine which helps track the item path back to the start of the rule in the stack */
 				struct {
 					bool operator()(node*&p, const grammar::item::base*k) {
 						grammar::visitors::lr_item_debugger d;
+						/*if(p->link) {*/
+							/*std::cerr << "NOT A TREE STACK ?" << std::endl;*/
+						/*}*/
 						while(p) {
 							/*std::cout << "comparing "; ((grammar::item::base*)p->id.P)->accept(&d); std::cout << " and "; ((grammar::item::base*)k)->accept(&d); std::cout << std::endl;*/
 							if(k->is_same(p->id.P)) {
@@ -154,53 +167,59 @@ namespace lr {
 						return false;
 					}
 				} find_pred;
+#endif
+				
 
 				/* special treatment for epsilon rules */
 				if(i.at_start()) {
 					/* epsilon rule : reduce ZERO node, and shift from current node. */
-					grammar::visitors::reducer red(PRODUCTION_OK_BUT_EMPTY, n->id.O);
+					grammar::visitors::reducer red(PRODUCTION_OK_BUT_EMPTY, offset);
 					ast_node_t output = red(((grammar::rule::base*)i.rule()));
 					std::cout << "epsilon reduction" << std::endl;
-					return shift(n, new grammar::item::token::Nt(i.rule()->tag()), n->id.S->transitions.from_stack[i.rule()->tag()], output, n->id.O);
+					return shift(n, grammar::item::gc(new grammar::item::token::Nt(i.rule()->tag())), n->id.S->transitions.from_stack[i.rule()->tag()], output, offset);
 				}
 
 				/* now for the general case, track down the start of the rule in stack */
 				const grammar::rule::base* R = i.rule();
 				const bool drop_empty = !R->keep_empty();
 				--i;
-				ast = n->ast==PRODUCTION_OK_BUT_EMPTY ? PRODUCTION_OK_BUT_EMPTY : newPair(n->ast, NULL);
+				/*ast = n->ast==PRODUCTION_OK_BUT_EMPTY ? PRODUCTION_OK_BUT_EMPTY : newPair(n->ast, NULL);*/
+				ast = n->ast==PRODUCTION_OK_BUT_EMPTY ? PRODUCTION_OK_BUT_EMPTY : n->ast;
 				std::cout << ast << std::endl;
-				while(find_pred(n, *i) && (!i.at_start())) {
+				/*while(find_pred(n, *i) && (!i.at_start())) {*/
+				while(!i.at_start()) {
 					--i;
 					n = n->pred;
-					if(!(drop_empty && n->ast==PRODUCTION_OK_BUT_EMPTY)) {
-						if(ast==PRODUCTION_OK_BUT_EMPTY&&drop_empty) {
-							ast = n->ast==PRODUCTION_OK_BUT_EMPTY ? PRODUCTION_OK_BUT_EMPTY : newPair(n->ast, NULL);
-						} else {
-							ast = newPair(n->ast, ast);
-						}
-						std::cout << ast << std::endl;
-					}
+					/*if(!(drop_empty && n->ast==PRODUCTION_OK_BUT_EMPTY)) {*/
+						/*if(ast==PRODUCTION_OK_BUT_EMPTY&&drop_empty) {*/
+							/*ast = n->ast==PRODUCTION_OK_BUT_EMPTY ? PRODUCTION_OK_BUT_EMPTY : newPair(n->ast, NULL);*/
+						/*} else {*/
+							///*ast = newPair(n->ast, ast);*/
+							/*ast = grammar::rule::internal::append()(n->ast, ast);*/
+						/*}*/
+						/*std::cout << ast << std::endl;*/
+					/*}*/
+					ast = grammar::rule::internal::append()(n->ast, ast, drop_empty);
 				}
 				std::cout << ast << std::endl;
 
 				/* if we reach start, we good */
-				if(i.at_start()&&find_pred(n, *i)) {	/* if tracking failed, n is NULL, because tracking failed BECAUSE n became NULL. */
+				if(i.at_start()/*&&find_pred(n, *i)*/) {	/* if tracking failed, n is NULL, because tracking failed BECAUSE n became NULL. */
 					if(initial==i) {
 						if(offset != size) {
 							std::cout << "can't accept at offset " << offset << " because size is " << size << std::endl;
 							return NULL;
 						}
 						/* accept */
-						std::cout << "ACCEPT ! " << ast_serialize_to_string(ast) << std::endl;
+						char* acc_ast = (char*)ast_serialize_to_string(ast); std::cout << "ACCEPT ! " << acc_ast << std::endl; free(acc_ast);
 						if(ast) {
-							grammar::visitors::reducer red(ast, n->id.O);
+							grammar::visitors::reducer red(ast, offset);
 							ast_node_t output = red((grammar::rule::base*)R);
 							accepted = grammar::rule::internal::append()(output, accepted);
 						}
 						return NULL;
 					} else {
-						grammar::visitors::reducer red(ast, n->id.O);
+						grammar::visitors::reducer red(ast, offset);
 						ast_node_t redast = red((grammar::rule::base*)R);
 						grammar::item::base* nt = grammar::item::gc(new grammar::item::token::Nt(R->tag()));
 						/*std::cout << "Reducing " << ast_serialize_to_string(ast) << " into " << ast_serialize_to_string(redast) << std::endl;*/

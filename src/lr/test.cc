@@ -3,6 +3,8 @@
 #include <vector>
 #include <string>
 #include <iostream>
+#include <fstream>
+#include <sstream>
 #include <typeinfo>
 
 extern "C" {
@@ -17,21 +19,24 @@ extern "C" {
 #define TEST_FAIL() do { ++done; } while(0)
 
 #define __(_x_) #_x_
-#define TEST(_expr_) do { if(!(_expr_)) { TEST_FAIL(); std::cout << "Test " __(_expr_) " failed" << std::endl; } else { TEST_OK(); } } while(0)
+#define TEST(_expr_) do { if(!(_expr_)) { TEST_FAIL(); std::cout << "[TEST] [grammar] Test " __(_expr_) " failed" << std::endl; } else { TEST_OK(); } } while(0)
 
-#define TEST_EQ(_lv, _rv) do { if((_lv) != (_rv)) { TEST_FAIL(); std::cout << "Test " __(_lv == _rv) " failed, got " __(_lv) " == " << (_lv) << " instead" << std::endl; } else { TEST_OK(); } } while(0)
+#define TEST_EQ(_lv, _rv) do { if((_lv) != (_rv)) { TEST_FAIL(); std::cout << "[TEST] [grammar] Test " __(_lv == _rv) " failed, got " __(_lv) " == " << (_lv) << " instead" << std::endl; } else { TEST_OK(); } } while(0)
 
-void test_grammar() {
+int test_grammar() {
 	using namespace grammar;
 	using namespace item;
 	unsigned int done=0, ok=0;
 	Grammar g(NULL);
 	rule::Transient* R;
 	token::Epsilon* eps = token::Epsilon::instance();
-	combination::Alt* alt = new combination::Alt();
-	token::Nt* nt = new token::Nt("test");
-	token::Re* re = new token::Re("...");
-	combination::Seq* seq = new combination::Seq();
+	combination::Alt* alt = gc(new combination::Alt());
+	token::Nt* nt = gc(new token::Nt("test"));
+	token::Re* re = gc(new token::Re("..."));
+	combination::Seq* seq = gc(new combination::Seq());
+
+	TEST_EQ(newAtom("toto", 0), newAtom("toto", 0));
+	TEST_EQ(newPair(newAtom("toto", 0), NULL), newPair(newAtom("toto", 0), NULL));
 
 	seq->push_back(re);
 	seq->push_back(nt);
@@ -42,19 +47,77 @@ void test_grammar() {
 	alt->insert(eps);
 
 	TEST_EQ(alt->size(), 2);
-	R = new rule::Transient(nt->tag(), alt, &g);
+	R = gc(new rule::Transient(nt->tag(), alt, &g));
 
 	TEST_EQ(R->size(), 2);
 
 	g.add_rule(R->tag(), R);
 
 	TEST_EQ(g[nt->tag()]->size(), 2);
+	{
+		grammar::rule::base::iterator i, j;
+		i=g[nt->tag()]->begin();
+		j=i;
+		++j;
+		grammar::item::combination::Seq* seq = dynamic_cast<grammar::item::combination::Seq*>(*i);
+		grammar::item::token::Epsilon* eps = dynamic_cast<grammar::item::token::Epsilon*>(*j);
+		if(!seq) {
+			seq = dynamic_cast<grammar::item::combination::Seq*>(*j);
+			eps = dynamic_cast<grammar::item::token::Epsilon*>(*i);
+		}
+		TEST(seq||!"Couldn't find any Seq in rule");
+		TEST(eps||!"Couldn't find any Epsilon in rule");
+	}
 
-	combination::Rep01* r01 = new combination::Rep01(&g, nt);
+	
+
+
+	combination::Rep01* r01 = gc(new combination::Rep01(&g, nt));
 	base* x = r01->commit(&g);
 	token::Nt* rc = dynamic_cast<token::Nt*>(x);
 	TEST_EQ(rc, x);
 	TEST_EQ(g[rc->tag()]->size(), 2);
+	TEST_EQ(g[rc->tag()]->size(), 2);
+	{
+		grammar::rule::base::iterator i, j;
+		i=g[rc->tag()]->begin();
+		j=i;
+		++j;
+		grammar::item::token::Nt* nt = dynamic_cast<grammar::item::token::Nt*>(*i);
+		grammar::item::token::Epsilon* eps = dynamic_cast<grammar::item::token::Epsilon*>(*j);
+		if(!nt) {
+			nt = dynamic_cast<grammar::item::token::Nt*>(*j);
+			eps = dynamic_cast<grammar::item::token::Epsilon*>(*i);
+		}
+		TEST(nt||!"Couldn't find any Nt in rule");
+		TEST(eps||!"Couldn't find any Epsilon in rule");
+	}
+
+
+
+	{
+		combination::Rep0N* r0N = gc(new combination::Rep0N(&g, nt));
+		base* x = r0N->commit(&g);
+		token::Nt* rc = dynamic_cast<token::Nt*>(x);
+		TEST_EQ(rc, x);
+		TEST_EQ(g[rc->tag()]->size(), 2);
+		TEST_EQ(g[rc->tag()]->size(), 2);
+		{
+			grammar::rule::base::iterator i, j;
+			i=g[rc->tag()]->begin();
+			j=i;
+			++j;
+			grammar::item::combination::Seq* seq = dynamic_cast<grammar::item::combination::Seq*>(*i);
+			grammar::item::token::Epsilon* eps = dynamic_cast<grammar::item::token::Epsilon*>(*j);
+			if(!seq) {
+				seq = dynamic_cast<grammar::item::combination::Seq*>(*j);
+				eps = dynamic_cast<grammar::item::token::Epsilon*>(*i);
+			}
+			TEST(seq||!"Couldn't find any Seq in rule");
+			TEST(eps||!"Couldn't find any Epsilon in rule");
+		}
+	}
+
 
 	Grammar g2(NULL);
 
@@ -67,18 +130,24 @@ void test_grammar() {
 	TEST_EQ(g[nt->tag()]->size(), 2);
 
 
-	std::cout << "[TEST] passed: " << ok << '/' << done << std::endl;
+	std::cout << "[TEST] [grammar] passed: " << ok << '/' << done << std::endl;
+	return ok-done;
 }
 
-void test_automaton() {
+int test_automaton() {
 	typedef const char* test_case[3];
 	test_case test_cases[] = {
 		// start rule is X
+		{ "(OperatorRule X (EOF))", "", "((X))" },
+		{ "(OperatorRule X (EOF))", "   ", "((X))" },
+		{ "(OperatorRule X (EOF))", "a", NULL },
 		{ "(OperatorRule X (Epsilon))", "", "((X))" },
 		{ "(OperatorRule X (Epsilon))", "a", NULL },
+		{ "(OperatorRule X (Epsilon))", "   ", "((X))" },
 		{ "(OperatorRule X (T toto))", "toto", "((X))" },
 		{ "(OperatorRule X (RE toto))", "toto", "((X toto))" },
 		{ "(OperatorRule X (T toto))", "pouet", NULL },
+
 		{ "(OperatorRule X (Rep01 (T pouet)))", "pouet", "((X))" },
 		{ "(OperatorRule X (Rep01 (T pouet)))", "", "((X))" },
 		{ "(OperatorRule X (Rep0N (T pouet)))", "pouet", "((X))" },
@@ -87,22 +156,158 @@ void test_automaton() {
 		{ "(OperatorRule X (Rep1N (T pouet)))", "pouet", "((X))" },
 		{ "(OperatorRule X (Rep1N (T pouet)))", "pouet pouet pouet", "((X))" },
 		{ "(OperatorRule X (Rep1N (T pouet)))", "", NULL },
+
+		{ "(OperatorRule X (Seq (T foo) (Rep01 (T pouet))))", "foo pouet", "((X))" },
+		{ "(OperatorRule X (Seq (T foo) (Rep01 (T pouet))))", "foo ", "((X))" },
+		{ "(OperatorRule X (Seq (T foo) (Rep0N (T pouet))))", "foo pouet", "((X))" },
+		{ "(OperatorRule X (Seq (T foo) (Rep0N (T pouet))))", "foo pouet pouet pouet", "((X))" },
+		{ "(OperatorRule X (Seq (T foo) (Rep0N (T pouet))))", "foo ", "((X))" },
+		{ "(OperatorRule X (Seq (T foo) (Rep1N (T pouet))))", "foo pouet", "((X))" },
+		{ "(OperatorRule X (Seq (T foo) (Rep1N (T pouet))))", "foo pouet pouet pouet", "((X))" },
+		{ "(OperatorRule X (Seq (T foo) (Rep1N (T pouet))))", "foo", NULL },
+
+		{ "(OperatorRule X (Alt (T foo) (Rep01 (T pouet))))", "pouet", "((X))" },
+		{ "(OperatorRule X (Alt (T foo) (Rep01 (T pouet))))", "", "((X))" },
+		{ "(OperatorRule X (Alt (T foo) (Rep0N (T pouet))))", "pouet", "((X))" },
+		{ "(OperatorRule X (Alt (T foo) (Rep0N (T pouet))))", "pouet pouet pouet", "((X))" },
+		{ "(OperatorRule X (Alt (T foo) (Rep0N (T pouet))))", "", "((X))" },
+		{ "(OperatorRule X (Alt (T foo) (Rep1N (T pouet))))", "pouet", "((X))" },
+		{ "(OperatorRule X (Alt (T foo) (Rep1N (T pouet))))", "pouet pouet pouet", "((X))" },
+		{ "(OperatorRule X (Alt (T foo) (Rep1N (T pouet))))", "", NULL },
+
+		{ "(OperatorRule X (Alt (T foo) (Rep01 (T pouet))))", "foo", "((X))" },
+		{ "(OperatorRule X (Alt (T foo) (Rep01 (T pouet))))", "foo foo", NULL },
+
 		{ "(OperatorRule X (NT Y)) (OperatorRule Y (Epsilon))", "", "((X (Y)))" },
 		{ "(OperatorRule X (Prefix (RE toto) (NT Y))) (OperatorRule Y (RE pouet))", "totopouet", "((X (Y toto pouet)))" },
+		{ "(OperatorRule X (Prefix (NT Z) (NT Y))) (TransientRule Z (Seq (RE toto) (RE pou))) (OperatorRule Y (RE et))", "totopouet", "((X (Y toto pou et)))" },
 		{ "(OperatorRule X (Postfix (RE toto) (NT Y))) (OperatorRule Y (RE pouet))", "totopouet", "((X (Y pouet toto)))" },
+		{ "(OperatorRule X (RawSeq (T ~) (RE [^~,]?) (T ,) (RE [^~,]?) (T ~)))", "~\",\"~", "((X \" \"))" },
+		{ "(OperatorRule X (Rep1N (NT pouet))) (OperatorRule pouet (RE pouet))", "pouet pouet pouet", "((X (pouet pouet) (pouet pouet) (pouet pouet)))" },
+		{ "(OperatorRule X (Rep1N (NT coin))) (OperatorRule coin (RE pouet))", "pouet pouet pouet", "((X (coin pouet) (coin pouet) (coin pouet)))" },
+		{ "(OperatorRule X (Rep1N (NT coin))) (OperatorRule coin (RawSeq (RE pou) (RE ..)))", "pouet pouat pouit", "((X (coin pou et) (coin pou at) (coin pou it)))" },
+		{ "(OperatorRule X (RawSeq (T to) (RE ...) (T ouet)))", "totopouet", "((X top))" },
+		{
+			"(OperatorRule X (RawSeq (T #) (RE [^\\\\r\\n]*)))"
+			, "# toto pouet", "((X \\ toto\\ pouet))"
+		},
+		{
+			"(OperatorRule X (NT Comment))"
+			"(OperatorRule Comment (Alt (T #\\n) (T #\\r\\n) (RawSeq (T #) (RE [^\\\\r\\\\n]+))))"
+			, "# toto pouet\n", "((X (Comment \\ toto\\ pouet)))"
+		},
+		{
+			"(OperatorRule X (NT Comment))"
+			"(OperatorRule Comment (Alt (T #\\n) (T #\\r\\n) (RawSeq (T #) (RE [^\\\\r\\\\n]+))))"
+			, "\r\n# toto pouet\n\r\n", "((X (Comment \\ toto\\ pouet)))"
+		},
+		{
+			"(OperatorRule X (Seq (NT Comment) (NT Comment) (NT Comment)))"
+			"(OperatorRule Comment (RawSeq (T #) (RE [^\\\\r\\\\n]*)))"
+			, "# toto pouet\n#\n#toto", "((X (Comment \\ toto\\ pouet) (Comment ) (Comment toto)))"
+		},
+		{
+			"(OperatorRule X (Rep1N (NT Comment)))"
+			"(OperatorRule Comment (RawSeq (T #) (RE [^\\\\r\\\\n]*)))"
+			, "# toto pouet\n#\n#toto", "((X (Comment \\ toto\\ pouet) (Comment ) (Comment toto)))"
+		},
+		{
+			"(OperatorRule X (Rep1N (Alt (RE toto) (RE pouet))))"
+			, "toto toto pouet\t toto", "((X toto toto pouet toto))"
+		},
+		{
+			"(OperatorRule X (Rep1N (Alt (NT Comment))))"
+			"(OperatorRule Comment (RawSeq (T #) (RE [^\\\\r\\\\n]*)))"
+			, "# toto pouet\n#\n#toto", "((X (Comment \\ toto\\ pouet) (Comment ) (Comment toto)))"
+		},
+		{
+			"(OperatorRule X (NT Grammar))"
+			"(OperatorRule Grammar (Rep1N (Alt (NT Comment))))"
+			"(OperatorRule Comment (RawSeq (T #) (RE [^\\\\r\\\\n]*)))"
+			, "# toto pouet\n#\n#toto", "((X (Grammar (Comment \\ toto\\ pouet) (Comment ) (Comment toto))))"
+		},
+		{
+			"(OperatorRule X (NT Gramar))"
+			"(OperatorRule Gramar (Rep1N (Alt (NT Coment))))"
+			"(OperatorRule Coment (RawSeq (T #) (RE [^\\\\r\\\\n]*)))"
+			, "# toto pouet\n#\n#toto", "((X (Gramar (Coment \\ toto\\ pouet) (Coment ) (Coment toto))))"
+		},
+		{
+"(OperatorRule T (STR \" \"))"
+"(OperatorRule RE (STR / /))"
+"(OperatorRule STR (RawSeq (T ~) (RE [^~,]?)  (T ,)"
+"  (RE [^~,]?) (T ~)))"
+"(OperatorRule BOW (RawSeq (T ~) (RE [_a-zA-Z][_a-zA-Z0-9]*) (RE !?) (T ~)))"
+"(OperatorRule AddToBag (Seq (NT RE) (T :) (NT symbol) (RE !?)))"
+			"(OperatorRule X (NT RawSeq))"
+			" (OperatorRule RawSeq (Seq (T .raw) (Rep1N (Alt (NT T) (NT STR) (NT RE) (NT BOW) (NT AddToBag)))))"
+			, ".raw \"~\" /[^~,]?/ \",\" /[^~,]?/ \"~\"", "((X (RawSeq (T ~) (RE [^~,]?) (T ,) (RE [^~,]?) (T ~))))"
+		},
+		{
+"(OperatorRule T (STR \" \"))"
+"(OperatorRule RE (STR / /))"
+"(OperatorRule STR (RawSeq (T ~) (RE [^~,]?)  (T ,)"
+"  (RE [^~,]?) (T ~)))"
+"(OperatorRule BOW (RawSeq (T ~) (RE [_a-zA-Z][_a-zA-Z0-9]*) (RE !?) (T ~)))"
+"(OperatorRule AddToBag (Seq (NT RE) (T :) (NT symbol) (RE !?)))"
+			"(OperatorRule X (NT RawSeq))"
+			" (OperatorRule RawSeq (Seq (T .raw) (Rep1N (NT rawseq_contents))))"
+			" (TransientRule	rawseq_contents	(Alt (NT T) (NT STR) (NT RE) (NT BOW) (NT AddToBag)))"
+			, ".raw \"~\" /[^~,]?/ \",\" /[^~,]?/ \"~\"", "((X (RawSeq (T ~) (RE [^~,]?) (T ,) (RE [^~,]?) (T ~))))"
+		},
+		{
+			"(OperatorRule T (STR \" \"))"
+			"(OperatorRule RE (STR / /))"
+			"(OperatorRule STR (RawSeq (T ~) (RE [^~,]?)  (T ,)"
+			"  (RE [^~,]?) (T ~)))"
+			"(OperatorRule BOW (RawSeq (T ~) (RE [_a-zA-Z][_a-zA-Z0-9]*) (RE !?) (T ~)))"
+			"(OperatorRule AddToBag (Seq (NT RE) (T :) (NT symbol) (RE !?)))"
+			"(OperatorRule X (NT RawSeq))"
+			" (OperatorRule RawSeq (Seq (T .raw) (Rep1N (Seq (Space) (NT rawseq_contents)))))"
+			" (TransientRule rawseq_contents (Alt (NT T) (NT STR) (NT RE) (NT BOW) (NT AddToBag)))"
+			, ".raw \"~\" /[^~,]?/ \",\" /[^~,]?/ \"~\"", "((X (RawSeq (T ~) (RE [^~,]?) (T ,) (RE [^~,]?) (T ~))))"
+		},
+		{
+			"(OperatorRule T (STR \" \"))"
+			"(OperatorRule RE (STR / /))"
+			"(OperatorRule STR (RawSeq (T ~) (RE [^~,]?)  (T ,)"
+			"  (RE [^~,]?) (T ~)))"
+			"(OperatorRule BOW (RawSeq (T ~) (RE [_a-zA-Z][_a-zA-Z0-9]*) (RE !?) (T ~)))"
+			"(OperatorRule AddToBag (Seq (NT RE) (T :) (NT symbol) (RE !?)))"
+			"(OperatorRule X (NT RawSeq))"
+			" (OperatorRule RawSeq (Seq (T .raw) (Rep1N (Alt (NT rawseq_contents)))))"
+			" (TransientRule rawseq_contents (Alt (NT T) (NT STR) (NT RE) (NT BOW) (NT AddToBag)))"
+			, ".raw \"~\" /[^~,]?/ \",\" /[^~,]?/ \"~\"", "((X (RawSeq (T ~) (RE [^~,]?) (T ,) (RE [^~,]?) (T ~))))"
+		},
 		{ NULL, NULL, NULL }
 	};
 
 	test_case* tc = test_cases;
 	unsigned int done=0, ok=0;
+	std::streambuf* rd = std::cout.rdbuf();
+	std::vector<int> failures;
 	while((*tc)[0]) {
-		if(lr::automaton::test((*tc)[0], (*tc)[1], (*tc)[2])) {
+		std::stringstream capture;
+		std::cout.rdbuf(capture.rdbuf());
+		if(lr::automaton::test(done+1, (*tc)[0], (*tc)[1], (*tc)[2])) {
 			++ok;
+		} else {
+			std::stringstream ofn;
+			ofn << "test.failed.";
+			ofn << (done+1);
+			std::ofstream o(ofn.str().c_str(), std::ios_base::out);
+			o << capture.str();
+			failures.push_back(done+1);
 		}
 		++done;
 		++tc;
 	}
-	std::cout << "[TEST] passed: " << ok << '/' << done << std::endl;
+	std::cout.rdbuf(rd);
+	for(std::vector<int>::iterator i=failures.begin(), j=failures.end();i!=j;++i) {
+		std::cout << "[TEST] [automaton] #" << (*i) << " failed. See ./test.failed." << (*i) << " for output." << std::endl;
+	}
+	std::cout << "[TEST] [automaton] passed: " << ok << '/' << done << std::endl;
+	return ok-done;
 }
 
 
@@ -112,7 +317,7 @@ void test_automaton() {
 
 
 void test_lr(lr::automaton& a, const char* text) {
-	char* str = (char*)tinyap_serialize_to_string(a.recognize(text, strlen(text)));
+	char* str = (char*)tinyap_serialize_to_string(a.parse(text, strlen(text)));
 	std::cout << '"' << text << "\" => " << str << std::endl;
 	free(str);
 }
@@ -122,7 +327,7 @@ void test_nl() {
 	lr::automaton nl(&g);
 	/*nl.dump_states();*/
 	const char* pouet = "I saw a man in the park with a telescope";
-	ast_node_t ast = nl.recognize(pouet, strlen(pouet));
+	ast_node_t ast = nl.parse(pouet, strlen(pouet));
 	char* str = (char*)tinyap_serialize_to_string(ast);
 	std::cout << '"' << pouet << "\" => " << str << std::endl;
 	while(ast) {
@@ -139,9 +344,7 @@ void test_nl() {
 int main(int argc, char**argv) {
 	tinyap_init();
 
-	test_grammar();
-
-	test_automaton();
+	return test_grammar() + test_automaton();
 
 
 	/*grammar::Grammar dbg_g(Cdr(Car(tinyap_get_ruleset("test"))));*/
@@ -255,8 +458,8 @@ int main(int argc, char**argv) {
 		}
 	}
 	}
-#endif
 
 	return 0;
+#endif
 }
 

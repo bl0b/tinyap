@@ -147,15 +147,16 @@ namespace grammar {
 				if(a->size()!=b->size()) {
 					return false;
 				}
-				iterator ia = iterator::create(a), ib = iterator::create(b);
-				while(!ia.at_end()) {
+				/*iterator ia = iterator::create(a), ib = iterator::create(b);*/
+				combination::RawSeq::const_iterator ia = a->begin(), ib = b->begin(), ja = a->end(), jb = b->end();
+				while(ia!=ja && ib!=jb) {
 					if(!(*ia)->is_same(*ib)) {
 						return false;
 					}
 					++ia;
 					++ib;
 				}
-				return true;
+				return ia==ja && ib==jb;
 			}
 		};
 

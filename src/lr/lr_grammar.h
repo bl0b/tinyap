@@ -319,7 +319,7 @@ namespace grammar {
 						if(re_exec(cache, source, offset, size, token, 3)) {
 							char*lbl=match2str(source+offset,0,token[1]);
 							/*return std::pair<ast_node_t, unsigned int>(newAtom(lbl, offset), offset+token[1]);*/
-							return std::pair<ast_node_t, unsigned int>(newAtom(lbl, offset), offset+token[1]);
+							return std::pair<ast_node_t, unsigned int>(newPair(newAtom(lbl, offset), NULL), offset+token[1]);
 						} else {
 							return std::pair<ast_node_t, unsigned int>(NULL, offset);
 						}
@@ -394,7 +394,7 @@ namespace grammar {
 							ofs = _end-source+1;
 						}
 						/*printf(__FILE__ ":%i\n", __LINE__);*/
-						return std::pair<ast_node_t, unsigned int>(newAtom(ret, offset), ofs);
+						return std::pair<ast_node_t, unsigned int>(newPair(newAtom(ret, offset), NULL), ofs);
 					}
 			};
 
@@ -442,7 +442,7 @@ namespace grammar {
 								char*tok = _stralloc(slen+1);
 								strncpy(tok, source+offset, slen);
 								tok[slen]=0;
-								return std::pair<ast_node_t, unsigned int>(newAtom(tok, offset), offset+slen);
+								return std::pair<ast_node_t, unsigned int>(newPair(newAtom(tok, offset), NULL), offset+slen);
 							}
 						}
 						return std::pair<ast_node_t, unsigned int>(NULL, offset);
@@ -529,34 +529,50 @@ namespace grammar {
 
 		namespace internal {
 			struct append {
-				ast_node_t operator()(ast_node_t a, ast_node_t b) const {
+				ast_node_t operator()(ast_node_t a, ast_node_t b, bool drop_empty = true) const {
 					if(a==PRODUCTION_OK_BUT_EMPTY||!a) { return b?b:PRODUCTION_OK_BUT_EMPTY; }
 					if(b==PRODUCTION_OK_BUT_EMPTY||!b) { return a?a:PRODUCTION_OK_BUT_EMPTY; }
-					return rec(a, b);
+					return rec(a, b, drop_empty);
 				}
 				private:
-					ast_node_t rec(ast_node_t a, ast_node_t b) const {
+					ast_node_t rec(ast_node_t a, ast_node_t b, bool drop_empty) const {
 						if(!a) {
 							return b;
 						}
-						return newPair(Car(a), rec(Cdr(a), b));
+						if(drop_empty && Car(a)==PRODUCTION_OK_BUT_EMPTY) {
+							return rec(Cdr(a), b, drop_empty);
+						}
+						return newPair(Car(a), rec(Cdr(a), b, drop_empty));
 					}
 			};
 			struct pfx_extract : public append {
 				ast_node_t rule, pfx, tag, cdr;
 				pfx_extract(ast_node_t ast) {
-					pfx = Car(ast);
-					rule = Car(Cdr(ast));
-					tag = Car(rule);
-					cdr = Cdr(rule);
-					std::cout << "PFX EXTRACTOR :" << std::endl;
-					std::cout << "pfx = " << pfx << std::endl;
+					struct {
+						ast_node_t operator()(ast_node_t ast, ast_node_t&rule) const {
+							if(Cdr(ast)) {
+								return newPair(Car(ast), (*this)(Cdr(ast), rule));
+							}
+							rule = Car(ast);
+							return NULL;
+						}
+					} dirty_extraction;
+					std::cout << "PFX EXTRACTOR : " << ast << std::endl;
+					pfx = dirty_extraction(ast, rule);
+					/*pfx = Car(ast);*/
+					/*rule = Cdr(ast);*/
+					/*while(Cdr(rule)) {*/
+						/*rule = Cdr(rule);*/
+					/*}*/
+					/*rule = Car(rule);*/
 					std::cout << "rule = " << rule << std::endl;
+					tag = Car(rule);
 					std::cout << "tag = " << tag << std::endl;
+					cdr = Cdr(rule);
 					std::cout << "cdr = " << cdr << std::endl;
 				}
-				ast_node_t prefix() const { return newPair(tag, newPair(pfx, cdr)); }
-				ast_node_t postfix() const { return newPair(tag, append()(cdr, pfx)); }
+				ast_node_t prefix() const { return newPair(tag, internal::append()(pfx, cdr)); }
+				ast_node_t postfix() const { return newPair(tag, internal::append()(cdr, pfx)); }
 			};
 		}
 
@@ -567,7 +583,10 @@ namespace grammar {
 				{}
 				/*virtual reduction_mode mode() const { return Subtree; }*/
 				virtual ast_node_t reduce_ast(ast_node_t ast, unsigned int offset) const {
-					return newPair(newAtom(tag(), offset), ast==PRODUCTION_OK_BUT_EMPTY?NULL:ast);
+					/*return newPair(newAtom(tag(), offset), ast==PRODUCTION_OK_BUT_EMPTY?NULL:ast);*/
+					/*return internal::append()(newPair(newAtom(tag(), offset), NULL), ast);*/
+					return newPair(internal::append()(newPair(newAtom(tag(), offset), NULL), ast), NULL);
+					/*return newPair(newPair(newAtom(tag(), offset), ast==PRODUCTION_OK_BUT_EMPTY?NULL:ast), NULL);*/
 				}
 				virtual const bool keep_empty() const { return false; }
 		};
@@ -591,7 +610,7 @@ namespace grammar {
 				{}
 				/*virtual reduction_mode mode() const { return Red_Postfix; }*/
 				virtual ast_node_t reduce_ast(ast_node_t ast, unsigned int offset) const {
-					return internal::pfx_extract(ast).postfix();
+					return newPair(internal::pfx_extract(ast).postfix(), NULL);
 				}
 				virtual const bool keep_empty() const { return true; }
 		};
@@ -604,7 +623,7 @@ namespace grammar {
 				/*virtual reduction_mode mode() const { return Red_Prefix; }*/
 				virtual ast_node_t reduce_ast(ast_node_t ast, unsigned int offset) const {
 					/*std::cout << "Prefix reduce_ast has " << ast << std::endl;*/
-					return internal::pfx_extract(ast).prefix();
+					return newPair(internal::pfx_extract(ast).prefix(), NULL);
 				}
 				virtual const bool keep_empty() const { return true; }
 		};
@@ -734,6 +753,7 @@ namespace grammar {
 					}
 				protected:
 					virtual void contents(Grammar*g, item::base*) = 0;
+					void contents_commit_helper(Grammar*g, item::base*) const;
 			};
 			template <class CLS, class B=base> class impl
 				: public item_with_class_id<CLS, B> {
@@ -755,16 +775,21 @@ namespace grammar {
 				protected:
 					item::token::Nt* _;
 					item::base* cts;
+					item::base* raw_cts;
+					friend class visitors::debugger;
 					virtual void contents(Grammar*g, item::base*x) = 0;
 						/*_ = item::gc(new item::token::Nt(rule::base::auto_tag<CLS>()));*/
 						/*cts = x;*/
 					/*}*/
 				public:
-					single() : _(0), cts(0) {}
+					single() : _(0), cts(0), raw_cts(0) {}
 					virtual ~single() { /*if(_) { delete _; }*/ }
-					virtual item::base* contents() const { return _; }
+					item::base* contents() const { return _; }
 					token::Nt* commit(Grammar*g) const {
-						g->add_rule(new typename CLS::expansion_rule_type(_->tag(), cts, g));
+						if(raw_cts) {
+							base::contents_commit_helper(g, raw_cts);
+						}
+						g->add_rule(gc(new typename CLS::expansion_rule_type(_->tag(), cts, g)));
 						return _;
 					}
 			};
@@ -794,8 +819,16 @@ namespace grammar {
 				};
 
 			class Seq : public seq_base<Seq> {
+				protected:
+					item::token::Nt* _;
 				public:
+					using seq_base<Seq>::contents;
+					Seq() : _(item::gc(new item::token::Nt(rule::base::auto_tag<Seq>()))) {}
 					Seq* add(item::base* x) { push_back(x); return this; }
+					token::Nt* commit(Grammar*g) const {
+						g->add_rule(gc(new rule::Transient(_->tag(), (item::base*)this, g)));
+						return _;
+					}
 			};
 			class RawSeq : public seq_base<RawSeq> {
 				public:
@@ -810,6 +843,7 @@ namespace grammar {
 					}
 				public:
 					typedef rule::Transient expansion_rule_type;
+					using single<Alt>::contents;
 					Alt() { contents(NULL, this); }
 					/*virtual ~Alt() {*/
 						/*std::set<item::base*>::iterator i, j = end();*/
@@ -823,11 +857,11 @@ namespace grammar {
 			class Rep01 : public single<Rep01> {
 				protected:
 					virtual void contents(Grammar*g, item::base*x) {
-						std::cout << "POUET Rep01" << std::endl;
-						_ = item::gc(new item::token::Nt(rule::base::auto_tag<Rep01>()));
-						Alt* alt = new Alt();
+						/*std::cout << "POUET Rep01" << std::endl;*/
+						_ = gc(new item::token::Nt(rule::base::auto_tag<Rep01>()));
+						Alt* alt = gc(new Alt());
 						alt->insert(x);
-						alt->insert(new token::Epsilon());
+						alt->insert(token::Epsilon::instance());
 						/*alt->contents(g, alt);*/
 						/*alt->commit(g);*/
 						cts = alt;
@@ -840,19 +874,7 @@ namespace grammar {
 
 			class Rep0N : public single<Rep0N> {
 				protected:
-					virtual void contents(Grammar*g, item::base*x) {
-						std::cout << "POUET Rep0N" << std::endl;
-						_ = item::gc(new item::token::Nt(rule::base::auto_tag<Rep0N>()));
-						Alt* alt = item::gc(new Alt());
-						Seq* seq = item::gc(new Seq());
-						alt->insert(new token::Epsilon());
-						seq->push_back(_);
-						seq->push_back(x);
-						alt->insert(seq);
-						/*alt->contents(g, alt);*/
-						/*alt->commit(g);*/
-						cts = alt;
-					}
+					virtual void contents(Grammar*g, item::base*x);
 				public:
 					typedef rule::Transient expansion_rule_type;
 					using single<Rep0N>::contents;
@@ -861,19 +883,7 @@ namespace grammar {
 
 			class Rep1N : public single<Rep1N> {
 				protected:
-					virtual void contents(Grammar*g, item::base*x) {
-						std::cout << "POUET Rep1N" << std::endl;
-						_ = item::gc(new item::token::Nt(rule::base::auto_tag<Rep1N>()));
-						Alt* alt = item::gc(new Alt());
-						Seq* seq = item::gc(new Seq());
-						alt->insert(x);
-						seq->push_back(_);
-						seq->push_back(x);
-						alt->insert(seq);
-						/*alt->contents(g, alt);*/
-						/*alt->commit(g);*/
-						cts = alt;
-					}
+					virtual void contents(Grammar*g, item::base*x);
 				public:
 					typedef rule::Transient expansion_rule_type;
 					using single<Rep1N>::contents;
@@ -889,8 +899,8 @@ namespace grammar {
 					using single<Prefix>::contents;
 					using single<Prefix>::commit;
 					Prefix(Grammar*g, item::base* prefix, const char* nt) : tagged_single<Prefix>(nt) {
-						_ = item::gc(new item::token::Nt(rule::base::auto_tag<Prefix>()));
-						cts = (new Seq())->add(prefix)->add(new item::token::Nt(nt));
+						_ = gc(new item::token::Nt(rule::base::auto_tag<Prefix>()));
+						cts = gc(new Seq())->add(prefix)->add(gc(new item::token::Nt(nt)));
 					}
 			};
 
@@ -903,7 +913,7 @@ namespace grammar {
 					using single<Postfix>::commit;
 					Postfix(Grammar*g, item::base* postfix, const char* nt) : tagged_single<Postfix>(nt) {
 						_ = item::gc(new item::token::Nt(rule::base::auto_tag<Postfix>()));
-						cts = (new Seq())->add(postfix)->add(new token::Nt(nt));
+						cts = gc(new Seq())->add(postfix)->add(gc(new token::Nt(nt)));
 					}
 			};
 		}

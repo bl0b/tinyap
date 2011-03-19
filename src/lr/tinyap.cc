@@ -198,8 +198,8 @@ void init_grammar(tinyap_t t) {
 	if(t->G) { delete t->G; }
 	if(t->A) { delete t->A; t->A = NULL; }
 	t->G = new grammar::Grammar(Cdr(Car(t->grammar)));
-	grammar::visitors::debugger d;
-	t->G->accept(&d);
+	/*grammar::visitors::debugger d;*/
+	/*t->G->accept(&d);*/
 	std::cout << std::endl;
 }
 
@@ -357,7 +357,7 @@ int tinyap_parse(tinyap_t t) {
 	}
 
 	gettimeofday(&t0, NULL);
-	t->output = t->A->recognize(t->source_buffer, t->source_buffer_sz);
+	t->output = t->A->parse(t->source_buffer, t->source_buffer_sz);
 	/*t->output = token_produce_any(t->toktext, t->start, NULL);*/
 	/*t->output = pda_parse(t->pda, t->source_buffer, t->source_buffer_sz, t->start, t->flags);*/
 	gettimeofday(&t1, NULL);
