@@ -152,7 +152,7 @@ ast_node_t  _qlp_elem(parse_context_t t) {
 	} else if(!*token) {
 		ret=NULL;
 	} else {
-		/*debug_write("token='%s' ",token);*/
+		debug_write("token='%s' ",token);
 		ret=newAtom(token,0);
 	}
 

@@ -6,6 +6,25 @@ extern "C" {
 
 namespace grammar {
 namespace item {
+
+namespace token {
+	bool Nt::is_same(const base* i) const {
+		if(!i) {
+			return !this;
+		}
+		if(class_id()==i->class_id()) {
+			return equal_to<Nt>()(
+						dynamic_cast<const Nt*>(this),
+						dynamic_cast<const Nt*>(i));
+		}
+		const grammar::rule::base* R = dynamic_cast<const grammar::rule::base*>(i);
+		if(R) {
+			return tag()==R->tag();
+		}
+		return false;
+	}
+}
+
 	struct hash_an {
 		size_t operator()(const ast_node_t x) const {
 			return (size_t)x;
@@ -27,13 +46,13 @@ namespace item {
 	base* base::from_ast(const ast_node_t n, Grammar* g) {
 		base* cached = registry[n];
 		if(cached) {
-			/*std::cout << "reusing cached item ";*/
+			std::cout << "reusing cached item ";
 			visitors::debugger d;
 			cached->accept(&d);
 			std::cout << std::endl;
 			return cached;
 		} else {
-			/*std::cout << "no cached item for node " << ast_serialize_to_string(n) << std::endl;*/
+			std::cout << "no cached item for node " << ast_serialize_to_string(n) << std::endl;
 			registry[n] = cached;
 		}
 		visitors::item_rewriter rw(g);
@@ -127,6 +146,8 @@ namespace item {
 		return cached;
 	}
 
+
+	ext::hash_map<const char*, trie_t> token::Bow::all;
 
 	iterator iterator::create(const base*item) {
 		visitors::iterator_factory f;

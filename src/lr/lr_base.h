@@ -17,10 +17,13 @@
 namespace ext = __gnu_cxx;
 
 extern "C" {
-#include "ast.h"
+#include "tinyap_alloc.h"
 #include "string_registry.h"
+#include "token_utils.h"
+#include "trie.h"
 }
 
+#include "ast.h"
 namespace grammar {
 	class Grammar;
 

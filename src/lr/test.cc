@@ -9,6 +9,7 @@ extern "C" {
 #include "ast.h"
 #include "bootstrap.h"
 #include "tinyap.h"
+#include "walkableast.h"
 }
 
 void test() {
@@ -38,9 +39,32 @@ extern "C" {
 /*#include "bootstrap.c"*/
 }
 
+void test_lr(lr::automaton& a, const char* text) {
+	char* str = (char*)tinyap_serialize_to_string(a.recognize(text, strlen(text)));
+	std::cout << '"' << text << "\" => " << str << std::endl;
+	free(str);
+}
+
+void test_nl() {
+	grammar::Grammar g(Cdr(Car(tinyap_get_ruleset("debug_nl"))));
+	lr::automaton nl(&g);
+	nl.dump_states();
+	const char* pouet = "I saw a man in the park with a telescope";
+	ast_node_t ast = nl.recognize(pouet, strlen(pouet));
+	char* str = (char*)tinyap_serialize_to_string(ast);
+	std::cout << '"' << pouet << "\" => " << str << std::endl;
+	while(ast) {
+		tinyap_walk(make_wast(Car(Car(ast))), "prettyprint", NULL);
+		ast = Cdr(ast);
+	}
+	grammar::visitors::debugger debug;
+	g.accept(&debug);
+}
+
 int main(int argc, char**argv) {
 	tinyap_init();
-	grammar::Grammar g(Cdr(Car(tinyap_get_ruleset("slr"))));
+	/*grammar::Grammar g(Cdr(Car(tinyap_get_ruleset("slr"))));*/
+	grammar::Grammar short_gram(Cdr(Car(tinyap_get_ruleset(GRAMMAR_SHORT))));
 	/*grammar::Grammar g(Cdr(Car(tinyap_get_ruleset(GRAMMAR_SHORT))));*/
 
 	/*grammar::item::token::Re* re = new grammar::item::token::Re("");*/
@@ -56,15 +80,25 @@ int main(int argc, char**argv) {
 	/*delete re;*/
 	/*const char* toto = regstr("_start");*/
 	/*std::cout << g.size() << ' ' << (void*)toto << ' ' << g[toto] << std::endl;*/
-	debug.visit(&g);
+	/*debug.visit(&g);*/
 
 	std::cout << "v " << sizeof(std::vector<void*>) << std::endl;
 	std::cout << "m " << sizeof(ext::hash_map<const char*, void*>) << std::endl;
 	std::cout << "s " << sizeof(std::set<void*>) << std::endl;
 
 
-	lr::automaton d2(&g);
-	d2.dump_states();
+	/*lr::automaton d2(&g);*/
+	lr::automaton tinyaglrp(&short_gram);
+	/*tinyaglrp.dump_states();*/
+	/*d2.dump_states();*/
+	/*test_lr(d2, "*id");*/
+	/*test_lr(d2, "id=id");*/
+	/*test_lr(d2, "*id=*id=id");*/
+
+	/*grammar::Grammar g(Cdr(Car(tinyap_get_ruleset("debug_nl"))));*/
+	/*lr::automaton nl(&g);*/
+	/*nl.dump_states();*/
+	test_nl();
 #if 0
 	/*grammar::rule::base* start = g["_start"];*/
 	/*grammar::rule_iterator is(start);*/

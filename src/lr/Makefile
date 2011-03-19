@@ -1,4 +1,4 @@
-CSRC=bootstrap.c parse_context.c pilot_manager.c serialize.c stack.c string_registry.c tinyap_alloc.c tinyap.c token_utils.c trie.c walkableast.c walker.c
+CSRC=ape_prettyprint.c bootstrap.c parse_context.c pilot_manager.c serialize.c stack.c string_registry.c tinyap_alloc.c tinyap.c token_utils.c trie.c walkableast.c walker.c
 CPPSRC=lr.cc test.cc ast.cc
 
 COBJ=$(subst .c,.o,$(CSRC))
@@ -12,7 +12,7 @@ TARGET=tinyap
 
 CC=gcc $(CFLAGS)
 CXX=g++ $(CPPFLAGS)
-LD=g++ -ldl -lpcre
+LD=g++ -ldl -lpcre -rdynamic
 
 all: $(TARGET)
 

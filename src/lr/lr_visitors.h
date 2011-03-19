@@ -101,6 +101,38 @@ namespace grammar {
 				virtual item::base* eval(Grammar*) { return NULL; }
 		};
 
+		class identity : public evaluator<item::base*> {
+			public:
+				item::base* operator() (item::base* _) {
+					return process(_);
+				}
+
+				virtual item::base* eval(item::token::Str* x) { return x; }
+				virtual item::base* eval(item::token::Re* x) { return x; }
+				virtual item::base* eval(item::token::Epsilon* x) { return x; }
+				virtual item::base* eval(item::token::Eof* x) { return x; }
+				virtual item::base* eval(item::token::Comment* x) { return x; }
+				virtual item::base* eval(item::token::T* x) { return x; }
+				virtual item::base* eval(item::token::Nt* x) { return x; }
+				virtual item::base* eval(item::token::Bow* x) { return x; }
+
+				virtual item::base* eval(item::combination::Rep01* x) { return x; }
+				virtual item::base* eval(item::combination::Rep0N* x) { return x; }
+				virtual item::base* eval(item::combination::Rep1N* x) { return x; }
+				virtual item::base* eval(item::combination::Prefix* x) { return x; }
+				virtual item::base* eval(item::combination::Postfix* x) { return x; }
+				virtual item::base* eval(item::combination::Seq* x) { return x; }
+				virtual item::base* eval(item::combination::RawSeq* x) { return x; }
+				virtual item::base* eval(item::combination::Alt* x) { return x; }
+
+				virtual item::base* eval(rule::Transient* x) { return x; }
+				virtual item::base* eval(rule::Operator* x) { return x; }
+				virtual item::base* eval(rule::Prefix* x) { return x; }
+				virtual item::base* eval(rule::Postfix* x) { return x; }
+
+				virtual item::base* eval(Grammar* x) { return x; }
+		};
+
 
 		class iterator_factory : public evaluator<item::_iterator_base*> {
 			public:
@@ -209,8 +241,34 @@ namespace grammar {
 		};
 
 
+		class dummy : public visitor {
+			public:
+				virtual void visit(rule::Postfix* x) {}
+				virtual void visit(rule::Prefix* x) {}
+				virtual void visit(rule::Transient* x) {}
+				virtual void visit(rule::Operator* x) {}
+				virtual void visit(Grammar* x) {}
+				virtual void visit(item::token::Str* x) {}
+				virtual void visit(item::token::Re* x) {}
+				virtual void visit(item::token::Epsilon* x) {}
+				virtual void visit(item::token::Eof* x) {}
+				virtual void visit(item::token::Comment* x) {}
+				virtual void visit(item::token::T* x) {}
+				virtual void visit(item::token::Nt* x) {}
+				virtual void visit(item::token::Bow* x) {}
+
+				virtual void visit(item::combination::Rep01* x) {}
+				virtual void visit(item::combination::Rep0N* x) {}
+				virtual void visit(item::combination::Rep1N* x) {}
+				virtual void visit(item::combination::Prefix* x) {}
+				virtual void visit(item::combination::Postfix* x) {}
+				virtual void visit(item::combination::Seq* x) {}
+				virtual void visit(item::combination::RawSeq* x) {}
+				virtual void visit(item::combination::Alt* x) {}
+		};
+
 		class debugger : public visitor {
-			private:
+			protected:
 				std::ostream& os;
 				int rec;
 				void prefix() {
@@ -355,6 +413,24 @@ namespace grammar {
 				}
 		};
 
+		class lr_item_debugger : public debugger {
+			public:
+				lr_item_debugger(std::ostream& o = std::cout) : debugger(o) {}
+
+				virtual void visit(rule::Postfix* x) {
+					os << x->tag();
+				}
+				virtual void visit(rule::Prefix* x) {
+					os << x->tag();
+				}
+				virtual void visit(rule::Transient* x) {
+					os << x->tag();
+				}
+				virtual void visit(rule::Operator* x) {
+					os << x->tag();
+				}
+		};
+
 		template <class I>
 			debugger& operator << (debugger&d, const I* i) {
 				((I*)i)->accept(&d);
@@ -363,6 +439,68 @@ namespace grammar {
 
 
 
+
+		class nt_remover : public identity {
+			private:
+				Grammar* g;
+			public:
+				nt_remover(Grammar*_) : g(_) {}
+
+				virtual item::base* eval(item::token::Nt* x) { return (*g)[x->tag()]; }
+
+				virtual item::base* eval(item::combination::Seq* x) {
+					item::combination::Seq::iterator i, j=x->end();
+					for(i=x->begin();i!=j;++i) {
+						*i = process(*i);
+					}
+					return x;
+				}
+				virtual item::base* eval(item::combination::RawSeq* x) {
+					item::combination::RawSeq::iterator i, j=x->end();
+					for(i=x->begin();i!=j;++i) {
+						*i = process(*i);
+					}
+					return x;
+				}
+				virtual item::base* eval(rule::Transient* x) {
+					return rule_eval(x);
+				}
+				virtual item::base* eval(rule::Operator* x) {
+					return rule_eval(x);
+				}
+				virtual item::base* eval(rule::Prefix* x) {
+					return rule_eval(x);
+				}
+				virtual item::base* eval(rule::Postfix* x) {
+					return rule_eval(x);
+				}
+				item::base* rule_eval(rule::base* x) {
+					rule::base::iterator i, j=x->end();
+					std::list<item::base*> remove, add;
+					for(i=x->begin();i!=j;++i) {
+						item::base* k = process(*i);
+						if(k!=*i) {
+							add.push_front(k);
+							remove.push_front(*i);
+						}
+					}
+					std::list<item::base*>::iterator li, lj;
+					for(li=remove.begin(), lj=remove.end();li!=lj;++li) {
+						x->erase(*li);
+					}
+					for(li=add.begin(), lj=add.end();li!=lj;++li) {
+						x->insert(*li);
+					}
+					return x;
+				}
+				virtual item::base* eval(Grammar* x) {
+					Grammar::iterator i, j=x->end();
+					for(i=x->begin();i!=j;++i) {
+						process((*i).second);
+					}
+					return x;
+				}
+		};
 
 		class item_rewriter : public evaluator<item::base*> {
 			private:

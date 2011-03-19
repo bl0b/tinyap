@@ -33,6 +33,7 @@ namespace grammar {
 				virtual ast_node_t to_ast() { return NULL; }
 				static base* from_ast(ast_node_t, Grammar*g = NULL);
 				virtual void accept(visitors::visitor*v) = 0;
+				virtual std::pair<ast_node_t, unsigned int> recognize(const char*, unsigned int, unsigned int) const = 0;
 		};
 	}
 }
@@ -43,6 +44,8 @@ namespace std {
 			bool operator()(grammar::item::base* a, grammar::item::base* b) const { return a->is_less(b); }
 		};
 }
+
+extern "C" void escape_ncpy(char**dest, char**src, int count, int delim);
 
 namespace grammar {
 	namespace item {
@@ -310,17 +313,32 @@ namespace grammar {
 					Re(const Re& _) : pattern_(_.pattern_), cache(_.cache) {}
 					~Re() { if(cache) { pcre_free(cache); } }
 					const char* pattern() const { return pattern_; }
-					/*virtual ast_node_t recognize(parse_context_t t) const;*/
+					virtual std::pair<ast_node_t, unsigned int> recognize(const char* source, unsigned int offset, unsigned int size) const {
+						int token[3];
+						if(re_exec(cache, source, offset, size, token, 3)) {
+							char*lbl=match2str(source+offset,0,token[1]);
+							/*return std::pair<ast_node_t, unsigned int>(newPair(newAtom(lbl, offset), NULL), offset+token[1]);*/
+							return std::pair<ast_node_t, unsigned int>(newAtom(lbl, offset), offset+token[1]);
+						} else {
+							return std::pair<ast_node_t, unsigned int>(NULL, offset);
+						}
+					}
 			};
 
 			class T : public impl<T> {
 				private:
 					const char* str_;
+					size_t slen;
 				public:
-					T(const char*s) : str_(s) {}
+					T(const char*s) : str_(s), slen(strlen(s)) {}
 					T(const T& _) : str_(_.str_) {}
 					const char* str() const { return str_; }
-					/*virtual ast_node_t recognize(parse_context_t t) const;*/
+					virtual std::pair<ast_node_t, unsigned int> recognize(const char* source, unsigned int offset, unsigned int size) const {
+						if(size>=(offset+slen)&&!strncmp(str_, source+offset, slen)) {
+							return std::pair<ast_node_t, unsigned int>(PRODUCTION_OK_BUT_EMPTY, offset+slen);
+						}
+						return std::pair<ast_node_t, unsigned int>(NULL, offset);
+					}
 			};
 
 			class Comment : public impl<Comment> {
@@ -330,48 +348,105 @@ namespace grammar {
 					Comment(const char*s) : str_(s) {}
 					Comment(const Comment& _) : str_(_.str_) {}
 					const char* str() const { return str_; }
-					/*virtual ast_node_t recognize(parse_context_t t) const {*/
-						/*return NULL;*/
-					/*}*/
+					virtual std::pair<ast_node_t, unsigned int> recognize(const char* source, unsigned int offset, unsigned int size) const {
+						return std::pair<ast_node_t, unsigned int>(PRODUCTION_OK_BUT_EMPTY, offset);
+					}
 			};
 
 			class Str : public impl<Str> {
 				private:
 					const char* start_, * end_;
+					unsigned int sslen, eslen;
 				public:
-					Str(const char* s, const char* e) : start_(s), end_(e) {}
+					Str(const char* s, const char* e) : start_(s), end_(e), sslen(strlen(s)), eslen(strlen(e)) {}
 					Str(const Str& _) : start_(_.start_), end_(_.end_) {}
 					const char* start() const { return start_; }
 					const char* end() const { return end_; }
-					/*virtual ast_node_t recognize(parse_context_t t) const;*/
+					virtual std::pair<ast_node_t, unsigned int> recognize(const char* source, unsigned int offset, unsigned int size) const {
+						char* _src;
+						char* _end;
+						char* _match;
+						char* ret;
+						unsigned int ofs = offset;
+						_src = (char*)(ofs+source+sslen);
+						if(!*end_) {
+							_match = ret = _stralloc(source+size-_src+1);
+							escape_ncpy(&_match, &_src, source+size-_src, -1);
+							ofs = size;
+						} else {
+							_end = _src;
+							while((_match=strchr(_end, (int)*end_))&&_match>_end&&*(_match-1)=='\\') {
+								_end = _match+1;
+							}
+							if(!_match) {
+								return std::pair<ast_node_t, unsigned int>(NULL, ofs);
+							}
+							_end = _match;
+							ret = _stralloc(_end-_src+1);
+							_match = ret;
+							escape_ncpy(&_match, &_src, _end-_src, (int)*end_);
+							*_match=0;
+							ofs = _end-source+1;
+						}
+						/*printf(__FILE__ ":%i\n", __LINE__);*/
+						return std::pair<ast_node_t, unsigned int>(newPair(newAtom(ret, offset), NULL), ofs);
+					}
 			};
 
 			class Epsilon : public impl<Epsilon> {
 				public:
 					Epsilon() {}
-					/*virtual ast_node_t recognize(parse_context_t t) const {*/
-						/*return PRODUCTION_OK_BUT_EMPTY;*/
-					/*}*/
+					virtual std::pair<ast_node_t, unsigned int> recognize(const char* source, unsigned int offset, unsigned int size) const {
+						return std::pair<ast_node_t, unsigned int>(PRODUCTION_OK_BUT_EMPTY, offset);
+					}
 			};
 
 			class Eof : public impl<Eof> {
 				public:
 					Eof() {}
-					/*virtual ast_node_t recognize(parse_context_t t) const {*/
-						/*return t->ofs==t->size?PRODUCTION_OK_BUT_EMPTY:NULL;*/
-					/*}*/
+					virtual std::pair<ast_node_t, unsigned int> recognize(const char* source, unsigned int offset, unsigned int size) const {
+						if(offset==size) {
+							return std::pair<ast_node_t, unsigned int>(PRODUCTION_OK_BUT_EMPTY, offset);
+						} else {
+							return std::pair<ast_node_t, unsigned int>(NULL, offset);
+						}
+					}
 			};
 
 			class Bow : public impl<Bow> {
 				private:
 					const char* tag_;
 					bool keep_;
+					static ext::hash_map<const char*, trie_t> all;
 				public:
 					Bow(const char*_, bool k) : tag_(_), keep_(k) {}
 					Bow(const Bow& _) : tag_(_.tag_), keep_(_.keep_) {}
 					const char* tag() const { return tag_; }
 					bool keep() const { return keep_; }
-					/*virtual ast_node_t recognize(parse_context_t t) const;*/
+					virtual std::pair<ast_node_t, unsigned int> recognize(const char* source, unsigned int offset, unsigned int size) const {
+						unsigned long slen = trie_match_prefix(find(tag_), source+offset);
+							/*match_bow(pda, tag_);*/
+						if(slen>0) {
+							if(!keep_) {
+								return std::pair<ast_node_t, unsigned int>(PRODUCTION_OK_BUT_EMPTY, offset+slen);
+							} else {
+								char*tok = _stralloc(slen+1);
+								strncpy(tok, source+offset, slen);
+								tok[slen]=0;
+								return std::pair<ast_node_t, unsigned int>(newPair(newAtom(tok, offset), NULL), offset+slen);
+							}
+						}
+						return std::pair<ast_node_t, unsigned int>(NULL, offset);
+					}
+
+					static trie_t find(const char*tag) {
+						trie_t ret = all[tag];
+						if(!ret) {
+							ret = trie_new();
+							all[tag] = ret;
+						}
+						return ret;
+					}
 			};
 
 			class Nt : public impl<Nt> {
@@ -381,7 +456,10 @@ namespace grammar {
 					Nt(const char*_) : tag_(_) {}
 					Nt(const Nt& _) : tag_(_.tag_) {}
 					const char* tag() const { return tag_; }
-					/*virtual ast_node_t recognize(parse_context_t t) const;*/
+					virtual std::pair<ast_node_t, unsigned int> recognize(const char* source, unsigned int offset, unsigned int size) const {
+						return std::pair<ast_node_t, unsigned int>(NULL, offset);
+					}
+					virtual bool is_same(const base* i) const;
 			};
 		}
 	}
@@ -424,6 +502,10 @@ namespace grammar {
 					return regstr(ss.str().c_str());
 				}
 				virtual reduction_mode mode() const = 0;
+				virtual ast_node_t reduce_ast(ast_node_t ast) const = 0;
+				virtual std::pair<ast_node_t, unsigned int> recognize(const char* source, unsigned int offset, unsigned int size) const {
+					return std::pair<ast_node_t, unsigned int>(NULL, offset);
+				}
 		};
 
 		template <class C>
@@ -432,12 +514,32 @@ namespace grammar {
 					rule_impl(const char* name, item::base* _, Grammar* g) { base::init(name, _, g); }
 		};
 
+		namespace internal {
+			struct append {
+				ast_node_t operator()(ast_node_t a, ast_node_t b) const {
+					if(a==PRODUCTION_OK_BUT_EMPTY||!a) { return b?b:PRODUCTION_OK_BUT_EMPTY; }
+					if(b==PRODUCTION_OK_BUT_EMPTY||!b) { return a?a:PRODUCTION_OK_BUT_EMPTY; }
+					if(Cdr(a)) { return newPair(Car(a), (*this)(Cdr(a), b)); }
+					return newPair(Car(a), b);
+				}
+			};
+			struct pfx_extract : public append {
+				ast_node_t rule, pfx, tag, cdr;
+				pfx_extract(ast_node_t ast) : rule(Car(Cdr(ast))), pfx(Car(ast)), tag(Car(rule)), cdr(Cdr(rule)) {}
+				ast_node_t prefix() const { return newPair(tag, (*this)(cdr, pfx)); }
+				ast_node_t postfix() const { return newPair(tag, (*this)(pfx, cdr)); }
+			};
+		}
+
 		class Operator : public rule_impl<Operator> {
 			public:
 				Operator(const char*tag, item::base* contents, Grammar* g)
 					: rule_impl<Operator>(tag, contents, g)
 				{}
 				virtual reduction_mode mode() const { return Subtree; }
+				virtual ast_node_t reduce_ast(ast_node_t ast) const {
+					return newPair(newAtom(tag(), 0), ast);
+				}
 		};
 
 		class Transient : public rule_impl<Transient> {
@@ -446,6 +548,9 @@ namespace grammar {
 					: rule_impl<Transient>(tag, contents, g)
 				{}
 				virtual reduction_mode mode() const { return List; }
+				virtual ast_node_t reduce_ast(ast_node_t ast) const {
+					return ast;
+				}
 		};
 
 		class Postfix : public Transient {
@@ -454,6 +559,9 @@ namespace grammar {
 					Transient(tag, contents, g)
 				{}
 				virtual reduction_mode mode() const { return Red_Postfix; }
+				virtual ast_node_t reduce_ast(ast_node_t ast) const {
+					return internal::pfx_extract(ast).postfix();
+				}
 		};
 
 		class Prefix : public Transient {
@@ -462,6 +570,9 @@ namespace grammar {
 					Transient(tag, contents, g)
 				{}
 				virtual reduction_mode mode() const { return Red_Prefix; }
+				virtual ast_node_t reduce_ast(ast_node_t ast, unsigned int offset) const {
+					return internal::pfx_extract(ast).prefix();
+				}
 		};
 	}
 
@@ -533,13 +644,21 @@ namespace grammar {
 			void add_rule(rule::base* rule) {
 				add_rule(rule->tag(), rule);
 			}
+			virtual std::pair<ast_node_t, unsigned int> recognize(const char* source, unsigned int offset, unsigned int size) const {
+				return std::pair<ast_node_t, unsigned int>(NULL, offset);
+			}
 	};
 
 
 
 	namespace item {
 		namespace combination {
-			class base : public item::base {};
+			class base : public item::base {
+				public:
+					virtual std::pair<ast_node_t, unsigned int> recognize(const char* source, unsigned int offset, unsigned int size) const {
+						return std::pair<ast_node_t, unsigned int>(NULL, offset);
+					}
+			};
 			template <class CLS, class B=base> class impl
 				: public item_with_class_id<CLS, B> {
 					virtual item::base* contents() const = 0;
@@ -645,5 +764,6 @@ namespace grammar {
 
 #include "lr_equal_to.h"
 #include "lr_less_than.h"
+
 
 #endif

@@ -8,6 +8,7 @@
 #include "lr_visitors.h"
 
 #include <algorithm>
+#include <queue>
 
 
 namespace lr {
@@ -60,7 +61,7 @@ namespace lr {
 	};
 
 	static inline std::ostream& operator<<(std::ostream&o, item&i) {
-		grammar::visitors::debugger d(o);
+		grammar::visitors::lr_item_debugger d(o);
 		item tmp = i;
 		while(!tmp.at_start()) { --tmp; }
 		o << '[' << i.rule()->tag();
@@ -87,7 +88,7 @@ namespace lr {
 
 	
 	
-	static inline std::ostream& operator<<(std::ostream&o, item_set&S) {
+	static inline std::ostream& operator<<(std::ostream&o, const item_set&S) {
 		lr::item_set::iterator i=S.begin(), j=S.end();
 		if(i==j) {
 			o << "<empty>";
@@ -99,7 +100,7 @@ namespace lr {
 		return o;
 	}
 
-	static inline std::ostream& operator<<(std::ostream&o, item_set*S) {
+	static inline std::ostream& operator<<(std::ostream&o, const item_set*S) {
 		if(S) {
 			o << *S;
 		} else {
@@ -153,7 +154,11 @@ namespace lr {
 			const grammar::item::base*,
 			state*,
 			hash_gitb,
-			ptr_eq<grammar::item::base> > follow_set;
+			ptr_eq<grammar::item::base> > follow_set_text;
+
+	typedef ext::hash_map<
+			const char*,
+			state*> follow_set_stack;
 
 	typedef ext::hash_map<
 			const grammar::item::base*,
@@ -165,58 +170,56 @@ namespace lr {
 
 	struct state {
 		item_set items;
-		follow_set transitions;
-		state(item_set& s) : items(s), transitions() {}
+		struct transitions_ {
+			follow_set_text from_text;
+			follow_set_stack from_stack;
+			transitions_() : from_text(), from_stack() {}
+		} transitions;
+		item_set reductions;
+		state(item_set& s) : items(s), transitions(), reductions() {}
 		bool operator<(const state& b) const {
 			return items < b.items;
 		}
 	};
 
 
+	static inline std::ostream& operator<<(std::ostream&o, const follow_set_text::value_type& f) {
+		grammar::visitors::lr_item_debugger d(o);
+		((grammar::item::base*)f.first)->accept(&d);
+		o << " => " << std::endl << f.second->items;
+		return o;
+	}
+
+	static inline std::ostream& operator<<(std::ostream&o, const follow_set_stack::value_type& f) {
+		o << f.first << " => " << std::endl << f.second->items;
+		return o;
+	}
+
+	static inline std::ostream& operator<<(std::ostream&o, const state* S) {
+		o << "===============================================================" << std::endl;
+		o << S->items;
+		o << "---------------------------------------------------------------" << std::endl;
+		follow_set_text::const_iterator fti, ftj = S->transitions.from_text.end();
+		for(fti = S->transitions.from_text.begin();fti!=ftj;++fti) {
+			if((*fti).second) { o << (*fti); }
+		}
+		o << "---------------------------------------------------------------" << std::endl;
+		follow_set_stack::const_iterator fsi, fsj = S->transitions.from_stack.end();
+		fsj = S->transitions.from_stack.end();
+		for(fsi = S->transitions.from_stack.begin();fsi!=fsj;++fsi) {
+			if((*fsi).second) { o << (*fsi); }
+		}
+		return o;
+	}
+
 	typedef std::set<state*, ptr_less<state> > state_set;
 
 	struct process;
+}
 
-	class gss {
-		public:
-			struct node {
-				state* s;
-				ast_node_t prod;
-				item_set match;
+#include "lr_gss.h"
 
-				node(state* s_, ast_node_t prod_, node* pred, item_set& m)
-					: s(s_), prod(prod_), match(m), preds(), succs()
-				{
-					preds.push_back(pred);
-				}
-
-				private:
-					friend class gss;
-					node()
-						: s(), prod(), match(), preds(), succs()
-					{}
-					std::list<node*> preds;
-					std::list<node*> succs;
-					bool remove_succ(node*succ) { succs.remove(succ); return !succs.size(); }
-					void add_succ(node*succ) { succs.push_front(succ); }
-					bool remove_pred(node*pred) { preds.remove(pred); return !preds.size(); }
-					void add_pred(node*pred) { preds.push_front(pred); }
-			};
-
-			node root;
-
-			gss() : root() {}
-
-			void shift(process* p, item_set& matching, ast_node_t prod);
-			void reduce(process* p, item_set& candidates);
-			bool is_root(node*n) const { return n==&root; }
-	};
-
-	struct process {
-		gss::node* gss_node;
-		unsigned long offset;
-	};
-
+namespace lr {
 	/*
 	 * epsilon-closure(T) :
 push all states of T onto stack;
@@ -246,6 +249,15 @@ push u onto stack
 				: G(_), S(), states()
 			{
 				items();
+				/*grammar::visitors::nt_remover nr(G);*/
+				/*nr.process(G);*/
+			}
+
+			~automaton() {
+				state_set::iterator i, j=states.end();
+				for(i=states.begin();i!=j;++i) {
+					delete *i;
+				}
 			}
 
 			void closure(item_set& I, item_set& C) const {
@@ -311,6 +323,15 @@ push u onto stack
 				}
 			}
 
+			void reduction_candidates(const item_set&I, item_set& R) const {
+				item_set::iterator i, j = I.end();
+				for(i=I.begin();i!=j;++i) {
+					if((*i).at_end()) {
+						R.insert(*i);
+					}
+				}
+			}
+
 			/*void transitions(const item_set&I, const transition_map&T) const {*/
 			/*}*/
 
@@ -325,7 +346,7 @@ push u onto stack
 				}
 			}
 
-			void follow(const item_set& I, follow_set& F) const {
+			void follow(const item_set& I, follow_set_text& F) const {
 				item_set::iterator i, j=I.end();
 				token_set T;
 				for(i=I.begin();i!=j;++i) {
@@ -352,12 +373,33 @@ push u onto stack
 			state* items_commit(item_set&s, std::vector<state*>& stack) {
 				std::pair<state*, bool> ret = commit(s);
 				if(ret.second) {
+					reduction_candidates(ret.first->items, ret.first->reductions);
 					stack.push_back(ret.first);
 					/*std::cout << "  committed new set :" << std::endl << stack.back()->items;*/
 				}
 				return ret.first;
 			}
 
+			class transition_dispatcher : public grammar::visitors::dummy {
+				private:
+					state* S;
+					grammar::Grammar* G;
+					state* GOTO;
+				public:
+					transition_dispatcher(state* _, grammar::Grammar* g_) : S(_), G(g_), GOTO(0) {}
+					void dispatch(grammar::item::base* tr, state* GOTO_) {
+						GOTO = GOTO_;
+						tr->accept(this);
+					}
+					virtual void visit(grammar::item::token::Str* x) { S->transitions.from_text[x] = GOTO; }
+					virtual void visit(grammar::item::token::Re* x) { S->transitions.from_text[x] = GOTO; }
+					virtual void visit(grammar::item::token::Epsilon* x) { S->transitions.from_text[x] = GOTO; }
+					virtual void visit(grammar::item::token::Eof* x) { S->transitions.from_text[x] = GOTO; }
+					virtual void visit(grammar::item::token::Comment* x) { S->transitions.from_text[x] = GOTO; }
+					virtual void visit(grammar::item::token::T* x) { S->transitions.from_text[x] = GOTO; }
+					virtual void visit(grammar::item::token::Nt* x) { S->transitions.from_stack[x->tag()] = GOTO; }
+					virtual void visit(grammar::item::token::Bow* x) { S->transitions.from_text[x] = GOTO; }
+			};
 
 			void compute_transitions(item_set& items, follow_set_builder& transitions) {
 				typedef grammar::item::base item_base;
@@ -374,10 +416,10 @@ push u onto stack
 					item tmp = (*i).next();
 					/*std::cout << "  transiting to " << tmp << std::endl;*/
 					std::pair<item_set::iterator, bool> ret = transitions[t].insert(tmp);
-					if(!ret.second) {
-						item x = *ret.first;
+					/*if(!ret.second) {*/
+						/*item x = *ret.first;*/
 						/*std::cout << "COIN transition pas ajoutée " << x << std::endl;*/
-					}
+					/*}*/
 					/*grammar::visitors::debugger d(std::cout);*/
 					/*std::cout << "  => transitions[";*/
 					/*((item_base*)t)->accept(&d);*/
@@ -407,10 +449,12 @@ push u onto stack
 					FSB.clear();
 					compute_transitions(S->items, FSB);
 					follow_set_builder::iterator fi, fj=FSB.end();
+					transition_dispatcher text_or_stack(S, G);
 					for(fi=FSB.begin();fi!=fj;++fi) {
 						item_set tmp;
 						closure((*fi).second, tmp);
-						S->transitions[(*fi).first] = items_commit(tmp, stack);
+						text_or_stack.dispatch((grammar::item::base*)(*fi).first, items_commit(tmp, stack));
+						/*S->transitions[(*fi).first] = items_commit(tmp, stack);*/
 						/*std::cout << "finally, retain S->transitions[";*/
 						/*grammar::visitors::debugger d;*/
 						/*((grammar::item::base*)(*fi).first)->accept(&d);*/
@@ -423,25 +467,52 @@ push u onto stack
 				std::cout << "automaton has " << states.size() << " states." << std::endl;
 				state_set::iterator i, j = states.end();
 				for(i=states.begin();i!=j;++i) {
-					std::cout << (*i)->items << std::endl;
+					/*std::cout << "===============================================================" << std::endl;*/
+					/*std::cout << (*i)->items << std::endl;*/
+					/*std::cout << "---------------------------------------------------------------" << std::endl;*/
+					/*follow_set::iterator fi, fj = (*i)->transitions.from_text.end();*/
+					/*for(fi = (*i)->transitions.from_text.begin();fi!=fj;++fi) {*/
+						/*std::cout << (*fi) << std::endl;*/
+					/*}*/
+					/*std::cout << "---------------------------------------------------------------" << std::endl;*/
+					/*fj = (*i)->transitions.from_stack.end();*/
+					/*for(fi = (*i)->transitions.from_stack.begin();fi!=fj;++fi) {*/
+						/*std::cout << (*fi) << std::endl;*/
+					/*}*/
+					std::cout << *i << std::endl;
 				}
 			}
 
-			bool recognize(const char* buffer) {
-				parse_context pc;
-				pc.source = buffer;
-				pc.ofs = 0;
-				pc.size = strlen(buffer);
-				pc.farthest = 0;
-				pc.pos_cache.row = 0;
-				pc.pos_cache.col = 0;
-				pc.pos_cache.last_nlofs = 0;
-				pc.pos_cache.last_ofs = 0;
-
-
-
-
-				return false;
+			/*node* shift(node* p, grammar::item::base* producer, state* s, ast_node_t ast, unsigned int offset) {*/
+			ast_node_t recognize(const char* buffer, unsigned int size) {
+				grammar::visitors::lr_item_debugger debug;
+				gss stack(item((*G)["_start"], grammar::item::iterator::create((*G)["_start"])), size);
+				/*int a=0;*/
+				stack.shift(NULL, NULL, S0, NULL, 0);
+				while(!stack.active.empty()) {
+					gss::node* n = stack.consume_active();
+					state* S = n->id.S;
+					std::cout << " ===  ACTIVE STATE === #" << n->id.O << ':' << (buffer+n->id.O) << std::endl << "ast : " << ast_serialize_to_string(n->ast) << std::endl << S->items << std::endl;
+					item_set::iterator i, j;
+					for(i=S->reductions.begin(), j=S->reductions.end();i!=j;++i) {
+						gss::node*ok = stack.reduce(n, *i);
+						item x = *i;
+						if(ok) {}
+						std::cout << "reduce by " << x << " => " << ok << std::endl;
+					}
+					follow_set_text::iterator ti, tj;
+					unsigned int ofs = n->id.O;
+					while(strchr(" \t\r\n", *(buffer+ofs))) { ++ofs; }
+					for(ti=S->transitions.from_text.begin(), tj=S->transitions.from_text.end();ti!=tj;++ti) {
+						const grammar::item::base* token = (*ti).first;
+						std::pair<ast_node_t, unsigned int> ret = token->recognize(buffer, ofs, size);
+						std::cout << "follow by "; ((grammar::item::base*)token)->accept(&debug); std::cout << " => " << ret.first << " (" << ret.second << ')' << std::endl;
+						if(ret.first) {
+							stack.shift(n, (grammar::item::base*)(*ti).first, (*ti).second, ret.first, ret.second);
+						}
+					}
+				}
+				return stack.accepted;
 			}
 	};
 

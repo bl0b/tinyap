@@ -126,7 +126,7 @@ typedef std::pair<ast_node_t, ast_node_t> pair_key;
 
 struct comp_atom {
 	bool operator()(const atom_key&a, const atom_key&b) const {
-		return regstr(a.first)==regstr(b.first) && a.second==b.second;
+		return !strcmp(a.first, b.first) && a.second==b.second;
 	}
 };
 
@@ -134,7 +134,7 @@ struct hash_atom {
 	ext::hash<const char*> hs;
 	ext::hash<size_t> ho;
 	size_t operator()(const atom_key&a) const {
-		return hs(regstr(a.first))^ho(a.second);
+		return hs(a.first)^ho(a.second);
 	}
 };
 
@@ -156,11 +156,12 @@ typedef ext::hash_map<pair_key, ast_node_t, hash_pair, comp_pair> pair_registry_
 
 ast_node_t newAtom(const char*data,size_t offset) {
 	static atom_registry_t atom_registry;
-	ast_node_t ret = atom_registry[atom_key(data, offset)];
+	char* reg = regstr(data);
+	ast_node_t ret = atom_registry[atom_key(reg, offset)];
 	if(!ret) {
 		ret = node_alloca();
 		/*std::cout << "new atom " << ret << " \"" << data << '"';*/
-		ret->atom._str=regstr(data);
+		ret->atom._str=reg;
 		atom_registry[atom_key(ret->atom._str, offset)] = ret;
 		ret->type=ast_Atom;
 		ret->raw._p2=NULL;	/* useful for regexp cache hack */

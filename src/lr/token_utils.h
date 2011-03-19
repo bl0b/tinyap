@@ -20,12 +20,16 @@
 #define _TINYAP_TOKEN_UTILS_H_
 
 
+#include "ast.h"
+#include "parse_context.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 
 #include <pcre.h>
 #define RE_TYPE pcre*
-
-#include "ast.h"
-#include "parse_context.h"
 
 #define OP_EOF       1 // immed
 #define OP_RE        2 // immed, append or fail
@@ -71,6 +75,27 @@ char*match2str(const char*src,const size_t start,const size_t end);
 ast_node_t copy_node(ast_node_t);
 void escape_ncpy(char**dest, char**src, int count, int delim);
 
+
+
+
+static inline int re_exec(const RE_TYPE re, const char*source, unsigned int offset, unsigned int size, int* matches, int sz) {
+	int ret = pcre_exec(re, NULL, source+offset, size-offset, 0, PCRE_ANCHORED, matches, sz);
+	/*printf("RE DEBUG : match %p against \"%10.10s\"\n", re, pda->source+pda->ofs);*/
+	if(ret<0) {
+		/*printf("PCRE error %i\n", ret);*/
+		return 0;
+	}
+	if(matches[0]!=0) {
+		printf("PCRE match not at start (%i)\n", matches[0]);
+		return 0;
+	}
+	return 1;
+}
+
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

@@ -123,7 +123,7 @@ const char*test_rules = "((Grammar\n"
 const char*slr_rules = "((Grammar\n"
 "(TransientRule	_start	(NT S))"
 "(OperatorRule	S		(Alt (Seq (NT L) (T =) (NT R)) (NT R)))"
-"(OperatorRule	L		(Alt (Seq (T *) (NT R)) (T id)))"
+"(OperatorRule	L		(Alt (Seq (T *) (NT R)) (RE id)))"
 "(OperatorRule	R		(NT L))"
 "))";
 
@@ -131,6 +131,22 @@ const char*slr_rules = "((Grammar\n"
 const char* debug = "((Grammar"
 "(TransientRule	_start (NT debug_iter))"
 "(OperatorRule	debug_iter (Alt (T a) (T b) (Seq (T a) (NT debug_iter))))"
+"))";
+
+
+const char* debug_nl = "((Grammar"
+"(TransientRule	_start	(NT sentence))"
+"(OperatorRule	sentence		(Seq (NT n_p) (NT v_p)))"
+"(OperatorRule	sentence		(Seq (NT sentence) (NT p_p)))"
+"(OperatorRule	n_p		(NT n))"
+"(OperatorRule	n_p		(Seq (NT det) (NT n)))"
+"(OperatorRule	n_p		(Seq (NT n_p) (NT p_p)))"
+"(OperatorRule	p_p		(Seq (NT prep) (NT n_p)))"
+"(OperatorRule	v_p		(Seq (NT v) (NT n_p)))"
+"(TransientRule	det		(RE a|the))"
+"(TransientRule	prep	(RE in|with))"
+"(TransientRule	n		(RE I|man|telescope|park))"
+"(TransientRule	v		(RE saw))"
 "))";
 
 
@@ -151,6 +167,8 @@ ast_node_t  tinyap_get_ruleset(const char*name) {
 		ret=ast_unserialize(slr_rules);
 	} else if(!strcmp(name,"debug")) {
 		ret=ast_unserialize(debug);
+	} else if(!strcmp(name,"debug_nl")) {
+		ret=ast_unserialize(debug_nl);
 	} else if(!stat(name,&st)) {
 		/* unserialize from file */
 		FILE*f=fopen(name,"r");

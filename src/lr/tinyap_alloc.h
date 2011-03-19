@@ -19,6 +19,10 @@
 #ifndef __TINYAP_ALLOC_H__
 #define __TINYAP_ALLOC_H__
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "list.h"
 #include <pthread.h>
 #include <malloc.h>
@@ -82,8 +86,11 @@ void _term_allocator(struct __allocator*A);
 		_term_allocator(&_alloca_64);\
 	} while(0)
 
+#ifdef __cplusplus
+}
 #endif
 
+#endif
 
 #if 0
 
