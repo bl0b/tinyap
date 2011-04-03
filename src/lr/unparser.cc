@@ -460,7 +460,7 @@ int unproduce(wast_iterator_t grammar, wast_iterator_t expr, wast_iterator_t ast
 		/*printf("\n");*/
 		status = !wi_node(ast);
 	} else if(!strcmp(wi_op(expr), "Space")) {
-		printf("DEBUG ON SPACE !\n");
+		/*printf("DEBUG ON SPACE !\n");*/
 		_buf_append_space();
 		status = 1;
 	} else if(!strcmp(wi_op(expr), "NewLine")) {

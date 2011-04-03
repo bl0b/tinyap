@@ -69,7 +69,7 @@ namespace lr {
 					}
 				}
 				node* alloc() {
-					static unsigned int target=0;
+					/*static unsigned int target=0;*/
 					node* ret;
 					if(!free_) {
 						node_segment* ns = new node_segment();
@@ -79,10 +79,10 @@ namespace lr {
 					ret = free_;
 					free_ = free_->pred;
 					++alloc_count;
-					if(alloc_count>target) {
-						std::cout << "gss:: alloc'ed " << alloc_count << " nodes" << std::endl;
-						target+=100;
-					}
+					/*if(alloc_count>target) {*/
+						/*std::cout << "gss:: alloc'ed " << alloc_count << " nodes" << std::endl;*/
+						/*target+=100;*/
+					/*}*/
 					return ret;
 				}
 				void free(node* n) {
@@ -175,7 +175,7 @@ namespace lr {
 					/* epsilon rule : reduce ZERO node, and shift from current node. */
 					grammar::visitors::reducer red(PRODUCTION_OK_BUT_EMPTY, offset);
 					ast_node_t output = red(((grammar::rule::base*)i.rule()));
-					std::cout << "epsilon reduction" << std::endl;
+					/*std::cout << "epsilon reduction" << std::endl;*/
 					return shift(n, grammar::item::gc(new grammar::item::token::Nt(i.rule()->tag())), n->id.S->transitions.from_stack[i.rule()->tag()], output, offset);
 				}
 
@@ -185,7 +185,7 @@ namespace lr {
 				--i;
 				/*ast = n->ast==PRODUCTION_OK_BUT_EMPTY ? PRODUCTION_OK_BUT_EMPTY : newPair(n->ast, NULL);*/
 				ast = n->ast==PRODUCTION_OK_BUT_EMPTY ? PRODUCTION_OK_BUT_EMPTY : n->ast;
-				std::cout << ast << std::endl;
+				/*std::cout << ast << std::endl;*/
 				/*while(find_pred(n, *i) && (!i.at_start())) {*/
 				while(!i.at_start()) {
 					--i;
@@ -201,22 +201,24 @@ namespace lr {
 					/*}*/
 					ast = grammar::rule::internal::append()(n->ast, ast, drop_empty);
 				}
-				std::cout << ast << std::endl;
+				/*std::cout << ast << std::endl;*/
 
 				/* if we reach start, we good */
 				if(i.at_start()/*&&find_pred(n, *i)*/) {	/* if tracking failed, n is NULL, because tracking failed BECAUSE n became NULL. */
 					if(initial==i) {
 						if(offset != size) {
-							std::cout << "can't accept at offset " << offset << " because size is " << size << std::endl;
+							/*std::cout << "can't accept at offset " << offset << " because size is " << size << std::endl;*/
+							delete_node(ast);
 							return NULL;
 						}
 						/* accept */
-						char* acc_ast = (char*)ast_serialize_to_string(ast); std::cout << "ACCEPT ! " << acc_ast << std::endl; free(acc_ast);
+						/*char* acc_ast = (char*)ast_serialize_to_string(ast); std::cout << "ACCEPT ! " << acc_ast << std::endl; free(acc_ast);*/
 						if(ast) {
 							grammar::visitors::reducer red(ast, offset);
 							ast_node_t output = red((grammar::rule::base*)R);
 							accepted = grammar::rule::internal::append()(output, accepted);
 						}
+						delete_node(ast);
 						return NULL;
 					} else {
 						grammar::visitors::reducer red(ast, offset);
@@ -231,11 +233,14 @@ namespace lr {
 							((grammar::rule::base*)R)->accept(&d);
 							std::cout << " on top of stack from state : " << std::endl << n->pred->id.S << std::endl;
 							/*throw "coin";*/
+							delete_node(ast);
 							return NULL;
 						}
+						/*delete_node(ast);*/
 						return shift(n->pred, nt, Sprime, redast, offset);
 					}
 				} else {
+					delete_node(ast);
 					return NULL;
 				}
 			}

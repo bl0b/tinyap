@@ -1,165 +1,27 @@
-((Grammar
-(Comment \\ Production\\ Atoms)
-(TransientRule	symbol
-	(RE [_a-zA-Z][0-9a-zA-Z_]*)
-)
-(OperatorRule	T
-	(STR " ")
-)
-(OperatorRule	NT
-	(NT symbol)
-)
-(OperatorRule	RE
-	(STR / /)
-)
-(OperatorRule	STR
-	(RawSeq	(T ~)
-			(RE [^~,]?)
-			(T ,)
-			(RE [^~,]?)
-			(T ~)
-	)
-)
-(OperatorRule	BOW
-	(RawSeq	(T ~)
-			(RE [_a-zA-Z][_a-zA-Z0-9]*)
-			(RE !?)
-			(T ~)
-	)
-)
-(OperatorRule	AddToBag
-	(Seq	(NT RE)
-			(T :)
-			(NT symbol)
-			(RE !?)
-	)
-)
-
-(Comment \\ Compositions)
-
-(TransientRule	alt_elem
-	(Alt	(NT RawSeq)
-			(NT Seq)
-			(NT single)
-	)
-)
-(OperatorRule	Alt
-	(Seq	(NT alt_elem)
-			(Rep1N (Seq	(Space)
-						(T |)
-						(Space)
-						(NT alt_elem)
-					)
-			)
-	)
-)
-(OperatorRule	Seq
-	(Seq	(NT single)
-			(Rep1N	(Seq	(Space)
-						(NT single)
-					)
-			)
-	)
-)
-(OperatorRule	RawSeq
-	(Seq	(T .raw)
-			(Rep1N	(Seq	(Space)
-							(Alt	(NT T)
-									(NT STR)
-									(NT RE)
-									(NT BOW)
-									(NT AddToBag)
-							)
-					)
-			)
-	)
-)
-(OperatorRule	Rep01
-	(Seq	(NT single_norep)
-			(T ?)
-	)
-)
-(OperatorRule	Rep1N
-	(Seq	(NT single_norep)
-			(T +)
-	)
-)
-(OperatorRule	Rep0N
-	(Seq	(NT single_norep)
-			(T *)
-	)
-)
-
-(OperatorRule	TransientRule
-	(Seq	(NT symbol)
-			(Space)
-			(T =)
-			(Space)
-			(NT rmember)
-			(T .)
-			(NewLine)
-	)
-)
-(OperatorRule	OperatorRule
-	(Seq	(NT symbol)
-			(Space)
-			(T ::=)
-			(Space)
-			(NT rmember)
-			(T .)
-			(NewLine)
-	)
-)
-(TransientRule	rmember
-	(Alt	(NT Alt)
-			(NT alt_elem)
-	)
-)
-(TransientRule	single
-	(Alt	(NT Rep01)
-			(NT Rep0N)
-			(NT Rep1N)
-			(NT single_norep)
-	)
-)
-(TransientRule	single_norep
-	(Alt	(Seq	(T \\()
-					(NT rmember)
-					(T \\))
-			)
-			(NT NT)
-			(NT STR)
-			(NT BOW)
-			(NT AddToBag)
-			(NT T)
-			(NT RE)
-			(NT Epsilon)
-			(NT EOF)
-	)
-)
-(TransientRule	_whitespace		(RE \\([\\ \\r\\n\\t]\\)+)
-)
-(OperatorRule	Comment
-	(RawSeq	(T #)
-			(RE [^\\r\\n]+\\(\\r|\\n|\\r\\n\\))
-	)
-)
-(OperatorRule	Grammar			(Rep1N (Alt (NT TransientRule)
- 											(NT OperatorRule)
- 											(NT Comment))))
-
-(TransientRule	_start
-	(Seq	(NT Grammar)
-			(EOF)
-	)
-)
-
-(OperatorRule	EOF				(T _EOF))
-(OperatorRule	Epsilon			(T _epsilon))
-(OperatorRule	Space			(T Space))
-(OperatorRule	NewLine			(T NewLine))
-(OperatorRule	Indent			(T Indent))
-(OperatorRule	Dedent			(T Dedent))
-))
-
-
+# TinyaP : this is not yet another 
+# Copyright (C) 2007-2011 Damien Leroux
+#
+# This program is free software; you can redistribute it and\/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+symbol = /[_a-zA-Z][0-9a-zA-Z_]*/.
+T ::= ~","~.
+NT ::= symbol.
+Alt ::= alt_elem (.space "|" .space alt_elem)+.
+Rep01 ::= single_norep "?".
+Rep1N ::= single_norep "+".
+Rep0N ::= single_norep "*".
+single = Rep01 | Rep0N | Rep1N | single_norep | Space | NewLine | Indent | Dedent.
+sub_rmb = "(" (Seq | Alt | RawSeq) ")".
+Comment ::= (.raw "#" /[^\r\n]+/ | "#") .newline.
+Grammar ::= (TransientRule | OperatorRule | Comment)+.
+#
+# Miscellaneous
+#
+_start = Grammar.
+_whitespace = /[ \r\n\t]+/.
+EOF ::= "_EOF".

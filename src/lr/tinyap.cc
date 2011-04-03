@@ -100,10 +100,17 @@ void tinyap_init() {
 	init_tinyap_alloc();
 	init_strreg();
 	node_pool_init();
-	atexit(tinyap_terminate);
+	/*atexit(tinyap_terminate);*/
 	init_pilot_manager();
 //	printf("after  tinyap_init : %li nodes (%i alloc'd so far)\n",node_pool_size(),_node_alloc_count);
 }
+
+
+static struct tinyap_static_init {
+	tinyap_static_init() { tinyap_init(); }
+	~tinyap_static_init() { tinyap_terminate(); }
+} _static_init;
+
 
 
 void tinyap_delete(tinyap_t t) {
@@ -200,7 +207,7 @@ void init_grammar(tinyap_t t) {
 	t->G = new grammar::Grammar(Cdr(Car(t->grammar)));
 	/*grammar::visitors::debugger d;*/
 	/*t->G->accept(&d);*/
-	std::cout << std::endl;
+	/*std::cout << std::endl;*/
 }
 
 void tinyap_set_grammar(tinyap_t t,const char*g) {
@@ -342,7 +349,7 @@ int tinyap_parse(tinyap_t t) {
 			fprintf(stderr, "took %.3f seconds to compute automaton.\n", 1.e-6f*(t0.tv_usec-t1.tv_usec)+t0.tv_sec-t1.tv_sec);
 
 		}
-		t->A->dump_states();
+		/*t->A->dump_states();*/
 	}
 
 	gettimeofday(&t1, NULL);
@@ -458,11 +465,11 @@ int tinyap_node_get_operand_count(const ast_node_t  n) {
 }
 
 int tinyap_node_get_row(const ast_node_t n) {
-	return getRow(n);
+	return getOffset(n);
 }
 
 int tinyap_node_get_col(const ast_node_t n) {
-	return getCol(n);
+	return 0;
 }
 
 

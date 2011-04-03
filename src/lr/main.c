@@ -18,6 +18,7 @@
 #include "config.h"
 #include "tinyap.h"
 #include "tinyape.h"
+#include "ast.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -157,9 +158,13 @@ int do_args(int argc,char*argv[]) {
 			exit(0);
 		} else if(cmp_param(1,"--walk","-w")) {
 			i+=1;
-			wast_t wa = tinyap_make_wast(tinyap_list_get_element(tinyap_get_output(parser),0));
-			tinyap_walk(wa,argv[i],NULL);
-			tinyap_free_wast(wa);
+			ast_node_t one = tinyap_get_output(parser);
+			while(one) {
+				wast_t wa = tinyap_make_wast(Car(one));
+				tinyap_walk(wa,argv[i],NULL);
+				tinyap_free_wast(wa);
+				one = Cdr(one);
+			}
 		}
 	}
 

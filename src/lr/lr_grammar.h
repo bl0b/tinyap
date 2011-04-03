@@ -557,7 +557,7 @@ namespace grammar {
 							return NULL;
 						}
 					} dirty_extraction;
-					std::cout << "PFX EXTRACTOR : " << ast << std::endl;
+					/*std::cout << "PFX EXTRACTOR : " << ast << std::endl;*/
 					pfx = dirty_extraction(ast, rule);
 					/*pfx = Car(ast);*/
 					/*rule = Cdr(ast);*/
@@ -565,11 +565,11 @@ namespace grammar {
 						/*rule = Cdr(rule);*/
 					/*}*/
 					/*rule = Car(rule);*/
-					std::cout << "rule = " << rule << std::endl;
+					/*std::cout << "rule = " << rule << std::endl;*/
 					tag = Car(rule);
-					std::cout << "tag = " << tag << std::endl;
+					/*std::cout << "tag = " << tag << std::endl;*/
 					cdr = Cdr(rule);
-					std::cout << "cdr = " << cdr << std::endl;
+					/*std::cout << "cdr = " << cdr << std::endl;*/
 				}
 				ast_node_t prefix() const { return newPair(tag, internal::append()(pfx, cdr)); }
 				ast_node_t postfix() const { return newPair(tag, internal::append()(cdr, pfx)); }

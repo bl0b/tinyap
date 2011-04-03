@@ -342,7 +342,7 @@ void test_nl() {
 }
 
 int main(int argc, char**argv) {
-	tinyap_init();
+	/*tinyap_init();*/
 
 	return test_grammar() + test_automaton();
 

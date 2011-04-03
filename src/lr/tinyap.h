@@ -186,7 +186,7 @@ extern "C" {
 	 */
 	const char*	tinyap_node_get_operator(const ast_node_t);
 
-	/*! \brief get the row corresponding to this node in source text
+	/*! \brief get the offset corresponding to this node in source text
 	 */
 	int		tinyap_node_get_row(const ast_node_t);
 	/*! \brief get the col corresponding to this node in source text

@@ -274,7 +274,7 @@ push u onto stack
 			void closure(item_set& I, item_set& C) const {
 				item_set::iterator  i, j;
 				C = I;
-				std::cout << "C starts with " << C.size() << " elements" << std::endl;
+				/*std::cout << "C starts with " << C.size() << " elements" << std::endl;*/
 				std::vector<item> stack(I.begin(), I.end());
 				while(stack.size()>0) {
 					item i = stack.back();
@@ -284,11 +284,11 @@ push u onto stack
 					}
 					const token::Nt* nt = dynamic_cast<const token::Nt*>(grammar::visitors::item_rewriter(G).process((grammar::item::base*)*i));
 					if(nt) {
-						std::cout << "have NT " << nt->tag() << std::endl;
+						/*std::cout << "have NT " << nt->tag() << std::endl;*/
 						grammar::Grammar::iterator S = G->find(nt->tag());
 						rule::base* r = (S==G->end()) ? NULL : S->second;
 						if(!r) {
-							std::cout << "couldn't find rule " << nt->tag() << " !" << std::endl;
+							/*std::cout << "couldn't find rule " << nt->tag() << " !" << std::endl;*/
 							continue;
 						}
 						/* and we add an iterator to each variant of the rule */
@@ -387,10 +387,10 @@ push u onto stack
 					reduction_candidates(ret.first->items, ret.first->reductions);
 					stack.push_back(ret.first);
 					ret.first->id = states.size()-1;
-					std::cout << "  committed new set :" << std::endl << stack.back()->items;
-				} else {
-					std::cout << "  didn't commit set :" << std::endl << s;
-					std::cout << "  because of set :" << std::endl << ret.first->items;
+					/*std::cout << "  committed new set :" << std::endl << stack.back()->items;*/
+				/*} else {*/
+					/*std::cout << "  didn't commit set :" << std::endl << s;*/
+					/*std::cout << "  because of set :" << std::endl << ret.first->items;*/
 				}
 				return ret.first;
 			}
@@ -428,21 +428,21 @@ push u onto stack
 					const item_base* t = f((grammar::item::base*)**i);
 					if(!t) {
 						item x = *i;
-						std::cout << "COIN " << x << " " << *x
-							<< " " << typeid(**i).name() << std::endl;
+						/*std::cout << "COIN " << x << " " << *x*/
+							/*<< " " << typeid(**i).name() << std::endl;*/
 						throw "COIN";
 					}
 					item tmp = (*i).next();
-					std::cout << "  transiting to " << tmp << std::endl;
+					/*std::cout << "  transiting to " << tmp << std::endl;*/
 					std::pair<item_set::iterator, bool> ret = transitions[t].insert(tmp);
 					if(!ret.second) {
-						item x = *ret.first;
-						std::cout << "COIN transition pas ajoutée " << x << std::endl;
+						/*item x = *ret.first;*/
+						/*std::cout << "COIN transition pas ajoutée " << x << std::endl;*/
 					}
-					grammar::visitors::debugger d(std::cout);
-					std::cout << "  => transitions[";
-					((item_base*)t)->accept(&d);
-					std::cout << "] = " << transitions[t] << std::endl;
+					/*grammar::visitors::debugger d(std::cout);*/
+					/*std::cout << "  => transitions[";*/
+					/*((item_base*)t)->accept(&d);*/
+					/*std::cout << "] = " << transitions[t] << std::endl;*/
 				}
 			}
 
@@ -484,7 +484,7 @@ push u onto stack
 
 			void dump_states() const {
 				state_set_dumper ssd(states.begin(), states.end());
-				std::cout << "automaton has " << ssd.size() << " states." << std::endl;
+				/*std::cout << "automaton has " << ssd.size() << " states." << std::endl;*/
 				state_set::iterator i, j = ssd.end();
 				for(i=ssd.begin();i!=j;++i) {
 					/*std::cout << "===============================================================" << std::endl;*/
@@ -522,8 +522,9 @@ push u onto stack
 					if(!S) {
 						throw "COIN";
 					}
-#define min(a, b) (a<b?a:b)
-					char* aststr = (char*)ast_serialize_to_string(n->ast); std::cout << " ===  ACTIVE STATE ===(" << S->id << ") @" << n->id.O << ':' << std::string(buffer+n->id.O, min(buffer+n->id.O+20, buffer+size)) << std::endl << "ast : " << aststr << std::endl; free(aststr);
+#define _tinyap_min(a, b) (a<b?a:b)
+					/*char* aststr = (char*)ast_serialize_to_string(n->ast); std::cout << " ===  ACTIVE STATE ===(" << S->id << ") @" << n->id.O << ':' << std::string(buffer+n->id.O, _tinyap_min(buffer+n->id.O+20, buffer+size)) << std::endl << "ast : " << aststr << std::endl; free(aststr);*/
+#undef _tinyap_min
 					item_set::iterator i, j;
 
 					follow_set_text::iterator ti, tj;
@@ -537,7 +538,7 @@ push u onto stack
 						}
 						const grammar::item::base* token = (*ti).first;
 						std::pair<ast_node_t, unsigned int> ret = token->recognize(buffer, ofs, size);
-						std::cout << "follow by "; ((grammar::item::base*)token)->accept(&debug); std::cout << " => " << ret.first << " (" << ret.second << ')' << std::endl;
+						/*std::cout << "follow by "; ((grammar::item::base*)token)->accept(&debug); std::cout << " => " << ret.first << " (" << ret.second << ')' << std::endl;*/
 						if(ret.first) {
 							stack.shift(n, (grammar::item::base*)(*ti).first, (*ti).second, ret.first, ret.second);
 						}
@@ -546,7 +547,8 @@ push u onto stack
 					for(i=S->reductions.begin(), j=S->reductions.end();i!=j;++i) {
 						gss::node*ok = stack.reduce(n, *i, ofs);
 						item x = *i;
-						if(ok) { std::cout << "reduce by " << x << " => " << ok->id.S->id << std::endl; }
+						if(ok) {}
+						/*if(ok) { std::cout << "reduce by " << x << " => " << ok->id.S->id << std::endl; }*/
 					}
 				}
 				farthest = G->skip(buffer, farthest, size);

@@ -50,9 +50,9 @@ union _ast_node_t {
 		ast_type_t _;
 		void*_p1;
 		void*_p2;
-		int _row;
-		int _col;
+		unsigned int _offset;
 		int _flags;
+		int ref;
 	} raw;
 	void*__align[8];
 	struct {
@@ -64,8 +64,7 @@ union _ast_node_t {
 	struct {
 		ast_type_t _res_at;
 		void*__res[2];
-		int row;
-		int col;
+		unsigned int offset;
 	} pos;
 	/* direct access to type field */
 	ast_type_t type;
@@ -107,26 +106,26 @@ union _ast_node_t {
  */
 #define getCdr(__n) (ast_type_check((__n),ast_Pair,__FILE__,__LINE__)->pair._cdr)
 
-static inline int getRow(ast_node_t n) {
+static inline int getOffset(ast_node_t n) {
 	if(!n) return 0;
-	return n->pos.row;
+	return n->pos.offset;
 }
 
-static inline int getCol(ast_node_t n) {
-	if(!n) return 0;
-	return n->pos.col;
-}
-
-static inline void setRow(ast_node_t n,int r) {
-	if(!n) return;
-	n->pos.row=r;
-}
-
-static inline void setCol(ast_node_t n,int c) {
-	if(!n) return;
-	n->pos.col=c;
-}
-
+/*static inline int getCol(ast_node_t n) {*/
+	/*if(!n) return 0;*/
+	/*return n->pos.col;*/
+/*}*/
+/**/
+/*static inline void setRow(ast_node_t n,int r) {*/
+	/*if(!n) return;*/
+	/*n->pos.row=r;*/
+/*}*/
+/**/
+/*static inline void setCol(ast_node_t n,int c) {*/
+	/*if(!n) return;*/
+	/*n->pos.col=c;*/
+/*}*/
+/**/
 
 #define isAtom(__n) ((__n)&&(__n)->type==ast_Atom)
 #define isPair(__n) ((__n)&&(__n)->type==ast_Pair)
@@ -186,7 +185,7 @@ static inline ast_node_t ast_type_check(const ast_node_t n,const ast_type_t expe
 
 ast_node_t newAtom(const char*data, size_t offset);
 ast_node_t newPair(const ast_node_t a,const ast_node_t d);
-//void delete_node(node_cache_t cache, ast_node_t n);
+void delete_node(ast_node_t n);
 
 void print_pair(ast_node_t n);
 

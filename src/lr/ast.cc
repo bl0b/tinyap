@@ -42,7 +42,7 @@ static tinyap_stack_t node_stack;
 
 
 void node_pool_init() {
-	node_stack = new_stack();
+	/*node_stack = new_stack();*/
 }
 
 
@@ -61,7 +61,7 @@ ast_node_t node_alloca() {
 	if(!ret) {
 		ret = tinyap_alloc(union _ast_node_t);
 		_node_alloc_count+=1;
-		push(node_stack,ret);
+		/*push(node_stack,ret);*/
 	} else {
 		node_pool = node_pool->pool.next;
 	}
@@ -69,17 +69,18 @@ ast_node_t node_alloca() {
 }
 
 void node_dealloc(ast_node_t node) {
-	/*if(node&&node->type!=ast_Pool) {*/
-		/*node->type = ast_Pool;*/
-		/*node->pool.next = node_pool;*/
-		/*node_pool = node;*/
-	/*}*/
-	(void) (node&&node->type!=ast_Pool ? node->type = ast_Pool, node->pool.next = node_pool, node_pool = node : 0);
+	if(node&&node->type!=ast_Pool) {
+		node->type = ast_Pool;
+		node->pool.next = node_pool;
+		node_pool = node;
+	}
+	/*(void) (node&&node->type!=ast_Pool ? node->type = ast_Pool, node->pool.next = node_pool, node_pool = node : 0);*/
 }
 
 void delete_node(ast_node_t);
 
 void node_pool_flush() {
+#if 0
 	ast_node_t n;
 
 	tinyap_stack_t tmp_stack = new_stack();
@@ -111,14 +112,15 @@ void node_pool_flush() {
 	free_stack(tmp_stack);
 
 //	printf("after node pool flush, %i nodes remain\n",_node_alloc_count);
+#endif
 }
 
 
 void node_pool_term() {
 	/*printf("node_pool_term\n"); fflush(stdout);*/
-	node_pool_flush();
-	free_stack(node_stack);
-	node_stack = NULL;
+	/*node_pool_flush();*/
+	/*free_stack(node_stack);*/
+	/*node_stack = NULL;*/
 }
 
 typedef std::pair<const char*, size_t> atom_key;
@@ -165,13 +167,15 @@ ast_node_t newAtom(const char*data,size_t offset) {
 		atom_registry[atom_key(ret->atom._str, offset)] = ret;
 		ret->type=ast_Atom;
 		ret->raw._p2=NULL;	/* useful for regexp cache hack */
-		ret->pos.row = offset;
-		ret->pos.col=0;
+		ret->pos.offset = offset;
+		/*ret->pos.col=0;*/
 		ret->node_flags=0;
+		ret->raw.ref = 0;
 	/*} else {*/
 		/*std::cout << "reuse alloc'd atom " << ret;*/
 	}
 	/*std::cout << "  => " << ret->atom._str << std::endl;*/
+	ret->raw.ref++;
 
 	return ret;
 }
@@ -187,12 +191,16 @@ ast_node_t newPair(const ast_node_t a,const ast_node_t d) {
 		ret->type=ast_Pair;
 		ret->pair._car=(ast_node_t )a;
 		ret->pair._cdr=(ast_node_t )d;
-		ret->pos.row=0;
-		ret->pos.col=0;
+		if(a) { ((ast_node_t)a)->raw.ref++; }
+		if(d) { ((ast_node_t)d)->raw.ref++; }
+		ret->pos.offset=0;
+		/*ret->pos.col=0;*/
 		ret->node_flags=0;
+		ret->raw.ref=0;
 	/*} else {*/
 		/*std::cout << "reuse alloc'd pair " << ret << std::endl;*/
 	}
+	ret->raw.ref++;
 	return ret;
 }
 
@@ -201,14 +209,18 @@ ast_node_t newPair(const ast_node_t a,const ast_node_t d) {
 void delete_node(ast_node_t n) {
 //	static int prout=0;
 	if(!n) return;
+	n->raw.ref--;
+	if(n->raw.ref) {
+		return;
+	}
 	switch(n->type) {
 	case ast_Atom:
 		/*assert(n->atom._str);*/
 		/*free(n->atom._str);*/
 		if(!(n->node_flags&ATOM_IS_NOT_STRING)) {
-			unregstr(n->atom._str);
+			/*unregstr(n->atom._str);*/
 		}
-		if(n->raw._p2) {
+		/*if(n->raw._p2) {*/
 			/* regex cache hack */
 //			printf("prout %i\n",prout+=1);
 			/*regfree(n->raw._p2);*/
@@ -217,7 +229,7 @@ void delete_node(ast_node_t n) {
 
 			/* FIXME ! */
 			/*pcre_free(n->raw._p2);*/
-		}
+		/*}*/
 		break;
 	case ast_Pair:
 		delete_node(n->pair._car);
