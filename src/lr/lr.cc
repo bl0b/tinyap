@@ -77,7 +77,17 @@ namespace token {
 				if(i) { edit->insert(i); }
 				m=Cdr(m);
 			}
-			ret = cached = edit;
+			if(edit->size()>1) {
+				ret = cached = edit;
+			} else if(edit->size()==1) {
+				ret = *edit->begin();
+				cached = NULL;
+				edit->clear();
+				delete edit;
+			} else {
+				delete edit;
+				ret = cached = NULL;
+			}
 		} else if(tag==STR_RawSeq) {
 			combination::RawSeq* edit = new combination::RawSeq();
 			ast_node_t m=Cdr(n);
@@ -86,7 +96,17 @@ namespace token {
 				if(i) { edit->push_back(i); }
 				m=Cdr(m);
 			}
-			ret = cached = edit;
+			if(edit->size()>1) {
+				ret = cached = edit;
+			} else if(edit->size()==1) {
+				ret = *edit->begin();
+				cached = NULL;
+				edit->clear();
+				delete edit;
+			} else {
+				delete edit;
+				ret = cached = NULL;
+			}
 		} else if(tag==STR_Seq) {
 			combination::Seq* edit = new combination::Seq();
 			ast_node_t m=Cdr(n);
@@ -95,7 +115,17 @@ namespace token {
 				if(i) { edit->push_back(i); }
 				m=Cdr(m);
 			}
-			ret = cached = edit;
+			if(edit->size()>1) {
+				ret = cached = edit;
+			} else if(edit->size()==1) {
+				ret = *edit->begin();
+				cached = NULL;
+				edit->clear();
+				delete edit;
+			} else {
+				delete edit;
+				ret = cached = NULL;
+			}
 		} else if(tag==STR_Rep0N) {
 			ret = cached = new combination::Rep0N(g, from_ast(Car(Cdr(n)), g));
 		} else if(tag==STR_Rep01) {

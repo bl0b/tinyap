@@ -87,6 +87,7 @@ void tinyap_set_verbose(int v) {
 
 void tinyap_terminate() {
 	node_pool_term();
+	term_pilot_manager();
 	deinit_strreg();
 	term_tinyap_alloc();
 }
@@ -119,6 +120,21 @@ void tinyap_dump_stack(tinyap_t t, const char*fnam) {
 		of << *t->A->stack;
 		of << '}' << std::endl;
 	}
+}
+
+void tinyap_print_states(tinyap_t t) {
+	if(!t->A) {
+		struct timeval t0, t1;
+		gettimeofday(&t1, NULL);
+		t->A = new lr::automaton(t->G);
+		if(tinyap_verbose) {
+			gettimeofday(&t0, NULL);
+			fprintf(stderr, "took %.3f seconds to compute automaton.\n", 1.e-6f*(t0.tv_usec-t1.tv_usec)+t0.tv_sec-t1.tv_sec);
+
+		}
+		/*t->A->dump_states();*/
+	}
+	t->A->dump_states();
 }
 
 void tinyap_delete(tinyap_t t) {

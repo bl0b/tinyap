@@ -16,7 +16,5 @@ expr4 = ( m_add | expr3 ).
 
 _expr = m_expr ";".
 
-_start = ( _EOF
-	 | _expr _start
-	 ).
+_start = _expr+.
 

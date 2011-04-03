@@ -308,11 +308,19 @@ push u onto stack
 				/*nr.process(G);*/
 			}
 
+			void delete_stack() {
+				if(stack) {
+					delete stack;
+					stack = NULL;
+				}
+			}
+
 			~automaton() {
 				state_set::iterator i, j=states.end();
 				for(i=states.begin();i!=j;++i) {
 					delete *i;
 				}
+				delete_stack();
 			}
 
 			void closure(item_set& I, item_set& C) const {
@@ -332,7 +340,7 @@ push u onto stack
 						grammar::Grammar::iterator S = G->find(nt->tag());
 						rule::base* r = (S==G->end()) ? NULL : S->second;
 						if(!r) {
-							std::clog << "couldn't find rule " << nt->tag() << " !" << std::endl;
+							std::cerr << "couldn't find rule " << nt->tag() << " !" << std::endl;
 							continue;
 						}
 						/* and we add an iterator to each variant of the rule */
@@ -483,10 +491,10 @@ push u onto stack
 						/*item x = *ret.first;*/
 						/*std::clog << "COIN transition pas ajoutée " << x << std::endl;*/
 					}
-					grammar::visitors::debugger d(std::clog);
-					std::clog << "  => transitions[";
-					((item_base*)t)->accept(&d);
-					std::clog << "] = " << transitions[t] << std::endl;
+					/*grammar::visitors::debugger d(std::clog);*/
+					/*std::clog << "  => transitions[";*/
+					/*((item_base*)t)->accept(&d);*/
+					/*std::clog << "] = " << transitions[t] << std::endl;*/
 				}
 			}
 
@@ -508,7 +516,7 @@ push u onto stack
 				while(stack.size()>0) {
 					state* S = stack.back();
 					stack.pop_back();
-					std::clog << "Now computing transitions of " << std::endl << S->items << std::endl;
+					/*std::clog << "Now computing transitions of " << std::endl << S->items << std::endl;*/
 					FSB.clear();
 					compute_transitions(S->items, FSB);
 					follow_set_builder::iterator fi, fj=FSB.end();
@@ -555,7 +563,7 @@ push u onto stack
 						throw "COIN";
 					}
 #define _tinyap_min(a, b) (a<b?a:b)
-					char* aststr = (char*)ast_serialize_to_string(n->get_state_ast()); std::clog << " ===  ACTIVE STATE ===(" << S->id << ") @" << n->id.O << ':' << std::string(buffer+n->id.O, _tinyap_min(buffer+n->id.O+20, buffer+size)) << std::endl << "ast : " << aststr << std::endl; free(aststr);
+					char* aststr = (char*)ast_serialize_to_string(n->get_state_ast()); std::clog << " ===  ACTIVE STATE ===(" << S->id << ") @" << n->id.O << ':' << std::string(buffer+n->id.O, _tinyap_min(buffer+n->id.O+20, buffer+size)) << std::endl << S->items << "ast : " << aststr << std::endl; free(aststr);
 #undef _tinyap_min
 					item_set::iterator i, j;
 
@@ -565,12 +573,12 @@ push u onto stack
 
 					for(ti=S->transitions.from_text.begin(), tj=S->transitions.from_text.end();ti!=tj;++ti) {
 						if(!(*ti).second) {
-							std::clog << "null entry in transition table !" << std::endl;
+							std::cerr << "null entry in transition table !" << std::endl;
 							continue;
 						}
 						const grammar::item::base* token = (*ti).first;
 						std::pair<ast_node_t, unsigned int> ret = token->recognize(buffer, ofs, size);
-						std::clog << "follow by "; ((grammar::item::base*)token)->accept(&debug); std::clog << " => " << ret.first << " (" << ret.second << ')' << std::endl;
+						std::clog << "follow by "; ((grammar::item::base*)token)->accept(&debug); std::clog << " => " << (ret.first?ret.second:-1) << std::endl;
 						if(ret.first) {
 							stack->shift(n, (grammar::item::base*)(*ti).first, (*ti).second, ret.first, ret.second, NULL);
 						}
@@ -579,8 +587,9 @@ push u onto stack
 					for(i=S->reductions.begin(), j=S->reductions.end();i!=j;++i) {
 						gss::node*ok = stack->reduce(n, *i, ofs);
 						item x = *i;
-						if(ok) {}
-						std::clog << "reduce by " << x << " => " << (ok?ok->id.S->id:-1) << std::endl;
+						if(ok) {
+							std::clog << "reduce by " << x << " => " << (ok?ok->id.S->id:-1) << std::endl;
+						}
 					}
 				}
 				farthest = G->skip(buffer, farthest, size);

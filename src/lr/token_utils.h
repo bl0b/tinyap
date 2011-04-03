@@ -70,10 +70,10 @@ unsigned long match_bow(parse_context_t pda, char* name);
 void token_bow_add(parse_context_t pda, char* name, char* word);
 
 RE_TYPE token_regcomp(const char*reg_expr);
-char*match2str(const char*src,const size_t start,const size_t end);
+char*match2str(const char*src,const size_t start,const size_t end, const char* long_delim);
 
 ast_node_t copy_node(ast_node_t);
-void escape_ncpy(char**dest, char**src, int count, int delim);
+void escape_ncpy(char**dest, char**src, int count, const char* delim);
 
 
 

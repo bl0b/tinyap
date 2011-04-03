@@ -2,6 +2,29 @@
 #define _LR_GSS_H_
 
 namespace lr {
+	template<typename OFS>
+		struct escaping_ostream { OFS&_; escaping_ostream(OFS&o) : _(o) {} };
+
+	template <typename OFS, typename X>
+		const escaping_ostream<OFS>& operator << (const escaping_ostream<OFS>& eo, const X& x) {
+			std::stringstream tmp;
+			tmp << x;
+			std::string ts = tmp.str();
+			std::string::const_iterator i=ts.begin(), j=ts.end();
+			for(;i!=j;++i) {
+				if(*i=='"') {
+					eo._ << '\\';
+				}
+				eo._ << *i;
+			}
+			return eo;
+		};
+
+	template <typename OFS>
+		escaping_ostream<OFS> escaper(OFS&_) {
+			return escaping_ostream<OFS>(_);
+		}
+
 	class gss {
 		public:
 			/* node merging happens on "producer P led to state S at offset O" identity */
@@ -24,15 +47,15 @@ namespace lr {
 			};
 
 			struct node_id_hash {
-				size_t operator()(const node_id*n) const {
-					return (0xb4dc0d3 * (1+n->O)) ^ (((char*)n->S) - ((char*)n->P));
+				size_t operator()(const node_id&n) const {
+					return (0xb4dc0d3 * (1+n.O)) ^ (((char*)n.S) - ((char*)n.P));
 					/*return (0xb4dc0d3 * (1+n->O)) * (1+(off_t)(n->S));*/
 				}
 			};
 
 			struct node_id_compare {
-				size_t operator()(const node_id*a, const node_id*b) const {
-					return a->S==b->S && a->O==b->O && (a->P==b->P || a->P->is_same(b->P));
+				size_t operator()(const node_id&a, const node_id&b) const {
+					return a.S==b.S && a.O==b.O && (a.P==b.P || (a.P && b.P && a.P->is_same(b.P)));
 					/*return a->S==b->S && a->O==b->O;*/
 				}
 			};
@@ -61,20 +84,28 @@ namespace lr {
 					std::stringstream ret;
 					if(ast) {
 						/* ast node */
-						ret << 'n' << (ptrdiff_t)this << " [shape=ellipse,label=\"" << ast << "\"];" << std::endl;
+						ret << 'n' << (ptrdiff_t)this << " [shape=ellipse,label=\"";
+						escaper(ret) << ast;
+						ret << "\"];" << std::endl;
 					} else {
 						/* state node */
 						ret << 'n' << (ptrdiff_t)this << " [shape=rectangle,label=\"{" << id.S->id << "}\"];" << std::endl;
 					}
 					std::list<node*>::const_iterator i = preds.begin(), j=preds.end();
+					std::stringstream tmp;
+					grammar::visitors::debugger d(tmp);
 					for(;i!=j;++i) {
-						ret << 'n' << (ptrdiff_t)*i << " -> n" << (ptrdiff_t)this << std::endl;
+						ret << 'n' << (ptrdiff_t)*i << " -> n" << (ptrdiff_t)this << "[label=\"";
+						id.P->accept(&d);
+						escaper(ret) << tmp.str();
+						ret << "\"];" << std::endl;
 					}
 					if(reduction_end) {
 						ret << 'n' << (ptrdiff_t) reduction_end << " -> n" << (ptrdiff_t)this << " [arrowhead=odot];" << std::endl;
 					}
 					return ret.str().c_str();
 				}
+
 			};
 
 			struct node_segment {
@@ -114,7 +145,7 @@ namespace lr {
 					}
 				}
 				node* alloc() {
-					static unsigned int target=0;
+					/*static unsigned int target=0;*/
 					node* ret;
 					if(!free_) {
 						node_segment* ns = new node_segment();
@@ -124,10 +155,10 @@ namespace lr {
 					ret = free_;
 					free_ = free_->preds.front();
 					++alloc_count;
-					if(alloc_count>target) {
-						std::clog << "gss:: alloc'ed " << alloc_count << " nodes" << std::endl;
-						target+=100;
-					}
+					/*if(alloc_count>target) {*/
+						/*std::clog << "gss:: alloc'ed " << alloc_count << " nodes" << std::endl;*/
+						/*target+=100;*/
+					/*}*/
 					return ret;
 				}
 				void free(node* n) {
@@ -149,7 +180,7 @@ namespace lr {
 			ast_node_t accepted;
 			unsigned int size;
 
-			typedef ext::hash_map<node_id*, node*, node_id_hash, node_id_compare> gss_node_registry;
+			typedef ext::hash_map<node_id, node*, node_id_hash, node_id_compare> gss_node_registry;
 
 			gss_node_registry registry;
 
@@ -164,7 +195,7 @@ namespace lr {
 			node* alloc_node(node_id& id) {
 				node* ret =
 					//NULL;
-					id.S ? registry[&id] : NULL;
+					id.S ? registry[id] : NULL;
 					//registry[&id];
 				if(!ret) {
 					ret = alloc.alloc();
@@ -173,13 +204,13 @@ namespace lr {
 					/*ret->pred = ret->link = NULL;*/
 					ret->preds.clear();
 					/*if(id.S) { registry[&ret->id] = ret; }*/
-				} else {
-					std::clog << "gss::merging node!" << std::endl;
+				/*} else {*/
+					/*std::clog << "gss::merging node!" << std::endl;*/
 				}
 				return ret;
 			}
 
-			void free_node(node*n) { registry.erase(&n->id); alloc.free(n); }
+			void free_node(node*n) { registry.erase(n->id); alloc.free(n); }
 
 			gss(item ini, unsigned int sz) : alloc(), root(), active(), initial(ini), accepted(0), size(sz), registry() {}
 
@@ -200,7 +231,7 @@ namespace lr {
 				/* push ast node */
 				node* n = alloc_node(noid);
 				n->ast = ast;
-				std::cout << "pushed ast node with " << ast << std::endl;
+				/*std::cout << "pushed ast node with " << ast << std::endl;*/
 				n->add_pred(p);
 				p = n;
 				/* push state node */
@@ -208,7 +239,7 @@ namespace lr {
 				n->ast = NULL;
 				n->add_pred(p);
 				n->reduction_end = red_end;
-				std::cout << "pushed state node with #" << s->id << std::endl;
+				/*std::cout << "pushed state node with #" << s->id << std::endl;*/
 				activate(n);
 				return n;
 			}
@@ -250,7 +281,7 @@ namespace lr {
 					/* epsilon rule : reduce ZERO node, and shift from current node. */
 					grammar::visitors::reducer red(PRODUCTION_OK_BUT_EMPTY, offset);
 					ast_node_t output = red(((grammar::rule::base*)i.rule()));
-					std::clog << "epsilon reduction" << std::endl;
+					/*std::clog << "epsilon reduction" << std::endl;*/
 					return shift(n, grammar::item::gc(new grammar::item::token::Nt(i.rule()->tag())), n->id.S->transitions.from_stack[i.rule()->tag()], output, offset, backup);
 				}
 
@@ -259,15 +290,15 @@ namespace lr {
 				const bool drop_empty = !R->keep_empty();
 				--i;
 				ast = n->get_state_ast();//n->pred->ast;
-				std::clog << ast << std::endl;
+				/*std::clog << ast << std::endl;*/
 				/*while(find_pred(n, *i) && (!i.at_start())) {*/
 				while(!i.at_start()) {
 					--i;
 					/*n = n->pred->pred;*/
 					n = n->get_prev_state();
-					std::clog << ((void*)n->preds.front()) << ' ' << ((void*)n->get_state_ast()) << std::endl;
+					/*std::clog << ((void*)n->preds.front()) << ' ' << ((void*)n->get_state_ast()) << std::endl;*/
 					ast = grammar::rule::internal::append()(n->get_state_ast(), ast, drop_empty);
-					std::clog << ast << std::endl;
+					/*std::clog << ast << std::endl;*/
 				}
 				const bool must_cleanup = ast!=backup->get_state_ast();
 
@@ -297,7 +328,7 @@ namespace lr {
 						grammar::visitors::reducer red(ast, offset);
 						ast_node_t redast = red((grammar::rule::base*)R);
 						grammar::item::base* nt = grammar::item::gc(new grammar::item::token::Nt(R->tag()));
-						std::clog << "Reducing " << ast_serialize_to_string(ast) << " into " << ast_serialize_to_string(redast) << std::endl;
+						/*std::clog << "Reducing " << ast << " into " << redast << std::endl;*/
 						state* Sprime = n->get_prev_state()->id.S->transitions.from_stack[R->tag()];
 						if(!Sprime) {
 							std::clog << "I don't know where to go with a ";

@@ -175,7 +175,7 @@ RE_TYPE token_regcomp(const char*reg_expr) {
 	return initiatur;
 }
 
-void escape_ncpy(char**dest, char**src, int count, int delim) {
+void escape_ncpy(char**dest, char**src, int count, const char* delim) {
 	const char* base=*src;
 	while( (*src-base) < count) {
 		/*unescape_chr(src,dest, -1, delim);*/
@@ -206,7 +206,7 @@ void escape_ncpy(char**dest, char**src, int count, int delim) {
 
 
 
-char*match2str(const char*src,const size_t start,const size_t end) {
+char*match2str(const char*src,const size_t start,const size_t end, const char*long_delim) {
 	char* buf = _stralloc(end-start+1);
 	char* rd = (char*)src+start;
 	char* wr = buf;
@@ -217,7 +217,7 @@ char*match2str(const char*src,const size_t start,const size_t end) {
 //		memset(buf,0,end-start);
 //	printf("              => \"%s\"\n",buf);
 		while(ofs<sz) {
-			unescape_chr(&rd, &wr, _RE, '/');
+			unescape_chr_l(&rd, &wr, 0, long_delim);
 			ofs = rd-src-start;
 //		printf("match2str orig = \"%*.*s\"\n",(int)(end-start-ofs),(int)(end-start-ofs),rd);
 //		printf("              => \"%s\" %p %p %li\n",buf,rd,buf,ofs);

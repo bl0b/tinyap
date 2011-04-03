@@ -45,7 +45,7 @@ namespace std {
 		};
 }
 
-extern "C" void escape_ncpy(char**dest, char**src, int count, int delim);
+extern "C" void escape_ncpy(char**dest, char**src, int count, const char* delim);
 
 namespace grammar {
 	namespace item {
@@ -307,7 +307,7 @@ namespace grammar {
 						Re_base(const char*reg_expr) : pattern_(reg_expr) {
 							int error_ofs;
 							const char* error;
-							cache = pcre_compile(reg_expr, 0, &error, &error_ofs, NULL);
+							cache = pcre_compile(reg_expr, PCRE_NEWLINE_ANY, &error, &error_ofs, NULL);
 							if(error) {
 								std::cerr << "Error : regex compilation of \"" << reg_expr
 									<< "\" failed (" << error << " at #" << error_ofs << ")" << std::endl;
@@ -320,7 +320,7 @@ namespace grammar {
 						virtual std::pair<ast_node_t, unsigned int> recognize(const char* source, unsigned int offset, unsigned int size) const {
 							int token[3];
 							if(re_exec(cache, source, offset, size, token, 3)) {
-								char*lbl=match2str(source+offset,0,token[1]);
+								char*lbl=match2str(source+offset,0,token[1], "/");
 								/*return std::pair<ast_node_t, unsigned int>(newAtom(lbl, offset), offset+token[1]);*/
 								return std::pair<ast_node_t, unsigned int>(publish(lbl, offset), offset+token[1]);
 							} else {
@@ -383,27 +383,52 @@ namespace grammar {
 						unsigned int ofs = offset;
 						_src = (char*)(ofs+source);
 						if(strncmp(delim_start, source+ofs, sslen)) {
+							/*std::cout << "[DEBUG:Str] didn't match start" << std::endl;*/
 							return std::pair<ast_node_t, unsigned int>(NULL, offset);
 						}
 						_src += sslen;
 						if(!*delim_end) {
-							_match = ret = _stralloc(source+size-_src+1);
-							escape_ncpy(&_match, &_src, source+size-_src, -1);
+							/*std::cout << "[DEBUG:Str] match to EOS" << std::endl;*/
+							/*_match = ret = _stralloc(source+size-_src+1);*/
+							/*escape_ncpy(&_match, &_src, source+size-_src, delim_end);*/
+							_match = ret = match2str(source, 0, source+size-_src, delim_end);
 							ofs = size;
 						} else {
-							_end = _src;
-							while((_match=strchr(_end, (int)*delim_end))&&_match>_end&&*(_match-1)=='\\') {
-								_end = _match+1;
+							for(_end = _src;;) {
+								_match = strstr(_end, delim_end);
+								if(!_match) {
+									/*std::cout << "[DEBUG:Str] didn't match end." << std::endl;*/
+									if(_end==_src) {
+										/*std::cout << "[DEBUG:Str] didn't match anything at all." << std::endl;*/
+										return std::pair<ast_node_t, unsigned int>(NULL, ofs);
+									}
+									break;
+								}
+								if(_match>_src&&*(_match-1)=='\\') {
+									/*std::cout << "[DEBUG:Str] skipping escaped end" << std::endl;*/
+									_end = _match+eslen;
+									continue;
+								} else {
+									/*std::cout << "[DEBUG:Str] matched unescaped end" << std::endl;*/
+									_end = _match;
+									break;
+								}
 							}
-							if(!_match) {
-								return std::pair<ast_node_t, unsigned int>(NULL, ofs);
-							}
-							_end = _match;
-							ret = _stralloc(_end-_src+1);
-							_match = ret;
-							escape_ncpy(&_match, &_src, _end-_src, (int)*delim_end);
-							*_match=0;
-							ofs = _end-source+1;
+							
+							/*while((_match=strchr(_end, (int)*delim_end))&&_match>_end&&*(_match-1)=='\\') {*/
+								/*_end = _match+1;*/
+							/*}*/
+							/*if(_end==_src&&!_match) {*/
+								/*return std::pair<ast_node_t, unsigned int>(NULL, ofs);*/
+							/*} else if(_match) {*/
+								/*_end = _match;*/
+							/*}*/
+							//ret = _stralloc(_end-_src+1);
+							//_match = ret;
+							//escape_ncpy(&_match, &_src, _end-_src, delim_end);
+							ret = match2str(_src, 0, _end-_src, delim_end);
+							//*_match=0;
+							ofs = _end-source+eslen;
 						}
 						/*printf(__FILE__ ":%i\n", __LINE__);*/
 						return std::pair<ast_node_t, unsigned int>(newPair(newAtom(ret, offset), NULL), ofs);
@@ -618,7 +643,7 @@ namespace grammar {
 				virtual ast_node_t reduce_ast(ast_node_t ast, unsigned int offset) const {
 					/*return newPair(newAtom(tag(), offset), ast==PRODUCTION_OK_BUT_EMPTY?NULL:ast);*/
 					/*return internal::append()(newPair(newAtom(tag(), offset), NULL), ast);*/
-					std::clog << "Operator reduction" << std::endl;
+					/*std::clog << "Operator reduction" << std::endl;*/
 					return newPair(internal::append()(newPair(newAtom(tag(), offset), NULL), ast), NULL);
 					/*return newPair(newPair(newAtom(tag(), offset), ast==PRODUCTION_OK_BUT_EMPTY?NULL:ast), NULL);*/
 				}
@@ -632,7 +657,7 @@ namespace grammar {
 				{}
 				/*virtual reduction_mode mode() const { return List; }*/
 				virtual ast_node_t reduce_ast(ast_node_t ast, unsigned int offset) const {
-					std::clog << "Transient reduction" << std::endl;
+					/*std::clog << "Transient reduction" << std::endl;*/
 					return ast;
 				}
 				virtual const bool keep_empty() const { return false; }
@@ -645,7 +670,7 @@ namespace grammar {
 				{}
 				/*virtual reduction_mode mode() const { return Red_Postfix; }*/
 				virtual ast_node_t reduce_ast(ast_node_t ast, unsigned int offset) const {
-					std::clog << "Postfix reduce_ast has " << ast << std::endl;
+					/*std::clog << "Postfix reduce_ast has " << ast << std::endl;*/
 					return newPair(internal::pfx_extract(ast).postfix(), NULL);
 				}
 				virtual const bool keep_empty() const { return true; }
@@ -658,7 +683,7 @@ namespace grammar {
 				{}
 				/*virtual reduction_mode mode() const { return Red_Prefix; }*/
 				virtual ast_node_t reduce_ast(ast_node_t ast, unsigned int offset) const {
-					std::clog << "Prefix reduce_ast has " << ast << std::endl;
+					/*std::clog << "Prefix reduce_ast has " << ast << std::endl;*/
 					return newPair(internal::pfx_extract(ast).prefix(), NULL);
 				}
 				virtual const bool keep_empty() const { return true; }

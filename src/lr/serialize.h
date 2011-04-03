@@ -19,6 +19,8 @@
 #define _TINYAP_SERIALIZE_H_
 #include "config.h"
 
+#include <string.h>
+
 struct _esc_chr {
 	char escaped;
 	char unescaped;
@@ -40,6 +42,44 @@ static inline void unescape_chr(char**src,char**dest, int context, int delim) {
 		if(**src==delim) {
 			ret=**src;
 			*src+=1;
+		} else {
+			i=0;
+			/* there may be an escaped character following */
+			while(escape_characters[i].escaped!=0&&**src!=escape_characters[i].escaped) {
+				i+=1;
+			}
+			c = escape_characters[i].context;
+			if(escape_characters[i].escaped && (context&c)==context) {
+				/* if we do have an escaped character, swallow it before returning */
+	//			debug_writeln("unescaping \\%c",escape_characters[i].escaped);
+				ret=escape_characters[i].unescaped;
+				*src+=1;
+			}
+		}
+	}
+	/* either ret is not \ or there's no valid escaped character following, thus we push raw ret in dest */
+	**dest=ret;
+	*dest+=1;
+}
+
+static inline void unescape_chr_l(char**src,char**dest, int context, const char* long_delim) {
+	/* index to search for character escaping combination */
+	int i, c;
+	size_t ldlen = strlen(long_delim);
+	char ret=**src;
+	if(!ret) {
+		**dest=0;
+		return;
+	}
+	*src+=1;
+	if(ret=='\\') {
+		if(!strncmp(*src, long_delim, ldlen)) {
+			/*ret=**src;*/
+			/**src+=1;*/
+			strcpy(*dest, long_delim);
+			*src+=1+ldlen;
+			*dest+=ldlen;
+			return;
 		} else {
 			i=0;
 			/* there may be an escaped character following */

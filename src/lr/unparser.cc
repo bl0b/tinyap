@@ -412,7 +412,7 @@ int unproduce(wast_iterator_t grammar, wast_iterator_t expr, wast_iterator_t ast
 	//printf("\n[%i] - - unproduce - - expr = ", _rec); /*wa_dump(wi_node(expr)); printf(" ast = "); wa_dump(wi_node(ast));*/ printf("\n");
 	BACKUP;
 	if(!strcmp(wi_op(expr), "T")) {
-		_buf_append(wi_string(expr,0));
+		_buf_append(str_escape((char*)wi_string(expr,0)));
 		status = 1;
 	} else if(!strcmp(wi_op(expr),	"Rep0N")) {
 		/*printf("Rep0N\n");*/
@@ -514,12 +514,14 @@ int unproduce(wast_iterator_t grammar, wast_iterator_t expr, wast_iterator_t ast
 			if(wi_on_leaf(ast)) {
 				const char* tmp = wi_op(ast);
 				const char* end = wi_string(expr, 1);
+				size_t endlen = strlen(end);
 				_buf_append(wi_string(expr, 0));
 				while(*tmp) {
-					if(*tmp==*end) {
+					if(!strncmp(tmp, end, endlen)) {
 						_buf_append_chr('\\');
 					}
 					switch(*tmp) {
+					case '\\' : _buf_append("\\\\"); break;
 					case '\n' : _buf_append("\\n"); break;
 					case '\r' : _buf_append("\\r"); break;
 					case '\t' : _buf_append("\\t"); break;

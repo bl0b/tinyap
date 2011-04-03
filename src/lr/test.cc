@@ -284,6 +284,18 @@ int test_automaton() {
 			"(OperatorRule X (Alt (Seq (NT X) (NT X)) (T a)))"
 			, "aa", "((X (X) (X)))"
 		},
+		{
+			"(OperatorRule T (STR \" \"))"
+			"(OperatorRule RE (STR / /))"
+			"(OperatorRule STR (RawSeq (T ~) (RE [^~,]?)  (T ,)"
+			"  (RE [^~,]?) (T ~)))"
+			"(OperatorRule BOW (RawSeq (T ~) (RE [_a-zA-Z][_a-zA-Z0-9]*) (RE !?) (T ~)))"
+			"(OperatorRule AddToBag (Seq (NT RE) (T :) (NT symbol) (RE !?)))"
+			"(OperatorRule X (NT RawSeq))"
+			" (OperatorRule RawSeq (Seq (T .raw) (Rep1N (Seq (Space) (NT rawseq_contents)))))"
+			" (TransientRule rawseq_contents (Alt (NT T) (NT STR) (NT RE) (NT BOW) (NT AddToBag)))"
+			, ".raw \"'\" /[\\]?./ \"'\"", "((X (RawSeq (T ') (RE [\\\\]?.) (T '))))"
+		},
 		{ NULL, NULL, NULL }
 	};
 

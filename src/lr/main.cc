@@ -82,6 +82,9 @@ int do_args(int argc,char*argv[]) {
 		} else if(cmp_param(1,"--dump-stack","-ds")) {
 			i+=1;
 			tinyap_dump_stack(parser, argv[i]);
+		} else if(cmp_param(0,"--print-states","-ps")) {
+			i+=1;
+			tinyap_print_states(parser);
 		} else if(cmp_param(1,"--output","-o")) {
 			i+=1;
 			if(tinyap_parsed_ok(parser)&&tinyap_get_output(parser)) {
