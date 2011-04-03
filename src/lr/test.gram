@@ -1,27 +1,144 @@
-# TinyaP : this is not yet another 
-# Copyright (C) 2007-2011 Damien Leroux
-#
-# This program is free software; you can redistribute it and\/or
+# TinyaML
+# Copyright (C) 2007 Damien Leroux
+# 
+# This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-#
+# 
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-symbol = /[_a-zA-Z][0-9a-zA-Z_]*/.
-T ::= ~","~.
-NT ::= symbol.
-Alt ::= alt_elem (.space "|" .space alt_elem)+.
-Rep01 ::= single_norep "?".
-Rep1N ::= single_norep "+".
-Rep0N ::= single_norep "*".
-single = Rep01 | Rep0N | Rep1N | single_norep | Space | NewLine | Indent | Dedent.
-sub_rmb = "(" (Seq | Alt | RawSeq) ")".
-Comment ::= (.raw "#" /[^\r\n]+/ | "#") .newline.
-Grammar ::= (TransientRule | OperatorRule | Comment)+.
-#
-# Miscellaneous
-#
-_start = Grammar.
-_whitespace = /[ \r\n\t]+/.
-EOF ::= "_EOF".
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+# 
+# Grammar for the meta-language, written in tinyaP 'short' language.
+
+#string = //"(([^"\\]|[\\][\\" trnb])*)"/\1/ .
+string = ~","~.
+
+float = /[-]?[0-9]+[.][0-9]+\>/.
+int = /[-]?[0-9]+\>/.
+sym = /\<[_a-zA-Z][_a-zA-Z0-9]*\>/.
+#char = (//'([^\\]|[\\][\\trnb])'/\1/ | //'[\\]''/'/).
+char = .raw "'" /\\['rtnb]|./ "'".
+
+##
+## Opcodes
+##
+
+p_Opcode
+	= p_Opcode_Illegal
+	| Opcode_Float
+	| Opcode_Int
+	| Opcode_Char
+	| Opcode_Label
+	| Opcode_String
+	| Opcode_EnvSym
+	| Opcode_NoArg
+	.
+
+p_Opcode_Illegal = illegal_opcode.
+illegal_opcode ::= "___illegal_opcode___".
+#Opcode_NoArg ::= p_Opcode_NoArg.
+#Opcode_Int ::= p_Opcode_Int OpcodeArg_Int.
+#Opcode_Float ::= p_Opcode_Float OpcodeArg_Float.
+#Opcode_String ::= p_Opcode_String OpcodeArg_String.
+#Opcode_Label ::= p_Opcode_Label OpcodeArg_Label.
+#Opcode_EnvSym ::= p_Opcode_EnvSym OpcodeArg_EnvSym.
+
+
+# faster but unsafe version
+Opcode_NoArg ::= sym.
+Opcode_Int ::= sym OpcodeArg_Int.
+Opcode_Char ::= sym OpcodeArg_Char.
+Opcode_Float ::= sym OpcodeArg_Float.
+Opcode_String ::= sym OpcodeArg_String.
+Opcode_Label ::= sym OpcodeArg_Label.
+Opcode_EnvSym ::= sym OpcodeArg_EnvSym.
+
+OpcodeArg_NoArg = _epsilon.
+OpcodeArg_Int = int.
+OpcodeArg_Char = char.
+OpcodeArg_Float = float.
+OpcodeArg_String = string.
+OpcodeArg_Label = "@" sym | /[+-][0-9]+/.
+OpcodeArg_EnvSym = "&" sym.
+
+##
+## Extendable mnemonics library
+##
+
+
+#p_Opcode_NoArg = (/\<nop>\/).
+#p_Opcode_Int = (/\<nop>\/).
+#p_Opcode_Float = (/\<nop>\/).
+#p_Opcode_String = (/\<nop>\/).
+#p_Opcode_Label = (/\<nop>\/).
+#p_Opcode_EnvSym = (/\<nop>\/).
+
+
+##
+## Labels
+##
+
+DeclLabel ::= sym ":".
+
+##
+## Assembly language (programs)
+##
+
+AsmBloc ::= "asm" asm_contents.
+asm_contents = "end" | asm_statement asm_contents.
+#asm_loop = ( asm_statement asm_loop | asm_statement "end" ).
+
+asm_statement = DeclLabel|p_Opcode.
+
+Program ::= p_ProgramTopLevel+ _EOF.
+
+p_Code = AsmBloc.
+
+p_ProgramTopLevel = p_Data | p_Code | LangDef | LangPlug | LangComp | NewWalker.
+
+
+
+p_Data = DataBloc.
+
+DataBloc ::= "data" data+ "end".
+
+data = DataFloat | DataInt | DataChar | DataString.
+DataInt ::= int ( "rep" int | _epsilon ).
+DataFloat ::= float ( "rep" int | _epsilon ).
+DataString ::= string.
+DataChar ::= char.
+
+
+
+##
+## Opcode declarations (libraries)
+##
+
+DeclOpcode = [ [ "opcode" sym ] declOpcode_opt_arg ] DeclOpcodeOverloads.
+
+declOpcode_opt_arg
+			= DeclOpcode_Float
+			| DeclOpcode_Int
+			| DeclOpcode_Char
+			| DeclOpcode_String
+			| DeclOpcode_Label
+			| DeclOpcode_EnvSym
+			| DeclOpcode_NoArg
+			.
+
+DeclOpcode_Float ::= ":" "Float".
+DeclOpcode_Int ::= ":" "Int".
+DeclOpcode_Char ::= ":" "Char".
+DeclOpcode_String ::= ":" "String".
+DeclOpcode_Label ::= ":" "Label".
+DeclOpcode_EnvSym ::= ":" "EnvSym".
+DeclOpcode_NoArg ::= _epsilon.
+
+

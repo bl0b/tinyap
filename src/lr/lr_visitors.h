@@ -78,31 +78,31 @@ namespace grammar {
 					return evaluator<R>::process(_);
 				}
 
-				virtual R eval(item::token::Str*) { return NULL; }
-				virtual R eval(item::token::Re*) { return NULL; }
-				virtual R eval(item::token::Epsilon*) { return NULL; }
-				virtual R eval(item::token::Eof*) { return NULL; }
-				virtual R eval(item::token::Comment*) { return NULL; }
-				virtual R eval(item::token::T*) { return NULL; }
-				virtual R eval(item::token::Nt*) { return NULL; }
-				virtual R eval(item::token::Bow*) { return NULL; }
-				virtual R eval(item::token::AddToBag*) { return NULL; }
+				virtual R eval(item::token::Str*) { return 0; }
+				virtual R eval(item::token::Re*) { return 0; }
+				virtual R eval(item::token::Epsilon*) { return 0; }
+				virtual R eval(item::token::Eof*) { return 0; }
+				virtual R eval(item::token::Comment*) { return 0; }
+				virtual R eval(item::token::T*) { return 0; }
+				virtual R eval(item::token::Nt*) { return 0; }
+				virtual R eval(item::token::Bow*) { return 0; }
+				virtual R eval(item::token::AddToBag*) { return 0; }
 
-				virtual R eval(item::combination::Rep01*) { return NULL; }
-				virtual R eval(item::combination::Rep0N*) { return NULL; }
-				virtual R eval(item::combination::Rep1N*) { return NULL; }
-				virtual R eval(item::combination::Prefix*) { return NULL; }
-				virtual R eval(item::combination::Postfix*) { return NULL; }
-				virtual R eval(item::combination::Seq*) { return NULL; }
-				virtual R eval(item::combination::RawSeq*) { return NULL; }
-				virtual R eval(item::combination::Alt*) { return NULL; }
+				virtual R eval(item::combination::Rep01*) { return 0; }
+				virtual R eval(item::combination::Rep0N*) { return 0; }
+				virtual R eval(item::combination::Rep1N*) { return 0; }
+				virtual R eval(item::combination::Prefix*) { return 0; }
+				virtual R eval(item::combination::Postfix*) { return 0; }
+				virtual R eval(item::combination::Seq*) { return 0; }
+				virtual R eval(item::combination::RawSeq*) { return 0; }
+				virtual R eval(item::combination::Alt*) { return 0; }
 
-				virtual R eval(rule::Transient*) { return NULL; }
-				virtual R eval(rule::Operator*) { return NULL; }
-				virtual R eval(rule::Prefix*) { return NULL; }
-				virtual R eval(rule::Postfix*) { return NULL; }
+				virtual R eval(rule::Transient*) { return 0; }
+				virtual R eval(rule::Operator*) { return 0; }
+				virtual R eval(rule::Prefix*) { return 0; }
+				virtual R eval(rule::Postfix*) { return 0; }
 
-				virtual R eval(Grammar*) { return NULL; }
+				virtual R eval(Grammar*) { return 0; }
 		};
 
 		class filter : public evaluator<item::base*> {
@@ -223,15 +223,15 @@ namespace grammar {
 					return new item::iterators::iterator_single(x);
 				}
 				virtual return_type eval(item::combination::Seq* x) {
-					/*std::cout << "iterator Seq" << std::endl;*/
+					/*std::clog << "iterator Seq" << std::endl;*/
 					return new item::iterators::iterator_vector(x);
 				}
 				virtual return_type eval(item::combination::RawSeq* x) {
-					/*std::cout << "iterator RawSeq" << std::endl;*/
+					/*std::clog << "iterator RawSeq" << std::endl;*/
 					return new item::iterators::iterator_single(x);
 				}
 				virtual return_type eval(item::combination::Alt* x) {
-					/*std::cout << "iterator Alt" << std::endl;*/
+					/*std::clog << "iterator Alt" << std::endl;*/
 					return new item::iterators::iterator_set(x);
 				}
 
@@ -320,7 +320,7 @@ namespace grammar {
 					}
 				}
 			public:
-				debugger(std::ostream& o = std::cout) : os(o), rec(0) {}
+				debugger(std::ostream& o = std::clog) : os(o), rec(0) {}
 
 				virtual void visit(rule::Postfix* x) {
 					rule::Postfix::iterator i = x->begin(), j = x->end();
@@ -476,7 +476,7 @@ namespace grammar {
 
 		class lr_item_debugger : public debugger {
 			public:
-				lr_item_debugger(std::ostream& o = std::cout) : debugger(o) {}
+				lr_item_debugger(std::ostream& o = std::clog) : debugger(o) {}
 
 				virtual void visit(rule::Postfix* x) {
 					os << x->tag();
@@ -497,6 +497,12 @@ namespace grammar {
 				((I*)i)->accept(&d);
 				return d;
 			}
+
+		inline std::ostream& operator<<(std::ostream& o, const item::base* i) {
+			debugger d(o);
+			((item::base*)i)->accept(&d);
+			return o;
+		}
 
 
 
@@ -588,69 +594,69 @@ namespace grammar {
 				}
 
 				virtual item::base* eval(item::token::Str* x) {
-					/*std::cout << "eval(Str)" << std::endl;*/
+					/*std::clog << "eval(Str)" << std::endl;*/
 					return x;
 				}
 				virtual item::base* eval(item::token::Re* x) {
-					/*std::cout << "eval(Re)" << std::endl;*/
+					/*std::clog << "eval(Re)" << std::endl;*/
 					return x;
 				}
 				virtual item::base* eval(item::token::Epsilon* x) {
-					/*std::cout << "eval(Epsilon)" << std::endl;*/
+					/*std::clog << "eval(Epsilon)" << std::endl;*/
 					return x;
 				}
 				virtual item::base* eval(item::token::Eof* x) {
-					/*std::cout << "eval(Eof)" << std::endl;*/
+					/*std::clog << "eval(Eof)" << std::endl;*/
 					return x;
 				}
 				virtual item::base* eval(item::token::Comment* x) {
-					/*std::cout << "eval(Comment)" << std::endl;*/
+					/*std::clog << "eval(Comment)" << std::endl;*/
 					/*delete x;*/
 					/*return NULL;*/
 					return x;
 				}
 				virtual item::base* eval(item::token::T* x) {
-					/*std::cout << "eval(T)" << std::endl;*/
+					/*std::clog << "eval(T)" << std::endl;*/
 					return x;
 				}
 				virtual item::base* eval(item::token::Nt* x) {
-					/*std::cout << "eval(Nt)" << std::endl;*/
+					/*std::clog << "eval(Nt)" << std::endl;*/
 					return x;
 				}
 
 				virtual item::base* eval(item::token::Bow* x) {
-					/*std::cout << "eval(Bow)" << std::endl;*/
+					/*std::clog << "eval(Bow)" << std::endl;*/
 					return x;
 				}
 
 				virtual item::base* eval(item::token::AddToBag* x) {
-					/*std::cout << "eval(AddToBag)" << std::endl;*/
+					/*std::clog << "eval(AddToBag)" << std::endl;*/
 					return x;
 				}
 
 				virtual item::base* eval(item::combination::Rep01* x) {
-					/*debugger d(std::cout);*/
-					/*std::cout << "eval(Rep01:" << x << ") "; d << x; std::cout << std::endl;*/
+					/*debugger d(std::clog);*/
+					/*std::clog << "eval(Rep01:" << x << ") "; d << x; std::clog << std::endl;*/
 					return x->commit(g);
 				}
 				virtual item::base* eval(item::combination::Rep0N* x) {
-					/*std::cout << "eval(Rep0N)" << std::endl;*/
+					/*std::clog << "eval(Rep0N)" << std::endl;*/
 					return x->commit(g);
 				}
 				virtual item::base* eval(item::combination::Rep1N* x) {
-					/*std::cout << "eval(Rep1N)" << std::endl;*/
+					/*std::clog << "eval(Rep1N)" << std::endl;*/
 					return x->commit(g);
 				}
 				virtual item::base* eval(item::combination::Prefix* x) {
-					/*std::cout << "eval(Prefix)" << std::endl;*/
+					/*std::clog << "eval(Prefix)" << std::endl;*/
 					return x->commit(g);
 				}
 				virtual item::base* eval(item::combination::Postfix* x) {
-					/*std::cout << "eval(Postfix)" << std::endl;*/
+					/*std::clog << "eval(Postfix)" << std::endl;*/
 					return x->commit(g);
 				}
 				virtual item::base* eval(item::combination::Seq* x) {
-					/*std::cout << "eval(Seq)" << std::endl;*/
+					/*std::clog << "eval(Seq)" << std::endl;*/
 					item::combination::Seq::iterator i, j;
 					for(i=x->begin(), j=x->end();i!=j;++i) {
 						process(*i);
@@ -658,11 +664,11 @@ namespace grammar {
 					return x->commit(g);
 				}
 				virtual item::base* eval(item::combination::RawSeq* x) {
-					/*std::cout << "eval(RawSeq)" << std::endl;*/
+					/*std::clog << "eval(RawSeq)" << std::endl;*/
 					return x;
 				}
 				virtual item::base* eval(item::combination::Alt* x) {
-					/*std::cout << "rewrite(Alt)" << std::endl;*/
+					/*std::clog << "rewrite(Alt)" << std::endl;*/
 					item::combination::Alt::iterator i, j;
 					for(i=x->begin(), j=x->end();i!=j;++i) {
 						process(*i);
@@ -671,24 +677,24 @@ namespace grammar {
 				}
 
 				virtual item::base* eval(rule::Transient* x) {
-					/*std::cout << "eval(Transient)" << std::endl;*/
+					/*std::clog << "eval(Transient)" << std::endl;*/
 					return x;
 				}
 				virtual item::base* eval(rule::Operator* x) {
-					/*std::cout << "eval(Operator)" << std::endl;*/
+					/*std::clog << "eval(Operator)" << std::endl;*/
 					return x;
 				}
 				virtual item::base* eval(rule::Prefix* x) {
-					/*std::cout << "eval(Prefix)" << std::endl;*/
+					/*std::clog << "eval(Prefix)" << std::endl;*/
 					return x;
 				}
 				virtual item::base* eval(rule::Postfix* x) {
-					/*std::cout << "eval(Postfix)" << std::endl;*/
+					/*std::clog << "eval(Postfix)" << std::endl;*/
 					return x;
 				}
 
 				virtual item::base* eval(Grammar* x) {
-					/*std::cout << "eval(Grammar)" << std::endl;*/
+					/*std::clog << "eval(Grammar)" << std::endl;*/
 					return NULL;
 				}
 
@@ -707,7 +713,7 @@ namespace grammar {
 					/*return process(item::base::from_ast(_));*/
 				/*}*/
 				item::base* operator() (item::base* _) {
-					/*std::cout << "rmb_rwrt(cid="<<_->class_id()<<")..."<<std::endl;*/
+					/*std::clog << "rmb_rwrt(cid="<<_->class_id()<<")..."<<std::endl;*/
 					return process(_);
 				}
 

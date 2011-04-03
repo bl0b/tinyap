@@ -138,7 +138,7 @@ int test_automaton() {
 	typedef const char* test_case[3];
 	test_case test_cases[] = {
 		// start rule is X
-		{ "(OperatorRule X (EOF))", "", "((X))" },
+/*1*/	{ "(OperatorRule X (EOF))", "", "((X))" },
 		{ "(OperatorRule X (EOF))", "   ", "((X))" },
 		{ "(OperatorRule X (EOF))", "a", NULL },
 		{ "(OperatorRule X (Epsilon))", "", "((X))" },
@@ -148,7 +148,7 @@ int test_automaton() {
 		{ "(OperatorRule X (RE toto))", "toto", "((X toto))" },
 		{ "(OperatorRule X (T toto))", "pouet", NULL },
 
-		{ "(OperatorRule X (Rep01 (T pouet)))", "pouet", "((X))" },
+/*10*/	{ "(OperatorRule X (Rep01 (T pouet)))", "pouet", "((X))" },
 		{ "(OperatorRule X (Rep01 (T pouet)))", "", "((X))" },
 		{ "(OperatorRule X (Rep0N (T pouet)))", "pouet", "((X))" },
 		{ "(OperatorRule X (Rep0N (T pouet)))", "pouet pouet pouet", "((X))" },
@@ -159,7 +159,7 @@ int test_automaton() {
 
 		{ "(OperatorRule X (Seq (T foo) (Rep01 (T pouet))))", "foo pouet", "((X))" },
 		{ "(OperatorRule X (Seq (T foo) (Rep01 (T pouet))))", "foo ", "((X))" },
-		{ "(OperatorRule X (Seq (T foo) (Rep0N (T pouet))))", "foo pouet", "((X))" },
+/*20*/	{ "(OperatorRule X (Seq (T foo) (Rep0N (T pouet))))", "foo pouet", "((X))" },
 		{ "(OperatorRule X (Seq (T foo) (Rep0N (T pouet))))", "foo pouet pouet pouet", "((X))" },
 		{ "(OperatorRule X (Seq (T foo) (Rep0N (T pouet))))", "foo ", "((X))" },
 		{ "(OperatorRule X (Seq (T foo) (Rep1N (T pouet))))", "foo pouet", "((X))" },
@@ -170,7 +170,7 @@ int test_automaton() {
 		{ "(OperatorRule X (Alt (T foo) (Rep01 (T pouet))))", "", "((X))" },
 		{ "(OperatorRule X (Alt (T foo) (Rep0N (T pouet))))", "pouet", "((X))" },
 		{ "(OperatorRule X (Alt (T foo) (Rep0N (T pouet))))", "pouet pouet pouet", "((X))" },
-		{ "(OperatorRule X (Alt (T foo) (Rep0N (T pouet))))", "", "((X))" },
+/*30*/	{ "(OperatorRule X (Alt (T foo) (Rep0N (T pouet))))", "", "((X))" },
 		{ "(OperatorRule X (Alt (T foo) (Rep1N (T pouet))))", "pouet", "((X))" },
 		{ "(OperatorRule X (Alt (T foo) (Rep1N (T pouet))))", "pouet pouet pouet", "((X))" },
 		{ "(OperatorRule X (Alt (T foo) (Rep1N (T pouet))))", "", NULL },
@@ -181,7 +181,7 @@ int test_automaton() {
 		{ "(OperatorRule X (NT Y)) (OperatorRule Y (Epsilon))", "", "((X (Y)))" },
 		{ "(OperatorRule X (Prefix (RE toto) (NT Y))) (OperatorRule Y (RE pouet))", "totopouet", "((X (Y toto pouet)))" },
 		{ "(OperatorRule X (Prefix (NT Z) (NT Y))) (TransientRule Z (Seq (RE toto) (RE pou))) (OperatorRule Y (RE et))", "totopouet", "((X (Y toto pou et)))" },
-		{ "(OperatorRule X (Postfix (RE toto) (NT Y))) (OperatorRule Y (RE pouet))", "totopouet", "((X (Y pouet toto)))" },
+/*40*/	{ "(OperatorRule X (Postfix (RE toto) (NT Y))) (OperatorRule Y (RE pouet))", "totopouet", "((X (Y pouet toto)))" },
 		{ "(OperatorRule X (RawSeq (T ~) (RE [^~,]?) (T ,) (RE [^~,]?) (T ~)))", "~\",\"~", "((X \" \"))" },
 		{ "(OperatorRule X (Rep1N (NT pouet))) (OperatorRule pouet (RE pouet))", "pouet pouet pouet", "((X (pouet pouet) (pouet pouet) (pouet pouet)))" },
 		{ "(OperatorRule X (Rep1N (NT coin))) (OperatorRule coin (RE pouet))", "pouet pouet pouet", "((X (coin pouet) (coin pouet) (coin pouet)))" },
@@ -206,7 +206,7 @@ int test_automaton() {
 			"(OperatorRule Comment (RawSeq (T #) (RE [^\\\\r\\\\n]*)))"
 			, "# toto pouet\n#\n#toto", "((X (Comment \\ toto\\ pouet) (Comment ) (Comment toto)))"
 		},
-		{
+/*50*/	{
 			"(OperatorRule X (Rep1N (NT Comment)))"
 			"(OperatorRule Comment (RawSeq (T #) (RE [^\\\\r\\\\n]*)))"
 			, "# toto pouet\n#\n#toto", "((X (Comment \\ toto\\ pouet) (Comment ) (Comment toto)))"
@@ -232,7 +232,7 @@ int test_automaton() {
 			"(OperatorRule Coment (RawSeq (T #) (RE [^\\\\r\\\\n]*)))"
 			, "# toto pouet\n#\n#toto", "((X (Gramar (Coment \\ toto\\ pouet) (Coment ) (Coment toto))))"
 		},
-		{
+/*55*/	{
 "(OperatorRule T (STR \" \"))"
 "(OperatorRule RE (STR / /))"
 "(OperatorRule STR (RawSeq (T ~) (RE [^~,]?)  (T ,)"
@@ -279,22 +279,31 @@ int test_automaton() {
 			" (TransientRule rawseq_contents (Alt (NT T) (NT STR) (NT RE) (NT BOW) (NT AddToBag)))"
 			, ".raw \"~\" /[^~,]?/ \",\" /[^~,]?/ \"~\"", "((X (RawSeq (T ~) (RE [^~,]?) (T ,) (RE [^~,]?) (T ~))))"
 		},
+		// now for some more tricky things
+		{
+			"(OperatorRule X (Alt (Seq (NT X) (NT X)) (T a)))"
+			, "aa", "((X (X) (X)))"
+		},
 		{ NULL, NULL, NULL }
 	};
 
 	test_case* tc = test_cases;
 	unsigned int done=0, ok=0;
-	std::streambuf* rd = std::clog.rdbuf();
+	std::streambuf* rdclog = std::clog.rdbuf();
+	std::streambuf* rdcerr = std::cerr.rdbuf();
 	std::vector<int> failures;
 	while((*tc)[0]) {
 		std::stringstream capture;
 		std::clog.rdbuf(capture.rdbuf());
+		std::cerr.rdbuf(capture.rdbuf());
+		std::stringstream ofn;
+		ofn << "failed.test.";
+		ofn << (done+1);
 		if(lr::automaton::test(done+1, (*tc)[0], (*tc)[1], (*tc)[2])) {
 			++ok;
+			std::cout << "[TEST] [automaton] #" << (done+1) << " passed." << std::endl;
+			unlink(ofn.str().c_str());
 		} else {
-			std::stringstream ofn;
-			ofn << "test.failed.";
-			ofn << (done+1);
 			std::ofstream o(ofn.str().c_str(), std::ios_base::out);
 			o << capture.str();
 			failures.push_back(done+1);
@@ -302,9 +311,10 @@ int test_automaton() {
 		++done;
 		++tc;
 	}
-	std::clog.rdbuf(rd);
+	std::clog.rdbuf(rdclog);
+	std::cerr.rdbuf(rdcerr);
 	for(std::vector<int>::iterator i=failures.begin(), j=failures.end();i!=j;++i) {
-		std::cout << "[TEST] [automaton] #" << (*i) << " failed. See ./test.failed." << (*i) << " for output." << std::endl;
+		std::cout << "[TEST] [automaton] #" << (*i) << " failed. See ./failed.test." << (*i) << " for output." << std::endl;
 	}
 	std::cout << "[TEST] [automaton] passed: " << ok << '/' << done << std::endl;
 	return ok-done;

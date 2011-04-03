@@ -88,17 +88,17 @@ namespace grammar {
 				int length() const { return impl->len(); }
 
 				bool operator<(const iterator&i_) const {
-					/*std::cout << "{{iterator::inf : context " << (impl->context()==i_.impl->context()) << " impl->inf " << (impl->inf(i_.impl)) << "}}";*/
+					/*std::clog << "{{iterator::inf : context " << (impl->context()==i_.impl->context()) << " impl->inf " << (impl->inf(i_.impl)) << "}}";*/
 					return impl->context()<i_.impl->context() || (impl->context()==i_.impl->context() && impl->inf(i_.impl));
 				}
 
 				bool operator==(const iterator&i_) const {
-					/*std::cout << "{{iterator::eq : context " << (impl->context()==i_.impl->context()) << " impl->eq " << (impl->eq(i_.impl)) << "}}";*/
+					/*std::clog << "{{iterator::eq : context " << (impl->context()==i_.impl->context()) << " impl->eq " << (impl->eq(i_.impl)) << "}}";*/
 					return impl->context()==i_.impl->context() && impl->eq(i_.impl);
 				}
 
 				bool operator!=(const iterator&i_) const {
-					/*std::cout << "{{iterator::neq : !context " << (impl->context()!=i_.impl->context()) << " !impl->eq " << (!impl->eq(i_.impl)) << "}}";*/
+					/*std::clog << "{{iterator::neq : !context " << (impl->context()!=i_.impl->context()) << " !impl->eq " << (!impl->eq(i_.impl)) << "}}";*/
 					return impl->context()!=i_.impl->context() || !impl->eq(i_.impl);
 				}
 
@@ -109,7 +109,7 @@ namespace grammar {
 			class iterator_epsilon : public _iterator_base {
 				public:
 					iterator_epsilon(const base*c) : _iterator_base(c) {
-						/*std::cout << "iterator_epsilon" << std::endl;*/
+						/*std::clog << "iterator_epsilon" << std::endl;*/
 					}
 					virtual void inc() {}
 					virtual void dec() {}
@@ -133,7 +133,7 @@ namespace grammar {
 					bool end;
 				public:
 					iterator_single(const base*c) : _iterator_base(c), end(false) {
-						/*std::cout << "iterator_single" << std::endl;*/
+						/*std::clog << "iterator_single" << std::endl;*/
 					}
 					virtual void inc() { end=true; }
 					virtual void dec() { end=false; }
@@ -161,7 +161,7 @@ namespace grammar {
 					std::vector<base*>::const_iterator seq, begin, end;
 				public:
 					iterator_vector(const base*c) : _iterator_base(c) {
-						/*std::cout << "iterator_vector" << std::endl;*/
+						/*std::clog << "iterator_vector" << std::endl;*/
 						const std::vector<base*>* v = dynamic_cast<const std::vector<base*>*>(c);
 						begin = v->begin();
 						end = v->end();
@@ -175,12 +175,12 @@ namespace grammar {
 					virtual size_t len() const { return end-begin; }
 					virtual bool eq(const _iterator_base*i) const {
 						const iterator_vector*is = dynamic_cast<const iterator_vector*>(i);
-						/*std::cout << "iterator_vector::eq ";*/
+						/*std::clog << "iterator_vector::eq ";*/
 						return !!is && begin==is->begin && end==is->end && seq==is->seq;
 					}
 					virtual bool inf(const _iterator_base*i) const {
 						const iterator_vector*is = dynamic_cast<const iterator_vector*>(i);
-						/*std::cout << "iterator_vector::inf ";*/
+						/*std::clog << "iterator_vector::inf ";*/
 						return !!is && (begin < is->begin || end < is->end || seq < is->seq);
 					}
 					virtual _iterator_base* clone() const {
@@ -198,7 +198,7 @@ namespace grammar {
 					size_t sz;
 				public:
 					iterator_set(const base*c) : _iterator_base(c) {
-						/*std::cout << "iterator_set" << std::endl;*/
+						/*std::clog << "iterator_set" << std::endl;*/
 						const std::set<base*>* v = dynamic_cast<const std::set<base*>*>(c);
 						sz = v->size();
 						begin = v->begin();
@@ -214,13 +214,13 @@ namespace grammar {
 
 					virtual bool eq(const _iterator_base*i) const {
 						const iterator_set*is = dynamic_cast<const iterator_set*>(i);
-						/*std::cout << "iterator_set::eq" << std::endl;*/
+						/*std::clog << "iterator_set::eq" << std::endl;*/
 						return !!is && begin==is->begin && end==is->end && seq==is->seq;
 					}
 
 					virtual bool inf(const _iterator_base*i) const {
 						const iterator_set*is = dynamic_cast<const iterator_set*>(i);
-						/*std::cout << "iterator_set::inf" << std::endl;*/
+						/*std::clog << "iterator_set::inf" << std::endl;*/
 						return !!is && (begin != is->begin || end != is->end || *seq < *is->seq);
 					}
 
@@ -257,7 +257,7 @@ namespace grammar {
 		template <class C, class S=base >
 			class item_with_class_id : public S {
 				public:
-					item_with_class_id() { /*std::cout << "new object (cid=" << class_id() << ')' << std::endl;*/ }
+					item_with_class_id() { /*std::clog << "new object (cid=" << class_id() << ')' << std::endl;*/ }
 					virtual void accept(visitors::visitor*v) { v->visit(dynamic_cast<C*>(this)); }
 					int class_id() const {
 						static int _=base::_class_id_counter();
@@ -301,10 +301,12 @@ namespace grammar {
 					private:
 						const char* pattern_;
 						RE_TYPE cache;
+					protected:
+						virtual ast_node_t publish(const char* match, unsigned int offset) const = 0;
 					public:
 						Re_base(const char*reg_expr) : pattern_(reg_expr) {
-						int error_ofs;
-						const char* error;
+							int error_ofs;
+							const char* error;
 							cache = pcre_compile(reg_expr, 0, &error, &error_ofs, NULL);
 							if(error) {
 								std::cerr << "Error : regex compilation of \"" << reg_expr
@@ -315,7 +317,6 @@ namespace grammar {
 						/*Re(const Re& _) : pattern_(_.pattern_), cache(_.cache) {}*/
 						virtual ~Re_base() { if(cache) { pcre_free(cache); } }
 						const char* pattern() const { return pattern_; }
-						virtual ast_node_t publish(const char* match, unsigned int offset) const = 0;
 						virtual std::pair<ast_node_t, unsigned int> recognize(const char* source, unsigned int offset, unsigned int size) const {
 							int token[3];
 							if(re_exec(cache, source, offset, size, token, 3)) {
@@ -329,14 +330,12 @@ namespace grammar {
 				};
 
 			class Re : public Re_base<Re> {
+				protected:
+					virtual ast_node_t publish(const char* match, unsigned int offset) const {
+						return newPair(newAtom(match, offset), NULL);
+					}
 				public:
 					Re(const char*p) : Re_base<Re>(p) {}
-					virtual ast_node_t publish(const char* match, unsigned int offset) const {
-						if(match) {
-							return newPair(newAtom(match, offset), NULL);
-						}
-						return NULL;
-					}
 			};
 
 			class T : public impl<T> {
@@ -418,6 +417,8 @@ namespace grammar {
 						return std::pair<ast_node_t, unsigned int>(PRODUCTION_OK_BUT_EMPTY, offset);
 					}
 					static Epsilon* instance() {
+						/* FIXME rename pouet */
+						/* TODO fix this FIXME */
 						static Epsilon pouet;
 						return &pouet;
 					}
@@ -476,19 +477,16 @@ namespace grammar {
 					bool keep_;
 					trie_t bag;
 					const char* tag_;
+					virtual ast_node_t publish(const char* match, unsigned int offset) const {
+						trie_insert(bag, match);
+						if(keep_) {
+							return newPair(newAtom(match, offset), NULL);
+						} else {
+							return PRODUCTION_OK_BUT_EMPTY;
+						}
+					}
 				public:
 					AddToBag(const char* p, const char* b, bool k) : Re_base<AddToBag>(p), keep_(k), bag(Bow::find(b)), tag_(b) {}
-					virtual ast_node_t publish(const char* match, unsigned int offset) const {
-						if(match) {
-							trie_insert(bag, match);
-							if(keep_) {
-								return newPair(newAtom(match, offset), NULL);
-							} else {
-								return PRODUCTION_OK_BUT_EMPTY;
-							}
-						}
-						return NULL;
-					}
 					bool keep() const { return keep_; }
 					const char* tag() const { return tag_; }
 			};
@@ -538,7 +536,7 @@ namespace grammar {
 				static const char* auto_tag() {
 					int status;
 					char*buffy = abi::__cxa_demangle(typeid(X).name(), 0, 0, &status);
-					/*std::cout << "got buffy="<<buffy<<std::endl;*/
+					/*std::clog << "got buffy="<<buffy<<std::endl;*/
 					char*p=buffy+strlen(buffy)-1;
 					while(p>=buffy&&*p!=':') {
 						--p;
@@ -592,7 +590,7 @@ namespace grammar {
 							return NULL;
 						}
 					} dirty_extraction;
-					/*std::cout << "PFX EXTRACTOR : " << ast << std::endl;*/
+					/*std::clog << "PFX EXTRACTOR : " << ast << std::endl;*/
 					pfx = dirty_extraction(ast, rule);
 					/*pfx = Car(ast);*/
 					/*rule = Cdr(ast);*/
@@ -600,11 +598,11 @@ namespace grammar {
 						/*rule = Cdr(rule);*/
 					/*}*/
 					/*rule = Car(rule);*/
-					/*std::cout << "rule = " << rule << std::endl;*/
+					/*std::clog << "rule = " << rule << std::endl;*/
 					tag = Car(rule);
-					/*std::cout << "tag = " << tag << std::endl;*/
+					/*std::clog << "tag = " << tag << std::endl;*/
 					cdr = Cdr(rule);
-					/*std::cout << "cdr = " << cdr << std::endl;*/
+					/*std::clog << "cdr = " << cdr << std::endl;*/
 				}
 				ast_node_t prefix() const { return newPair(tag, internal::append()(pfx, cdr)); }
 				ast_node_t postfix() const { return newPair(tag, internal::append()(cdr, pfx)); }
@@ -620,6 +618,7 @@ namespace grammar {
 				virtual ast_node_t reduce_ast(ast_node_t ast, unsigned int offset) const {
 					/*return newPair(newAtom(tag(), offset), ast==PRODUCTION_OK_BUT_EMPTY?NULL:ast);*/
 					/*return internal::append()(newPair(newAtom(tag(), offset), NULL), ast);*/
+					std::clog << "Operator reduction" << std::endl;
 					return newPair(internal::append()(newPair(newAtom(tag(), offset), NULL), ast), NULL);
 					/*return newPair(newPair(newAtom(tag(), offset), ast==PRODUCTION_OK_BUT_EMPTY?NULL:ast), NULL);*/
 				}
@@ -633,6 +632,7 @@ namespace grammar {
 				{}
 				/*virtual reduction_mode mode() const { return List; }*/
 				virtual ast_node_t reduce_ast(ast_node_t ast, unsigned int offset) const {
+					std::clog << "Transient reduction" << std::endl;
 					return ast;
 				}
 				virtual const bool keep_empty() const { return false; }
@@ -645,6 +645,7 @@ namespace grammar {
 				{}
 				/*virtual reduction_mode mode() const { return Red_Postfix; }*/
 				virtual ast_node_t reduce_ast(ast_node_t ast, unsigned int offset) const {
+					std::clog << "Postfix reduce_ast has " << ast << std::endl;
 					return newPair(internal::pfx_extract(ast).postfix(), NULL);
 				}
 				virtual const bool keep_empty() const { return true; }
@@ -657,7 +658,7 @@ namespace grammar {
 				{}
 				/*virtual reduction_mode mode() const { return Red_Prefix; }*/
 				virtual ast_node_t reduce_ast(ast_node_t ast, unsigned int offset) const {
-					/*std::cout << "Prefix reduce_ast has " << ast << std::endl;*/
+					std::clog << "Prefix reduce_ast has " << ast << std::endl;
 					return newPair(internal::pfx_extract(ast).prefix(), NULL);
 				}
 				virtual const bool keep_empty() const { return true; }
@@ -672,7 +673,7 @@ namespace grammar {
 					size_t sz;
 				public:
 					iterator_map(const base*c) : _iterator_base(c) {
-						/*std::cout << "iterator_map" << std::endl;*/
+						/*std::clog << "iterator_map" << std::endl;*/
 						const map_type* v = dynamic_cast<const map_type*>(c);
 						sz = v->size();
 						begin = v->begin();
@@ -755,7 +756,7 @@ namespace grammar {
 					return;
 				}
 				/*visitors::debugger debug;*/
-				/*std::cout << "Grammar{"<<this<<"}->add_rule("<<rule->tag()<<")"<<std::endl;*/
+				/*std::clog << "Grammar{"<<this<<"}->add_rule("<<rule->tag()<<")"<<std::endl;*/
 				Grammar::iterator exist = find((char*)tag);
 				if(exist!=end()) {
 					/* merge contents */
@@ -764,10 +765,10 @@ namespace grammar {
 					(*this)[tag] = rule;
 					/*insert(value_type(tag, rule));*/
 				}
-				/*std::cout << "Grammar{"<<this<<"}->add_rule("<<rule->tag()<<") DONE size now = "<<size()<<std::endl;*/
+				/*std::clog << "Grammar{"<<this<<"}->add_rule("<<rule->tag()<<") DONE size now = "<<size()<<std::endl;*/
 				/*visitors::debugger d;*/
 				/*(*this)[tag]->accept(&d);*/
-				/*std::cout << (*this)[tag] << std::endl;*/
+				/*std::clog << (*this)[tag] << std::endl;*/
 			}
 			void add_rule(rule::base* rule) {
 				add_rule(rule->tag(), rule);
@@ -834,7 +835,7 @@ namespace grammar {
 						const char* _t;
 					public:
 						tagged_single(const char* tag) : single<C>(), _t(tag) {}
-						const char* tag() const { /*std::cout << "asking for tag in tagged_single => " << _t << std::endl;*/ return _t; }
+						const char* tag() const { /*std::clog << "asking for tag in tagged_single => " << _t << std::endl;*/ return _t; }
 			};
 
 
@@ -892,7 +893,7 @@ namespace grammar {
 			class Rep01 : public single<Rep01> {
 				protected:
 					virtual void contents(Grammar*g, item::base*x) {
-						/*std::cout << "POUET Rep01" << std::endl;*/
+						/*std::clog << "POUET Rep01" << std::endl;*/
 						_ = gc(new item::token::Nt(rule::base::auto_tag<Rep01>()));
 						Alt* alt = gc(new Alt());
 						alt->insert(x);

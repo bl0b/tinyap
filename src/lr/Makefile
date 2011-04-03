@@ -7,9 +7,9 @@ COBJ=$(subst .c,.o,$(CSRC))
 CPPOBJ=$(subst .cc,.o,$(CPPSRC))
 
 
-PROF=-pg
-#DBG=-ggdb
-OPT=-O3
+#PROF=-pg
+DBG=-ggdb
+#OPT=-O3
 
 CFLAGS=$(DBG) $(OPT) -Wall $(PROF)
 CPPFLAGS=$(DBG) $(OPT) -Wno-deprecated -Wall $(PROF)
@@ -34,13 +34,13 @@ $(TARGET): $(COBJ) $(CPPOBJ) main.o
 $(TEST): $(COBJ) $(CPPOBJ) test.o
 	$(LD) $(COBJ) $(CPPOBJ) test.o -o $@
 
-.depend: $(CSRC) $(CPPSRC) main.c test.cc Makefile
-	$(CC) --depend $(CSRC) main.c > $@
-	$(CXX) --depend $(CPPSRC) test.cc >> $@
+.depend: $(CSRC) $(CPPSRC) main.cc test.cc Makefile
+	$(CC) --depend $(CSRC) > $@
+	$(CXX) --depend $(CPPSRC) main.cc test.cc >> $@
 
-main.o $(COBJ):%.o:%.c Makefile
+$(COBJ):%.o:%.c Makefile
 	$(CC) -c $< -o $@
 
-test.o $(CPPOBJ):%.o:%.cc Makefile
+test.o main.o $(CPPOBJ):%.o:%.cc Makefile
 	$(CXX) -c $< -o $@
 

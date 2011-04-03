@@ -37,9 +37,9 @@ extern "C" {
 #include <stdio.h>
 #include <sys/time.h>
 
-typedef int pda_t;
-void pda_free(pda_t x) {}
-pda_t pda_new() { return 0; }
+/*typedef int pda_t;*/
+/*void pda_free(pda_t x) {}*/
+/*pda_t pda_new() { return 0; }*/
 
 struct _tinyap_t {
 	/*token_context_t*toktext;*/

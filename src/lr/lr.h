@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <queue>
 #include <iomanip>
+#include <fstream>
 
 
 
@@ -132,6 +133,12 @@ namespace lr {
 		}
 	};
 
+	template <> struct ptr_eq<grammar::item::base> {
+		bool operator()(const grammar::item::base* a,
+						const grammar::item::base* b) const {
+			return a->is_same(b);
+		}
+	};
 
 	
 	typedef std::set<grammar::item::base*, ptr_less<grammar::item::base> > token_set;
@@ -140,10 +147,38 @@ namespace lr {
 	
 	struct state;
 
-	struct hash_gitb {
-		size_t operator()(const grammar::item::base* x) const {
-			return (size_t)x;
+	class hash_gitb : public grammar::visitors::dummy_filter<size_t> {
+		public:
+			size_t operator()(const grammar::item::base* x) const {
+				return ((hash_gitb*)this)->process((grammar::item::base*)x);
+			}
+
+		virtual size_t eval(grammar::item::token::Str* x) {
+			return ext::hash<const char*>()(x->end())+ext::hash<const char*>()(x->start());
 		}
+		virtual size_t eval(grammar::item::token::Re* x) {
+			return ext::hash<const char*>()(x->pattern());
+		}
+		virtual size_t eval(grammar::item::token::Epsilon* x) {
+			return 0;
+		}
+		virtual size_t eval(grammar::item::token::Eof* x) {
+			return 1;
+		}
+		virtual size_t eval(grammar::item::token::T* x) {
+			return ext::hash<const char*>()(x->str());
+		}
+		virtual size_t eval(grammar::item::token::Nt* x) {
+			return ext::hash<const char*>()(x->tag());
+		}
+		virtual size_t eval(grammar::item::token::Bow* x) {
+			return ext::hash<const char*>()(x->tag())+x->keep();
+		}
+		virtual size_t eval(grammar::item::token::AddToBag* x) {
+			return ext::hash<const char*>()(x->pattern())+ext::hash<const char*>()(x->tag())+x->keep();
+		}
+
+
 	};
 	
 	typedef ext::hash_map<
@@ -195,18 +230,27 @@ namespace lr {
 	static inline std::ostream& operator<<(std::ostream&o, const state* S) {
 		o << "===(" << std::setw(4) << S->id << ")======================================================" << std::endl;
 		o << S->items;
-		o << "-- Token transitions ------------------------------------------" << std::endl;
-		follow_set_text::const_iterator fti, ftj = S->transitions.from_text.end();
-		for(fti = S->transitions.from_text.begin();fti!=ftj;++fti) {
-			if((*fti).second) { o << (*fti); }
+		follow_set_text::const_iterator
+			fti = S->transitions.from_text.begin(),
+			ftj = S->transitions.from_text.end();
+		if(fti!=ftj) {
+			o << "-- Token transitions ------------------------------------------" << std::endl;
+			for(;fti!=ftj;++fti) {
+				if((*fti).second) { o << (*fti); }
+			}
 		}
-		o << "-- Non-terminal transitions -----------------------------------" << std::endl;
-		follow_set_stack::const_iterator fsi, fsj = S->transitions.from_stack.end();
-		fsj = S->transitions.from_stack.end();
-		for(fsi = S->transitions.from_stack.begin();fsi!=fsj;++fsi) {
-			if((*fsi).second) { o << (*fsi); }
+		follow_set_stack::const_iterator
+			fsi = S->transitions.from_stack.begin(),
+			fsj = S->transitions.from_stack.end();
+		if(fsi!=fsj) {
+			o << "-- Non-terminal transitions -----------------------------------" << std::endl;
+			for(;fsi!=fsj;++fsi) {
+				if((*fsi).second) { o << (*fsi); }
+			}
 		}
-		o << "-- Reductions -------------------------------------------------" << std::endl << S->reductions;
+		if(S->reductions.size()) {
+			o << "-- Reductions -------------------------------------------------" << std::endl << S->reductions;
+		}
 		return o;
 	}
 
@@ -250,13 +294,14 @@ push u onto stack
 			state* S0;
 			state_set states;
 			unsigned int furthest;
+			gss* stack;
 
 			struct error {
 				unsigned int line, column;
 			};
 
 			automaton(grammar::Grammar* _)
-				: G(_), S(), states()
+				: G(_), S(), S0(0), states(), furthest(0), stack(0)
 			{
 				items();
 				/*grammar::visitors::nt_remover nr(G);*/
@@ -287,7 +332,7 @@ push u onto stack
 						grammar::Grammar::iterator S = G->find(nt->tag());
 						rule::base* r = (S==G->end()) ? NULL : S->second;
 						if(!r) {
-							/*std::clog << "couldn't find rule " << nt->tag() << " !" << std::endl;*/
+							std::clog << "couldn't find rule " << nt->tag() << " !" << std::endl;
 							continue;
 						}
 						/* and we add an iterator to each variant of the rule */
@@ -438,10 +483,10 @@ push u onto stack
 						/*item x = *ret.first;*/
 						/*std::clog << "COIN transition pas ajoutée " << x << std::endl;*/
 					}
-					/*grammar::visitors::debugger d(std::clog);*/
-					/*std::clog << "  => transitions[";*/
-					/*((item_base*)t)->accept(&d);*/
-					/*std::clog << "] = " << transitions[t] << std::endl;*/
+					grammar::visitors::debugger d(std::clog);
+					std::clog << "  => transitions[";
+					((item_base*)t)->accept(&d);
+					std::clog << "] = " << transitions[t] << std::endl;
 				}
 			}
 
@@ -463,7 +508,7 @@ push u onto stack
 				while(stack.size()>0) {
 					state* S = stack.back();
 					stack.pop_back();
-					/*std::clog << "Now computing transitions of " << std::endl << S->items << std::endl;*/
+					std::clog << "Now computing transitions of " << std::endl << S->items << std::endl;
 					FSB.clear();
 					compute_transitions(S->items, FSB);
 					follow_set_builder::iterator fi, fj=FSB.end();
@@ -483,35 +528,23 @@ push u onto stack
 
 			void dump_states() const {
 				state_set_dumper ssd(states.begin(), states.end());
-				/*std::clog << "automaton has " << ssd.size() << " states." << std::endl;*/
+				std::clog << "automaton has " << ssd.size() << " states." << std::endl;
 				state_set::iterator i, j = ssd.end();
 				for(i=ssd.begin();i!=j;++i) {
-					/*std::clog << "===============================================================" << std::endl;*/
-					/*std::clog << (*i)->items << std::endl;*/
-					/*std::clog << "---------------------------------------------------------------" << std::endl;*/
-					/*follow_set::iterator fi, fj = (*i)->transitions.from_text.end();*/
-					/*for(fi = (*i)->transitions.from_text.begin();fi!=fj;++fi) {*/
-						/*std::clog << (*fi) << std::endl;*/
-					/*}*/
-					/*std::clog << "---------------------------------------------------------------" << std::endl;*/
-					/*fj = (*i)->transitions.from_stack.end();*/
-					/*for(fi = (*i)->transitions.from_stack.begin();fi!=fj;++fi) {*/
-						/*std::clog << (*fi) << std::endl;*/
-					/*}*/
 					std::clog << *i << std::endl;
 				}
 			}
 
-			/*node* shift(node* p, grammar::item::base* producer, state* s, ast_node_t ast, unsigned int offset) {*/
 			ast_node_t parse(const char* buffer, unsigned int size) {
 				grammar::visitors::lr_item_debugger debug;
 				std::list<gss::node*> farthest_nodes;
 				unsigned int farthest=0;
-				gss stack(item((*G)["_start"], grammar::item::iterator::create((*G)["_start"])), size);
+				if(stack) { delete stack; }
+				stack = new gss(item((*G)["_start"], grammar::item::iterator::create((*G)["_start"])), size);
 				/*int a=0;*/
-				stack.shift(NULL, NULL, S0, NULL, 0);
-				while(!stack.active.empty()) {
-					gss::node* n = stack.consume_active();
+				stack->shift(NULL, grammar::item::token::Epsilon::instance(), S0, NULL, 0, NULL);
+				while(!stack->active.empty()) {
+					gss::node* n = stack->consume_active();
 					if(n->id.O>=farthest) {
 						farthest = n->id.O;
 						farthest_nodes.clear();
@@ -522,7 +555,7 @@ push u onto stack
 						throw "COIN";
 					}
 #define _tinyap_min(a, b) (a<b?a:b)
-					/*char* aststr = (char*)ast_serialize_to_string(n->ast); std::clog << " ===  ACTIVE STATE ===(" << S->id << ") @" << n->id.O << ':' << std::string(buffer+n->id.O, _tinyap_min(buffer+n->id.O+20, buffer+size)) << std::endl << "ast : " << aststr << std::endl; free(aststr);*/
+					char* aststr = (char*)ast_serialize_to_string(n->get_state_ast()); std::clog << " ===  ACTIVE STATE ===(" << S->id << ") @" << n->id.O << ':' << std::string(buffer+n->id.O, _tinyap_min(buffer+n->id.O+20, buffer+size)) << std::endl << "ast : " << aststr << std::endl; free(aststr);
 #undef _tinyap_min
 					item_set::iterator i, j;
 
@@ -539,12 +572,12 @@ push u onto stack
 						std::pair<ast_node_t, unsigned int> ret = token->recognize(buffer, ofs, size);
 						std::clog << "follow by "; ((grammar::item::base*)token)->accept(&debug); std::clog << " => " << ret.first << " (" << ret.second << ')' << std::endl;
 						if(ret.first) {
-							stack.shift(n, (grammar::item::base*)(*ti).first, (*ti).second, ret.first, ret.second);
+							stack->shift(n, (grammar::item::base*)(*ti).first, (*ti).second, ret.first, ret.second, NULL);
 						}
 					}
 
 					for(i=S->reductions.begin(), j=S->reductions.end();i!=j;++i) {
-						gss::node*ok = stack.reduce(n, *i, ofs);
+						gss::node*ok = stack->reduce(n, *i, ofs);
 						item x = *i;
 						if(ok) {}
 						std::clog << "reduce by " << x << " => " << (ok?ok->id.S->id:-1) << std::endl;
@@ -582,21 +615,21 @@ push u onto stack
 						state* S = (*i)->id.S;
 						item_set K;
 						kernel(S->items, K);
-						std::cout << K;
+						std::clog << K;
 						if(S->transitions.from_text.size()) {
 							std::clog << "expected one of ";
 							grammar::visitors::debugger d(std::clog);
 							for(ti=S->transitions.from_text.begin(), tj=S->transitions.from_text.end();ti!=tj;++ti) {
-								((grammar::item::base*)(*ti).first)->accept(&d); std::cout << ' ';
+								((grammar::item::base*)(*ti).first)->accept(&d); std::clog << ' ';
 							}
 						} else {
-							std::cout << "expected end of text";
+							std::clog << "expected end of text";
 						}
 					}
-					std::cout << std::endl;
+					std::clog << std::endl;
 				}
 				furthest=farthest;
-				return stack.accepted;
+				return stack->accepted;
 			}
 
 
@@ -625,8 +658,19 @@ push u onto stack
 					ok = !strcmp(tmp, expected);
 				}
 				if(!ok) {
-					std::clog << "[TEST] [automaton] #" << testno << ": With grammar " << gram << " and input \"" << txt << "\", expected --" << (expected?expected:"nil") << "-- and got --" << tmp << "-- @" << ((void*)tmp) << std::endl;
+					std::clog << "[TEST] [automaton] #" << testno << ":" << std::endl;
+					std::clog << "[TEST]    With grammar " << gram << std::endl;
+					std::clog << "[TEST]    and input \"" << txt << '"' << std::endl;
+					std::clog << "[TEST]    expected --" << (expected?expected:"nil") << "--" << std::endl;
+					std::clog << "[TEST]    and got  --" << tmp << "-- @" << ((void*)tmp) << std::endl;
+					std::clog << "[TEST]" << std::endl;
 				}
+				std::stringstream dot;
+				dot << "graph_" << testno << ".dot";
+				std::ofstream df(dot.str().c_str(), std::ios::out);
+				df << "digraph gss_" << testno << '{' << std::endl;
+				df << *r2d2.stack;
+				df << '}' << std::endl;
 				free(tmp);
 				return ok;
 			}

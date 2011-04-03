@@ -37,7 +37,7 @@ volatile ast_node_t node_pool = NULL;
 
 #define _node(_tag,_contents) Cons(Atom(_tag),(_contents))
 
-static tinyap_stack_t node_stack;
+/*static tinyap_stack_t node_stack;*/
 
 
 
@@ -218,7 +218,7 @@ void delete_node(ast_node_t n) {
 		/*assert(n->atom._str);*/
 		/*free(n->atom._str);*/
 		if(!(n->node_flags&ATOM_IS_NOT_STRING)) {
-			/*unregstr(n->atom._str);*/
+			unregstr(n->atom._str);
 		}
 		/*if(n->raw._p2) {*/
 			/* regex cache hack */
