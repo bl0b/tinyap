@@ -84,6 +84,7 @@ namespace grammar {
 			class Comment;
 			class Nt;
 			class Bow;
+			class AddToBag;
 			class Epsilon;
 			class Eof;
 		}
@@ -118,6 +119,7 @@ namespace grammar {
 				virtual void visit(item::token::T*) = 0;
 				virtual void visit(item::token::Nt*) = 0;
 				virtual void visit(item::token::Bow*) = 0;
+				virtual void visit(item::token::AddToBag*) = 0;
 
 				virtual void visit(item::combination::Rep01*) = 0;
 				virtual void visit(item::combination::Rep0N*) = 0;

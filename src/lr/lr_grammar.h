@@ -296,33 +296,46 @@ namespace grammar {
 				: public item_with_class_id<C>
 			{};
 
-			class Re
-			: public impl<Re> {
-				private:
-					const char* pattern_;
-					RE_TYPE cache;
+			template <class B>
+				class Re_base : public impl<B> {
+					private:
+						const char* pattern_;
+						RE_TYPE cache;
+					public:
+						Re_base(const char*reg_expr) : pattern_(reg_expr) {
+						int error_ofs;
+						const char* error;
+							cache = pcre_compile(reg_expr, 0, &error, &error_ofs, NULL);
+							if(error) {
+								std::cerr << "Error : regex compilation of \"" << reg_expr
+									<< "\" failed (" << error << " at #" << error_ofs << ")" << std::endl;
+								throw std::string();
+							}
+						}
+						/*Re(const Re& _) : pattern_(_.pattern_), cache(_.cache) {}*/
+						virtual ~Re_base() { if(cache) { pcre_free(cache); } }
+						const char* pattern() const { return pattern_; }
+						virtual ast_node_t publish(const char* match, unsigned int offset) const = 0;
+						virtual std::pair<ast_node_t, unsigned int> recognize(const char* source, unsigned int offset, unsigned int size) const {
+							int token[3];
+							if(re_exec(cache, source, offset, size, token, 3)) {
+								char*lbl=match2str(source+offset,0,token[1]);
+								/*return std::pair<ast_node_t, unsigned int>(newAtom(lbl, offset), offset+token[1]);*/
+								return std::pair<ast_node_t, unsigned int>(publish(lbl, offset), offset+token[1]);
+							} else {
+								return std::pair<ast_node_t, unsigned int>(NULL, offset);
+							}
+						}
+				};
+
+			class Re : public Re_base<Re> {
 				public:
-					Re(const char*reg_expr) : pattern_(reg_expr) {
-					int error_ofs;
-					const char* error;
-						cache = pcre_compile(reg_expr, 0, &error, &error_ofs, NULL);
-						if(error) {
-							std::cerr << "Error : regex compilation of \"" << reg_expr << "\" failed (" << error << " at #" << error_ofs << ")" << std::endl;
-							throw std::string();
+					Re(const char*p) : Re_base<Re>(p) {}
+					virtual ast_node_t publish(const char* match, unsigned int offset) const {
+						if(match) {
+							return newPair(newAtom(match, offset), NULL);
 						}
-					}
-					Re(const Re& _) : pattern_(_.pattern_), cache(_.cache) {}
-					~Re() { if(cache) { pcre_free(cache); } }
-					const char* pattern() const { return pattern_; }
-					virtual std::pair<ast_node_t, unsigned int> recognize(const char* source, unsigned int offset, unsigned int size) const {
-						int token[3];
-						if(re_exec(cache, source, offset, size, token, 3)) {
-							char*lbl=match2str(source+offset,0,token[1]);
-							/*return std::pair<ast_node_t, unsigned int>(newAtom(lbl, offset), offset+token[1]);*/
-							return std::pair<ast_node_t, unsigned int>(newPair(newAtom(lbl, offset), NULL), offset+token[1]);
-						} else {
-							return std::pair<ast_node_t, unsigned int>(NULL, offset);
-						}
+						return NULL;
 					}
 			};
 
@@ -456,6 +469,28 @@ namespace grammar {
 						}
 						return ret;
 					}
+			};
+
+			class AddToBag : public Re_base<AddToBag> {
+				protected:
+					bool keep_;
+					trie_t bag;
+					const char* tag_;
+				public:
+					AddToBag(const char* p, const char* b, bool k) : Re_base<AddToBag>(p), keep_(k), bag(Bow::find(b)), tag_(b) {}
+					virtual ast_node_t publish(const char* match, unsigned int offset) const {
+						if(match) {
+							trie_insert(bag, match);
+							if(keep_) {
+								return newPair(newAtom(match, offset), NULL);
+							} else {
+								return PRODUCTION_OK_BUT_EMPTY;
+							}
+						}
+						return NULL;
+					}
+					bool keep() const { return keep_; }
+					const char* tag() const { return tag_; }
 			};
 
 			class Nt : public impl<Nt> {

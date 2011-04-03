@@ -284,11 +284,11 @@ int test_automaton() {
 
 	test_case* tc = test_cases;
 	unsigned int done=0, ok=0;
-	std::streambuf* rd = std::cout.rdbuf();
+	std::streambuf* rd = std::clog.rdbuf();
 	std::vector<int> failures;
 	while((*tc)[0]) {
 		std::stringstream capture;
-		std::cout.rdbuf(capture.rdbuf());
+		std::clog.rdbuf(capture.rdbuf());
 		if(lr::automaton::test(done+1, (*tc)[0], (*tc)[1], (*tc)[2])) {
 			++ok;
 		} else {
@@ -302,7 +302,7 @@ int test_automaton() {
 		++done;
 		++tc;
 	}
-	std::cout.rdbuf(rd);
+	std::clog.rdbuf(rd);
 	for(std::vector<int>::iterator i=failures.begin(), j=failures.end();i!=j;++i) {
 		std::cout << "[TEST] [automaton] #" << (*i) << " failed. See ./test.failed." << (*i) << " for output." << std::endl;
 	}

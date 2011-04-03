@@ -25,6 +25,7 @@ namespace grammar {
 					virtual void visit(item::token::T* i) { output = eval(i); }
 					virtual void visit(item::token::Nt* i) { output = eval(i); }
 					virtual void visit(item::token::Bow* i) { output = eval(i); }
+					virtual void visit(item::token::AddToBag* i) { output = eval(i); }
 
 					virtual void visit(item::combination::Rep01* i) { output = eval(i); }
 					virtual void visit(item::combination::Rep0N* i) { output = eval(i); }
@@ -50,6 +51,7 @@ namespace grammar {
 					virtual O eval(item::token::T*) = 0;
 					virtual O eval(item::token::Nt*) = 0;
 					virtual O eval(item::token::Bow*) = 0;
+					virtual O eval(item::token::AddToBag*) = 0;
 
 					virtual O eval(item::combination::Rep01*) = 0;
 					virtual O eval(item::combination::Rep0N*) = 0;
@@ -84,6 +86,7 @@ namespace grammar {
 				virtual R eval(item::token::T*) { return NULL; }
 				virtual R eval(item::token::Nt*) { return NULL; }
 				virtual R eval(item::token::Bow*) { return NULL; }
+				virtual R eval(item::token::AddToBag*) { return NULL; }
 
 				virtual R eval(item::combination::Rep01*) { return NULL; }
 				virtual R eval(item::combination::Rep0N*) { return NULL; }
@@ -116,6 +119,7 @@ namespace grammar {
 				virtual item::base* eval(item::token::T*) { return NULL; }
 				virtual item::base* eval(item::token::Nt*) { return NULL; }
 				virtual item::base* eval(item::token::Bow*) { return NULL; }
+				virtual item::base* eval(item::token::AddToBag*) { return NULL; }
 
 				virtual item::base* eval(item::combination::Rep01*) { return NULL; }
 				virtual item::base* eval(item::combination::Rep0N*) { return NULL; }
@@ -148,6 +152,7 @@ namespace grammar {
 				virtual item::base* eval(item::token::T* x) { return x; }
 				virtual item::base* eval(item::token::Nt* x) { return x; }
 				virtual item::base* eval(item::token::Bow* x) { return x; }
+				virtual item::base* eval(item::token::AddToBag* x) { return x; }
 
 				virtual item::base* eval(item::combination::Rep01* x) { return x; }
 				virtual item::base* eval(item::combination::Rep0N* x) { return x; }
@@ -196,6 +201,9 @@ namespace grammar {
 					return new item::iterators::iterator_single(x);
 				}
 				virtual return_type eval(item::token::Bow* x) {
+					return new item::iterators::iterator_single(x);
+				}
+				virtual return_type eval(item::token::AddToBag* x) {
 					return new item::iterators::iterator_single(x);
 				}
 
@@ -257,6 +265,7 @@ namespace grammar {
 				virtual item::base* eval(item::token::Eof*x) { return x; }
 				virtual item::base* eval(item::token::T*x) { return x; }
 				virtual item::base* eval(item::token::Bow*x) { return x; }
+				virtual item::base* eval(item::token::AddToBag*x) { return x; }
 
 				virtual item::base* eval(item::combination::RawSeq*x) { return x; }
 				virtual item::base* eval(item::combination::Seq*x) { return x->contents(); }
@@ -289,6 +298,7 @@ namespace grammar {
 				virtual void visit(item::token::T* x) {}
 				virtual void visit(item::token::Nt* x) {}
 				virtual void visit(item::token::Bow* x) {}
+				virtual void visit(item::token::AddToBag* x) {}
 
 				virtual void visit(item::combination::Rep01* x) {}
 				virtual void visit(item::combination::Rep0N* x) {}
@@ -390,7 +400,11 @@ namespace grammar {
 					os << x->tag();
 				}
 				virtual void visit(item::token::Bow* x) {
-					os << "Bow:" << x->tag();
+					os << '~' << x->tag() << '~';
+				}
+
+				virtual void visit(item::token::AddToBag* x) {
+					os << '/' << x->pattern() << "/:" << x->tag() << (x->keep()?"!":"");
 				}
 
 				virtual void visit(item::combination::Rep01* x) {
@@ -606,6 +620,11 @@ namespace grammar {
 
 				virtual item::base* eval(item::token::Bow* x) {
 					/*std::cout << "eval(Bow)" << std::endl;*/
+					return x;
+				}
+
+				virtual item::base* eval(item::token::AddToBag* x) {
+					/*std::cout << "eval(AddToBag)" << std::endl;*/
 					return x;
 				}
 

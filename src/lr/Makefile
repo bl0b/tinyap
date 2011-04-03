@@ -8,9 +8,11 @@ CPPOBJ=$(subst .cc,.o,$(CPPSRC))
 
 
 PROF=-pg
+#DBG=-ggdb
+OPT=-O3
 
-CFLAGS=-ggdb -Wall $(PROF)
-CPPFLAGS=-ggdb -Wno-deprecated -Wall $(PROF)
+CFLAGS=$(DBG) $(OPT) -Wall $(PROF)
+CPPFLAGS=$(DBG) $(OPT) -Wno-deprecated -Wall $(PROF)
 
 TARGET=tinyap
 TEST=test

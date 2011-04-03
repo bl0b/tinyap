@@ -307,6 +307,3 @@ Grammar::~Grammar() {
 }/* namespace grammar */
 
 
-namespace io {
-}
-
