@@ -112,6 +112,14 @@ static struct tinyap_static_init {
 } _static_init;
 
 
+void tinyap_dump_stack(tinyap_t t, const char*fnam) {
+	if(t->A && t->A->stack) {
+		std::ofstream of(fnam);
+		of << "digraph tinyap_gss {" << std::endl;
+		of << *t->A->stack;
+		of << '}' << std::endl;
+	}
+}
 
 void tinyap_delete(tinyap_t t) {
 //	printf("before tinyap_delete : %li nodes (%i alloc'd so far)\n",node_pool_size(),_node_alloc_count);

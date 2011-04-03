@@ -98,6 +98,8 @@ extern "C" {
 	unsigned int	tinyap_get_source_buffer_length(tinyap_t);
 	/*! \brief access to duration of last parsing, in seconds */
 	float		tinyap_get_parse_time(tinyap_t);
+	/*! \brief dump the last parse stack as a .dot file */
+	void		tinyap_dump_stack(tinyap_t, const char*);
 	/*! \brief set named file as text input
 	 * CAUTION : if source filename is "-" or "stdin", standard input will be read until closed, and the function will block meanwhile.
 	 */

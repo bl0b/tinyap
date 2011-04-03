@@ -79,6 +79,9 @@ int do_args(int argc,char*argv[]) {
 		} else if(cmp_param(1,"--input","-i")) {
 			i+=1;
 			tinyap_set_source_file(parser,argv[i]);
+		} else if(cmp_param(1,"--dump-stack","-ds")) {
+			i+=1;
+			tinyap_dump_stack(parser, argv[i]);
 		} else if(cmp_param(1,"--output","-o")) {
 			i+=1;
 			if(tinyap_parsed_ok(parser)&&tinyap_get_output(parser)) {
@@ -155,6 +158,7 @@ int do_args(int argc,char*argv[]) {
 			fprintf(stderr, "\n\t--parse-as-grammar,-pag\tparse input text and use output AST as new grammar\n");
 			fprintf(stderr, "\n\t--full-parse,-fp\t\tfind all possible parse trees\n");
 			fprintf(stderr, "\n\t--simple-parse,-p\t\tfind first parse tree\n");
+			fprintf(stderr, "\n\t--dump-stack,-ds [dotFile]\tdump the LR stack as a .dot file\n");
 			fprintf(stderr, "\n\t--walk,-w name\t\twalk the current output tree using named ape\n\t\t\t\t(try prettyprint !)\n");
 			fprintf(stderr, "\n\t--help,-h\t\tdisplay this text\n\n");
 			exit(0);
