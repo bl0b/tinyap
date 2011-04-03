@@ -4,6 +4,22 @@ extern "C" {
 	const char* ast_serialize_to_string(ast_node_t);
 }
 
+
+extern "C" {
+	counter tinyap_allocs = 0;
+	counter tinyap_reallocs = 0;
+	counter tinyap_frees = 0;
+	counter tinyap_ram_size = 0;
+	counter gss_allocs = 0;
+	counter gss_reallocs = 0;
+	counter gss_frees = 0;
+	counter gss_ram_size = 0;
+	counter states_count = 0;
+	counter gss_shifts = 0;
+	counter gss_reduces = 0;
+}
+
+
 namespace grammar {
 namespace item {
 
@@ -13,24 +29,6 @@ namespace item {
 			delete *i;
 		}
 	}
-
-namespace token {
-	bool Nt::is_same(const base* i) const {
-		if(!i) {
-			return !this;
-		}
-		if(class_id()==i->class_id()) {
-			return equal_to<Nt>()(
-						dynamic_cast<const Nt*>(this),
-						dynamic_cast<const Nt*>(i));
-		}
-		const grammar::rule::base* R = dynamic_cast<const grammar::rule::base*>(i);
-		if(R) {
-			return tag()==R->tag();
-		}
-		return false;
-	}
-} /* namespace token */
 
 	ext::hash_map<const ast_node_t, base*, lr::hash_an, lr::ptr_eq<_ast_node_t> > registry;
 
@@ -68,7 +66,8 @@ namespace token {
 		} else if(tag==STR_Comment) {
 			ret = cached = new token::Comment(Value(Car(Cdr(n))));
 		} else if(tag==STR_NT) {
-			ret = cached = new token::Nt(Value(Car(Cdr(n))));
+			ret = token::Nt::instance(Value(Car(Cdr(n))));
+			cached = NULL;
 		} else if(tag==STR_Alt) {
 			combination::Alt* edit = new combination::Alt();
 			ast_node_t m=Cdr(n);
@@ -136,7 +135,7 @@ namespace token {
 			ret = cached = NULL;
 		} else if(tag==STR_STR) {
 			ast_node_t x = Cdr(n);
-			ret = cached = new token::Str(Value(Car(x)), Value(Car(Cdr(x))));
+			ret = cached = new token::Str(x&&Car(x)?Value(Car(x)):"", x&&Cdr(x)?Value(Car(Cdr(x))):"");
 		} else if(tag==STR_BOW) {
 			ast_node_t x = Cdr(n);
 			cached = new token::Bow(Value(Car(x)), !!Cdr(x));
@@ -234,7 +233,7 @@ namespace combination {
 
 	void Rep0N::contents(Grammar*g, item::base*x) {
 		/*std::cout << "POUET Rep0N" << std::endl;*/
-		_ = gc(new item::token::Nt(rule::base::auto_tag<Rep0N>()));
+		_ = item::token::Nt::instance(rule::base::auto_tag<Rep0N>());
 		raw_cts = x;
 		item::base* X = visitors::item_rewriter(g).process(raw_cts);
 		Alt* alt = gc(new Alt());
@@ -250,7 +249,7 @@ namespace combination {
 
 	void Rep1N::contents(Grammar*g, item::base*x) {
 		/*std::cout << "POUET Rep1N" << std::endl;*/
-		_ = item::gc(new item::token::Nt(rule::base::auto_tag<Rep1N>()));
+		_ = item::token::Nt::instance(rule::base::auto_tag<Rep1N>());
 		Alt* alt = item::gc(new Alt());
 		Seq* seq = item::gc(new Seq());
 		raw_cts = x;

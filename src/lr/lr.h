@@ -18,6 +18,7 @@ extern "C" {
 ast_node_t  ast_unserialize(const char*input);
 const char* ast_serialize_to_string(const ast_node_t ast);
 void ast_serialize_to_file(const ast_node_t ast,FILE*f);
+extern int tinyap_verbose;
 }
 
 
@@ -71,7 +72,7 @@ namespace lr {
 			}
 	};
 
-	static inline std::ostream& operator<<(std::ostream&o, item&i) {
+	static inline std::ostream& operator<<(std::ostream&o, const item&i) {
 		grammar::visitors::lr_item_debugger d(o);
 		item tmp = i;
 		while(!tmp.at_start()) { --tmp; }
@@ -543,14 +544,13 @@ push u onto stack
 				}
 			}
 
-			ast_node_t parse(const char* buffer, unsigned int size) {
+			ast_node_t parse(const char* buffer, unsigned int size, bool full_parse=true) {
 				grammar::visitors::lr_item_debugger debug;
 				std::list<gss::node*> farthest_nodes;
 				unsigned int farthest=0;
 				if(stack) { delete stack; }
 				stack = new gss(item((*G)["_start"], grammar::item::iterator::create((*G)["_start"])), size);
-				/*int a=0;*/
-				stack->shift(NULL, grammar::item::token::Epsilon::instance(), S0, NULL, 0, NULL);
+				stack->shift(NULL, NULL, S0, NULL, 0, NULL, NULL);
 				while(!stack->active.empty()) {
 					gss::node* n = stack->consume_active();
 					if(n->id.O>=farthest) {
@@ -562,14 +562,37 @@ push u onto stack
 					if(!S) {
 						throw "COIN";
 					}
+#if 0
 #define _tinyap_min(a, b) (a<b?a:b)
-					char* aststr = (char*)ast_serialize_to_string(n->get_state_ast()); std::clog << " ===  ACTIVE STATE ===(" << S->id << ") @" << n->id.O << ':' << std::string(buffer+n->id.O, _tinyap_min(buffer+n->id.O+20, buffer+size)) << std::endl << S->items << "ast : " << aststr << std::endl; free(aststr);
+					item_set ker;
+					kernel(S->items, ker);
+					char* aststr = (char*)ast_serialize_to_string(n->get_state_ast());
+					std::clog	<< " ===  ACTIVE STATE ===(" << S->id << ") @" << n->id.O << ':'
+								<< std::string(buffer+n->id.O, _tinyap_min(buffer+n->id.O+20, buffer+size)) << std::endl
+								<< ker << "ast : " << aststr << std::endl; free(aststr);
 #undef _tinyap_min
+#endif
 					item_set::iterator i, j;
 
 					follow_set_text::iterator ti, tj;
 					unsigned int ofs = n->id.O;
 					ofs = G->skip(buffer, n->id.O, size);
+
+					/*bool didnt_shift = true;*/
+
+					/*
+					 * PHASE 1 : REDUCE
+					 */
+
+					stack->init_reductions();
+					for(i=S->reductions.begin(), j=S->reductions.end();i!=j;++i) {
+						stack->reduce_all(n, *i, ofs);
+					}
+					stack->flush_reductions();
+
+					/*
+					 * PHASE 2 : SHIFT
+					 */
 
 					for(ti=S->transitions.from_text.begin(), tj=S->transitions.from_text.end();ti!=tj;++ti) {
 						if(!(*ti).second) {
@@ -578,19 +601,39 @@ push u onto stack
 						}
 						const grammar::item::base* token = (*ti).first;
 						std::pair<ast_node_t, unsigned int> ret = token->recognize(buffer, ofs, size);
-						std::clog << "follow by "; ((grammar::item::base*)token)->accept(&debug); std::clog << " => " << (ret.first?ret.second:-1) << std::endl;
+						/*std::clog << "follow by "; ((grammar::item::base*)token)->accept(&debug); std::clog << " => " << ((int)(ret.first?ret.second:-1)) << std::endl;*/
 						if(ret.first) {
-							stack->shift(n, (grammar::item::base*)(*ti).first, (*ti).second, ret.first, ret.second, NULL);
+							/*didnt_shift=false;*/
+							stack->shift(n, (grammar::item::base*)(*ti).first, (*ti).second, ret.first, ret.second, NULL, NULL);
 						}
 					}
 
-					for(i=S->reductions.begin(), j=S->reductions.end();i!=j;++i) {
-						gss::node*ok = stack->reduce(n, *i, ofs);
-						item x = *i;
-						if(ok) {
-							std::clog << "reduce by " << x << " => " << (ok?ok->id.S->id:-1) << std::endl;
+					/*
+					 * PHASE 3 : MERGE
+					 */
+
+					stack->merge_active();
+
+					/*
+					 * verbose output
+					 */
+#define TAB "    "
+					if(tinyap_verbose) {
+						if((++states_count)%100==0) {
+							std::cout << "s:" << states_count << TAB << '@' << farthest << '/' << size
+								<< TAB << "gss:" << gss_allocs << '+' << gss_reallocs << '/' << gss_frees << '|' << gss_ram_size
+								<< TAB << gss_shifts << '\\' << gss_reduces
+								<< TAB << "buffers:" << tinyap_allocs << '+' << tinyap_reallocs << '/' << tinyap_frees << '|' << tinyap_ram_size
+								<< '\r' << std::flush;
 						}
 					}
+				}
+				if(tinyap_verbose) {
+					std::cout << "s:" << states_count << TAB << '@' << farthest << '/' << size
+						<< TAB << "gss:" << gss_allocs << '+' << gss_reallocs << '/' << gss_frees << '|' << gss_ram_size
+						<< TAB << gss_shifts << '\\' << gss_reduces
+						<< TAB << "buffers:" << tinyap_allocs << '+' << tinyap_reallocs << '/' << tinyap_frees << '|' << tinyap_ram_size
+						<< std::endl;
 				}
 				farthest = G->skip(buffer, farthest, size);
 				/* error handling */
@@ -615,7 +658,7 @@ push u onto stack
 					while((tmp=find_nl(buffer, nl_before))<=farthest) { nl_before = tmp; ++line; }
 					nl_after = tmp;
 					column = farthest - nl_before + 1;
-					std::clog << "parsing stopped at line " << line << ", column " << column << std::endl;
+					std::clog << std::endl << "parsing stopped at line " << line << ", column " << column << std::endl;
 					std::clog << std::string(buffer+nl_before, buffer+nl_after) << std::endl;
 					std::clog << std::setw(farthest-nl_before) << "" << '^' << std::endl;
 					std::list<gss::node*>::iterator i, j;

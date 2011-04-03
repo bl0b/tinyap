@@ -45,7 +45,21 @@ namespace lr {
 			return (size_t)x;
 		}
 	};
+}
 
+extern "C" {
+	typedef unsigned long counter;
+	extern counter tinyap_allocs;
+	extern counter tinyap_reallocs;
+	extern counter tinyap_frees;
+	extern counter tinyap_ram_size;
+	extern counter gss_allocs;
+	extern counter gss_reallocs;
+	extern counter gss_frees;
+	extern counter gss_ram_size;
+	extern counter gss_shifts;
+	extern counter gss_reduces;
+	extern counter states_count;
 }
 
 namespace grammar {

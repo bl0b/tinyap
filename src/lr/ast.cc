@@ -156,8 +156,9 @@ struct hash_pair {
 typedef ext::hash_map<atom_key, ast_node_t, hash_atom, comp_atom> atom_registry_t;
 typedef ext::hash_map<pair_key, ast_node_t, hash_pair, comp_pair> pair_registry_t;
 
+static atom_registry_t atom_registry;
+
 ast_node_t newAtom(const char*data,size_t offset) {
-	static atom_registry_t atom_registry;
 	char* reg = regstr(data);
 	ast_node_t ret = atom_registry[atom_key(reg, offset)];
 	if(!ret) {
@@ -181,8 +182,9 @@ ast_node_t newAtom(const char*data,size_t offset) {
 }
 
 
+static pair_registry_t pair_registry;
+
 ast_node_t newPair(const ast_node_t a,const ast_node_t d) {
-	static pair_registry_t pair_registry;
 	ast_node_t ret = pair_registry[pair_key(a, d)];
 	if(!ret) {
 		ret = node_alloca();
@@ -220,6 +222,7 @@ void delete_node(ast_node_t n) {
 		if(!(n->node_flags&ATOM_IS_NOT_STRING)) {
 			unregstr(n->atom._str);
 		}
+		atom_registry.erase(atom_key(n->atom._str, n->pos.offset));
 		/*if(n->raw._p2) {*/
 			/* regex cache hack */
 //			printf("prout %i\n",prout+=1);
@@ -234,6 +237,7 @@ void delete_node(ast_node_t n) {
 	case ast_Pair:
 		delete_node(n->pair._car);
 		delete_node(n->pair._cdr);
+		pair_registry.erase(pair_key(n->pair._car, n->pair._cdr));
 		break;
 	case ast_Nil:;	/* so that -Wall won't complain */
 	case ast_Pool:;

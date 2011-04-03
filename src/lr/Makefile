@@ -28,10 +28,10 @@ all: $(TARGET) $(TEST)
 clean:
 	rm -f *.o $(TARGET) .depend
 
-$(TARGET): $(COBJ) $(CPPOBJ) main.o
+$(TARGET): lr.h.gch $(COBJ) $(CPPOBJ) main.o
 	$(LD) $(COBJ) $(CPPOBJ) main.o -o $@
 
-$(TEST): $(COBJ) $(CPPOBJ) test.o
+$(TEST): lr.h.gch $(COBJ) $(CPPOBJ) test.o
 	$(LD) $(COBJ) $(CPPOBJ) test.o -o $@
 
 .depend: $(CSRC) $(CPPSRC) main.cc test.cc Makefile
@@ -40,6 +40,9 @@ $(TEST): $(COBJ) $(CPPOBJ) test.o
 
 $(COBJ):%.o:%.c Makefile
 	$(CC) -c $< -o $@
+
+lr.h.gch: lr.h Makefile
+	$(CXX) lr.h
 
 test.o main.o $(CPPOBJ):%.o:%.cc Makefile
 	$(CXX) -c $< -o $@

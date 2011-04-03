@@ -516,18 +516,6 @@ namespace grammar {
 					const char* tag() const { return tag_; }
 			};
 
-			class Nt : public impl<Nt> {
-				private:
-					const char* tag_;
-				public:
-					Nt(const char*_) : tag_(_) {}
-					Nt(const Nt& _) : tag_(_.tag_) {}
-					const char* tag() const { return tag_; }
-					virtual std::pair<ast_node_t, unsigned int> recognize(const char* source, unsigned int offset, unsigned int size) const {
-						return std::pair<ast_node_t, unsigned int>(NULL, offset);
-					}
-					virtual bool is_same(const base* i) const;
-			};
 		}
 	}
 
@@ -731,6 +719,51 @@ namespace grammar {
 		}
 	}
 
+	namespace item {
+		namespace token {
+			class Nt : public impl<Nt> {
+				private:
+					const char* tag_;
+				public:
+					Nt(const char*_) : tag_(_) {}
+					Nt(const Nt& _) : tag_(_.tag_) {}
+					const char* tag() const { return tag_; }
+					virtual std::pair<ast_node_t, unsigned int> recognize(const char* source, unsigned int offset, unsigned int size) const {
+						return std::pair<ast_node_t, unsigned int>(NULL, offset);
+					}
+#if 0
+					virtual bool is_same(const base* i) const {
+						if(!i) {
+							return !this;
+						}
+						if(class_id()==i->class_id()) {
+							return equal_to<Nt>()(
+										dynamic_cast<const Nt*>(this),
+										dynamic_cast<const Nt*>(i));
+						}
+						const grammar::rule::base* R =
+							dynamic_cast<const grammar::rule::base*>(i);
+						if(R) {
+							return tag()==R->tag();
+						}
+						return false;
+					}
+#endif
+					static Nt* instance(const char*tag) {
+						static ext::hash_map<const char*, Nt*> registry;
+						Nt* ret = registry[tag];
+						/*std::clog << "(NT) requesting Nt(\"" << tag << "\")" << std::endl;*/
+						if(!ret) {
+							ret = registry[tag] = grammar::item::gc(new Nt(regstr(tag)));
+							/*std::clog << "(NT)   created Nt(\"" << tag << "\") @" << ret << std::endl;*/
+						}
+						/*std::clog << "(NT)   returning @" << ret << std::endl;*/
+						return ret;
+					}
+			};
+		}
+	}
+
 
 	class Grammar : public map_type, public item::item_with_class_id<Grammar> {
 		public:
@@ -839,7 +872,7 @@ namespace grammar {
 					item::base* raw_cts;
 					friend class visitors::debugger;
 					virtual void contents(Grammar*g, item::base*x) = 0;
-						/*_ = item::gc(new item::token::Nt(rule::base::auto_tag<CLS>()));*/
+						/*_ = item::token::Nt::instance(rule::base::auto_tag<CLS>());*/
 						/*cts = x;*/
 					/*}*/
 				public:
@@ -884,7 +917,7 @@ namespace grammar {
 					item::token::Nt* _;
 				public:
 					using seq_base<Seq>::contents;
-					Seq() : _(item::gc(new item::token::Nt(rule::base::auto_tag<Seq>()))) {}
+					Seq() : _(item::token::Nt::instance(rule::base::auto_tag<Seq>())) {}
 					Seq* add(item::base* x) { push_back(x); return this; }
 					token::Nt* commit(Grammar*g) const {
 						g->add_rule(gc(new rule::Transient(_->tag(), (item::base*)this, g)));
@@ -899,7 +932,7 @@ namespace grammar {
 			class Alt : public single<Alt>, public std::set<item::base*> {
 				protected:
 					virtual void contents(Grammar*g, item::base*x) {
-						_ = item::gc(new item::token::Nt(rule::base::auto_tag<Alt>()));
+						_ = item::token::Nt::instance(rule::base::auto_tag<Alt>());
 						cts = this;
 					}
 				public:
@@ -919,7 +952,7 @@ namespace grammar {
 				protected:
 					virtual void contents(Grammar*g, item::base*x) {
 						/*std::clog << "POUET Rep01" << std::endl;*/
-						_ = gc(new item::token::Nt(rule::base::auto_tag<Rep01>()));
+						_ = item::token::Nt::instance(rule::base::auto_tag<Rep01>());
 						Alt* alt = gc(new Alt());
 						alt->insert(x);
 						alt->insert(token::Epsilon::instance());
@@ -960,8 +993,8 @@ namespace grammar {
 					using single<Prefix>::contents;
 					using single<Prefix>::commit;
 					Prefix(Grammar*g, item::base* prefix, const char* nt) : tagged_single<Prefix>(nt) {
-						_ = gc(new item::token::Nt(rule::base::auto_tag<Prefix>()));
-						cts = gc(new Seq())->add(prefix)->add(gc(new item::token::Nt(nt)));
+						_ = item::token::Nt::instance(rule::base::auto_tag<Prefix>());
+						cts = gc(new Seq())->add(prefix)->add(item::token::Nt::instance(nt));
 					}
 			};
 
@@ -973,8 +1006,8 @@ namespace grammar {
 					using single<Postfix>::contents;
 					using single<Postfix>::commit;
 					Postfix(Grammar*g, item::base* postfix, const char* nt) : tagged_single<Postfix>(nt) {
-						_ = item::gc(new item::token::Nt(rule::base::auto_tag<Postfix>()));
-						cts = gc(new Seq())->add(postfix)->add(gc(new token::Nt(nt)));
+						_ = item::token::Nt::instance(rule::base::auto_tag<Postfix>());
+						cts = gc(new Seq())->add(postfix)->add(token::Nt::instance(nt));
 					}
 			};
 		}

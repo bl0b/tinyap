@@ -397,7 +397,7 @@ namespace grammar {
 					os << '"' << x->str() << '"';
 				}
 				virtual void visit(item::token::Nt* x) {
-					os << x->tag();
+					os << "nt:" << x->tag();
 				}
 				virtual void visit(item::token::Bow* x) {
 					os << '~' << x->tag() << '~';

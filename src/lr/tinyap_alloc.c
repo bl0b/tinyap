@@ -28,13 +28,19 @@ struct _memorybloc {
 	unsigned long reserve_size;
 };
 
+extern unsigned int tinyap_allocs;
+extern unsigned int tinyap_reallocs;
+extern unsigned int tinyap_frees;
+extern unsigned int tinyap_ram_size;
 
 #define BLOC_DATA(_mb) ((void*) ( ((char*)(_mb)) + sizeof(struct _memorybloc) ))
 #define BLOC_ALLOC_SIZE(_n) (sizeof(struct _memorybloc)+_n)
 #define BLOC_RESERVE_INCR(_mb, _sz) (_mb->reserve = ( ((char*)_mb->reserve) + item_size ))
 
 static inline struct _memorybloc* _alloc_bloc(unsigned long item_size, unsigned long max_allocs) {
-	struct _memorybloc* mb = (struct _memorybloc*) malloc(BLOC_ALLOC_SIZE(item_size*max_allocs));
+	size_t mbsz = BLOC_ALLOC_SIZE(item_size*max_allocs);
+	struct _memorybloc* mb = (struct _memorybloc*) malloc(mbsz);
+	tinyap_ram_size += mbsz;
 	mb->reserve = BLOC_DATA(mb);
 	mb->reserve_size = max_allocs;
 	return mb;
@@ -84,21 +90,24 @@ void* _alloc(struct __allocator*A) {
 		/*printf(" : had free item\n");*/
 	/*fflush(stdout);*/
 		A->free.head = A->free.head->next;
+		tinyap_reallocs += 1;
 		return x;
 	} else if(current_bloc&&current_bloc->reserve_size) {
 		/*printf(" : from reserve\n");*/
 	/*fflush(stdout);*/
+		tinyap_allocs += 1;
 		return bloc_alloc(current_bloc, A->size);
 	} else {
 		/*printf(" : new bloc\n");*/
 	/*fflush(stdout);*/
-		x = (struct _alloc_unit*)_alloc_bloc(A->size, (1<<16)-1);
+		x = (struct _alloc_unit*)_alloc_bloc(A->size, (1<<10)-1);
 		x->next = A->blocs.head;
 		/*x->prev=NULL;*/
 		A->blocs.head = x;
 		/*if(!A->blocs.tail) {*/
 			/*A->blocs.tail=x;*/
 		/*}*/
+		tinyap_allocs += 1;
 		return bloc_alloc((struct _memorybloc*)x, A->size);
 	}
 }
@@ -106,6 +115,7 @@ void* _alloc(struct __allocator*A) {
 void _free(struct __allocator*A, void* ptr) {
 	struct _alloc_unit*n = (struct _alloc_unit*)ptr;
 	/*n->prev=NULL;*/
+	tinyap_frees += 1;
 	n->next=A->free.head;
 	A->free.head = n;
 }

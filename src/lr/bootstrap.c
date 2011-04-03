@@ -33,6 +33,14 @@ ast_node_t  ast_unserialize(const char*input);
  * BOOTSTRAP
  */
 
+const char* short_rules_2 =
+"((Grammar (Comment \\ TinyaP\\ :\\ this\\ is\\ not\\ yet\\ another\\ ) (Comment \\ Copyright\\ \\(C\\)\\ 2007-2011\\ Damien\\ Leroux) (Comment ) (Comment \\ This\\ program\\ is\\ free\\ software;\\ you\\ can\\ redistribute\\ it\\ and/or) (Comment \\ modify\\ it\\ under\\ the\\ terms\\ of\\ the\\ GNU\\ General\\ Public\\ License) (Comment \\ as\\ published\\ by\\ the\\ Free\\ Software\\ Foundation;\\ either\\ version\\ 2) (Comment \\ of\\ the\\ License,\\ or\\ \\(at\\ your\\ option\\)\\ any\\ later\\ version.) (Comment ) (Comment \\ This\\ program\\ is\\ distributed\\ in\\ the\\ hope\\ that\\ it\\ will\\ be\\ useful,)"
+" (Comment \\ but\\ WITHOUT\\ ANY\\ WARRANTY;\\ without\\ even\\ the\\ implied\\ warranty\\ of) (Comment \\ MERCHANTABILITY\\ or\\ FITNESS\\ FOR\\ A\\ PARTICULAR\\ PURPOSE.\\ \\ See\\ the) (Comment \\ GNU\\ General\\ Public\\ License\\ for\\ more\\ details.) (Comment ) (Comment \\ You\\ should\\ have\\ received\\ a\\ copy\\ of\\ the\\ GNU\\ General\\ Public\\ License) (Comment \\ along\\ with\\ this\\ program;\\ if\\ not,\\ write\\ to\\ the\\ Free\\ Software) (Comment \\ Foundation,\\ Inc.,\\ 59\\ Temple\\ Place\\ -\\ Suite\\ 330,\\ Boston,\\ MA\\ \\ 02111-1307,\\ USA.) (Comment ) "
+" (Comment ) (Comment \\ Production\\ Atoms) (Comment ) (TransientRule symbol (RE [_a-zA-Z][0-9a-zA-Z_]*)) (OperatorRule T (STR \" \")) (OperatorRule NT (NT symbol)) (OperatorRule RE (STR / /)) (OperatorRule STR (RawSeq (T ~) (RE [^~,]?) (T ,) (RE [^~,]?) (T ~))) (OperatorRule BOW (RawSeq (T ~) (RE [_a-zA-Z][_a-zA-Z0-9]*) (RE !?) (T ~))) (OperatorRule AddToBag (Seq (NT RE) (T :) (NT symbol) (RE !?))) (Comment ) (Comment \\ Compositions) (Comment ) (OperatorRule RawSeq (Seq (T .raw) (Rep1N (Seq (Space) (Alt (NT T) (NT STR) (NT RE) (NT BOW) (NT AddToBag)))))) (TransientRule alt_elem (Alt (NT RawSeq) (NT Seq) (NT single))) (OperatorRule Seq (Seq (NT single) (Rep1N (Seq (Space) (NT single))))) (OperatorRule Alt (Seq (NT alt_elem) (Rep1N (Seq (Space) (T |) (Space) (NT alt_elem)))))"
+" (OperatorRule Rep01 (Seq (NT single_norep) (T ?))) (OperatorRule Rep1N (Seq (NT single_norep) (T +))) (OperatorRule Rep0N (Seq (NT single_norep) (T *))) (TransientRule single (Alt (NT Rep01) (NT Rep0N) (NT Rep1N) (NT single_norep) (NT Space) (NT NewLine) (NT Indent) (NT Dedent))) (TransientRule single_norep (Alt (NT NT) (NT STR) (NT BOW) (NT AddToBag) (NT T) (NT RE) (NT Epsilon) (NT EOF) (NT sub_rmb))) (Comment ) (Comment \\ Top-level) (Comment ) (OperatorRule TransientRule (Seq (NT symbol) (Space) (T =) (Space) (NT rmember) (T .) (NewLine)))"
+" (OperatorRule OperatorRule (Seq (NT symbol) (Space) (T ::=) (Space) (NT rmember) (T .) (NewLine))) (TransientRule rmember (Alt (NT Alt) (NT alt_elem))) (TransientRule sub_rmb (Seq (T \\() (Alt (NT Seq) (NT Alt) (NT RawSeq)) (T \\)))) (OperatorRule Comment (Alt (Seq (RawSeq (T #) (RE .+|$)) (NewLine)) (Seq (T #) (NewLine)))) (OperatorRule Grammar (Rep1N (NT gram_toplevel))) (TransientRule gram_toplevel (Alt (NT TransientRule) (NT OperatorRule) (NT Comment))) (Comment ) (Comment \\ Miscellaneous) (Comment ) (TransientRule _start (NT Grammar)) (TransientRule _whitespace (RE [\\ \\r\\n\\t]+)) (OperatorRule EOF (T _EOF)) (OperatorRule Epsilon (T _epsilon)) (OperatorRule Space (T .space)) (OperatorRule NewLine (T .newline)) (OperatorRule Indent (T .indent)) (OperatorRule Dedent (T .dedent))))";
+
+
 const char*short_rules = "((Grammar\n"
 "(Comment \\ TinyaP\\ :\\ this\\ is\\ not\\ yet\\ another\\ (Java)\\ parser.)"
 "(Comment \\ Copyright\\ \\(C\\)\\ 2007-2011\\ Damien\\ Leroux)"
@@ -75,16 +83,18 @@ const char*short_rules = "((Grammar\n"
 "(OperatorRule	Rep01			(Seq (NT single_norep) (T ?)))\n"
 "(OperatorRule	Rep1N			(Seq (NT single_norep) (T +)))\n"
 "(OperatorRule	Rep0N			(Seq (NT single_norep) (T *)))\n"
-"(TransientRule	single			(Alt (NT Rep01) (NT Rep0N) (NT Rep1N) (NT single_norep) (NT Space) (NT NewLine) (NT Indent) (NT Dedent)))\n"
-"(TransientRule	single_norep	(Alt (NT NT) (NT STR) (NT BOW) (NT AddToBag) (NT T) (NT RE) (NT Epsilon) (NT EOF) (NT sub_rmb)))\n"
+"(TransientRule	single			(Alt (NT Rep01) (NT Rep0N) (NT Rep1N) (NT single_norep) (NT EOF) (NT Space) (NT NewLine) (NT Indent) (NT Dedent)))\n"
+"(TransientRule	single_norep	(Alt (NT Prefix) (NT Postfix) (NT NT) (NT STR) (NT BOW) (NT AddToBag) (NT T) (NT RE) (NT sub_rmb)))\n"
+"(OperatorRule	Prefix			(Seq (T [) (NT rmember) (T ]) (NT NT)))"
+"(OperatorRule	Postfix			(Seq (T {) (NT rmember) (T }) (NT NT)))"
 "(Comment )"
 "(Comment \\ Top-level)\n"
 "(Comment )"
 "(OperatorRule	TransientRule	(Seq (NT symbol) (Space) (T =) (Space) (NT rmember) (T .) (NewLine)))\n"
 "(OperatorRule	OperatorRule	(Seq (NT symbol) (Space) (T ::=) (Space) (NT rmember) (T .) (NewLine)))\n"
-"(TransientRule	rmember			(Alt (NT Alt) (NT alt_elem)))\n"
-"(TransientRule	sub_rmb			(Seq (T \\() (Alt (NT Seq) (NT Alt) (NT RawSeq)) (T \\))))\n"
-"(OperatorRule	Comment			(Alt (Seq (RawSeq (T #) (RE .+|$)) (NewLine)) (Seq (T #) (NewLine))))\n"
+"(TransientRule	rmember			(Alt (NT Epsilon) (NT Alt) (NT alt_elem)))\n"
+"(TransientRule	sub_rmb			(Seq (T \\() (Alt (NT Epsilon) (NT Seq) (NT Alt) (NT RawSeq)) (T \\))))\n"
+"(OperatorRule	Comment			(STR # \\n))\n"
 /*"(OperatorRule Comment (Seq (RawSeq (T #) (RE [^\\\\r\\\\n]*)) (Space)))"*/
 "(OperatorRule	Grammar			(Rep1N (NT gram_toplevel)))"
 "(TransientRule	gram_toplevel	(Alt (NT TransientRule)"
@@ -95,8 +105,8 @@ const char*short_rules = "((Grammar\n"
 "(Comment )"
 "(TransientRule	_start			(NT Grammar))\n"
 "(TransientRule	_whitespace		(RE [\\ \\\\r\\\\n\\t]+))\n"
-"(OperatorRule	EOF				(T _EOF))\n"
-"(OperatorRule	Epsilon			(T _epsilon))\n"
+"(OperatorRule	EOF				(T .eof))\n"
+"(OperatorRule	Epsilon			(T .epsilon))\n"
 "(OperatorRule	Space			(T .space))\n"
 "(OperatorRule	NewLine			(T .newline))\n"
 "(OperatorRule	Indent			(T .indent))\n"
@@ -189,7 +199,7 @@ ast_node_t  tinyap_get_ruleset(const char*name) {
 	ast_node_t ret=NULL;
 //	printf("before tinyap_get_ruleset : %li nodes (%i alloc'd so far)\n",node_pool_size(),_node_alloc_count);
 	if(!strcmp(name,GRAMMAR_SHORT)) {
-		ret=ast_unserialize(short_rules);
+		ret=ast_unserialize(short_rules_2);
 	} else if(!strcmp(name,"test")) {
 		ret=ast_unserialize(test_rules);
 	} else if(!strcmp(name,"slr")) {

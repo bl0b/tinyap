@@ -53,6 +53,10 @@ int test_grammar() {
 
 	g.add_rule(R->tag(), R);
 
+	TEST(gc(new token::Nt("foobar"))->is_same(gc(new token::Nt("foobar")))||!"Nt comparison is broken");
+	TEST(gc(new token::Nt("foobar"))->is_same(token::Nt::instance("foobar"))||!"Nt comparison is broken");
+	TEST_EQ(token::Nt::instance("foobar"), token::Nt::instance("foobar"));
+
 	TEST_EQ(g[nt->tag()]->size(), 2);
 	{
 		grammar::rule::base::iterator i, j;
@@ -138,6 +142,7 @@ int test_automaton() {
 	typedef const char* test_case[3];
 	test_case test_cases[] = {
 		// start rule is X
+#if 1
 /*1*/	{ "(OperatorRule X (EOF))", "", "((X))" },
 		{ "(OperatorRule X (EOF))", "   ", "((X))" },
 		{ "(OperatorRule X (EOF))", "a", NULL },
@@ -233,29 +238,32 @@ int test_automaton() {
 			, "# toto pouet\n#\n#toto", "((X (Gramar (Coment \\ toto\\ pouet) (Coment ) (Coment toto))))"
 		},
 /*55*/	{
-"(OperatorRule T (STR \" \"))"
-"(OperatorRule RE (STR / /))"
-"(OperatorRule STR (RawSeq (T ~) (RE [^~,]?)  (T ,)"
-"  (RE [^~,]?) (T ~)))"
-"(OperatorRule BOW (RawSeq (T ~) (RE [_a-zA-Z][_a-zA-Z0-9]*) (RE !?) (T ~)))"
-"(OperatorRule AddToBag (Seq (NT RE) (T :) (NT symbol) (RE !?)))"
+			"(TransientRule symbol (RE [_a-zA-Z][0-9a-zA-Z_]*))"
+			"(OperatorRule T (STR \" \"))"
+			"(OperatorRule RE (STR / /))"
+			"(OperatorRule STR (RawSeq (T ~) (RE [^~,]?)  (T ,)"
+			"  (RE [^~,]?) (T ~)))"
+			"(OperatorRule BOW (RawSeq (T ~) (RE [_a-zA-Z][_a-zA-Z0-9]*) (RE !?) (T ~)))"
+			"(OperatorRule AddToBag (Seq (NT RE) (T :) (NT symbol) (RE !?)))"
 			"(OperatorRule X (NT RawSeq))"
 			" (OperatorRule RawSeq (Seq (T .raw) (Rep1N (Alt (NT T) (NT STR) (NT RE) (NT BOW) (NT AddToBag)))))"
 			, ".raw \"~\" /[^~,]?/ \",\" /[^~,]?/ \"~\"", "((X (RawSeq (T ~) (RE [^~,]?) (T ,) (RE [^~,]?) (T ~))))"
 		},
 		{
-"(OperatorRule T (STR \" \"))"
-"(OperatorRule RE (STR / /))"
-"(OperatorRule STR (RawSeq (T ~) (RE [^~,]?)  (T ,)"
-"  (RE [^~,]?) (T ~)))"
-"(OperatorRule BOW (RawSeq (T ~) (RE [_a-zA-Z][_a-zA-Z0-9]*) (RE !?) (T ~)))"
-"(OperatorRule AddToBag (Seq (NT RE) (T :) (NT symbol) (RE !?)))"
+			"(TransientRule symbol (RE [_a-zA-Z][0-9a-zA-Z_]*))"
+			"(OperatorRule T (STR \" \"))"
+			"(OperatorRule RE (STR / /))"
+			"(OperatorRule STR (RawSeq (T ~) (RE [^~,]?)  (T ,)"
+			"  (RE [^~,]?) (T ~)))"
+			"(OperatorRule BOW (RawSeq (T ~) (RE [_a-zA-Z][_a-zA-Z0-9]*) (RE !?) (T ~)))"
+			"(OperatorRule AddToBag (Seq (NT RE) (T :) (NT symbol) (RE !?)))"
 			"(OperatorRule X (NT RawSeq))"
 			" (OperatorRule RawSeq (Seq (T .raw) (Rep1N (NT rawseq_contents))))"
 			" (TransientRule	rawseq_contents	(Alt (NT T) (NT STR) (NT RE) (NT BOW) (NT AddToBag)))"
 			, ".raw \"~\" /[^~,]?/ \",\" /[^~,]?/ \"~\"", "((X (RawSeq (T ~) (RE [^~,]?) (T ,) (RE [^~,]?) (T ~))))"
 		},
 		{
+			"(TransientRule symbol (RE [_a-zA-Z][0-9a-zA-Z_]*))"
 			"(OperatorRule T (STR \" \"))"
 			"(OperatorRule RE (STR / /))"
 			"(OperatorRule STR (RawSeq (T ~) (RE [^~,]?)  (T ,)"
@@ -268,6 +276,7 @@ int test_automaton() {
 			, ".raw \"~\" /[^~,]?/ \",\" /[^~,]?/ \"~\"", "((X (RawSeq (T ~) (RE [^~,]?) (T ,) (RE [^~,]?) (T ~))))"
 		},
 		{
+			"(TransientRule symbol (RE [_a-zA-Z][0-9a-zA-Z_]*))"
 			"(OperatorRule T (STR \" \"))"
 			"(OperatorRule RE (STR / /))"
 			"(OperatorRule STR (RawSeq (T ~) (RE [^~,]?)  (T ,)"
@@ -285,6 +294,7 @@ int test_automaton() {
 			, "aa", "((X (X) (X)))"
 		},
 		{
+			"(TransientRule symbol (RE [_a-zA-Z][0-9a-zA-Z_]*))"
 			"(OperatorRule T (STR \" \"))"
 			"(OperatorRule RE (STR / /))"
 			"(OperatorRule STR (RawSeq (T ~) (RE [^~,]?)  (T ,)"
@@ -296,6 +306,21 @@ int test_automaton() {
 			" (TransientRule rawseq_contents (Alt (NT T) (NT STR) (NT RE) (NT BOW) (NT AddToBag)))"
 			, ".raw \"'\" /[\\]?./ \"'\"", "((X (RawSeq (T ') (RE [\\\\]?.) (T '))))"
 		},
+#endif
+/*60*/	{	"(OperatorRule X (Alt (Seq (RE \\w+) (NT X)) (RE \\w+)))"
+			, "titi", "((X titi))"
+		},
+		{	"(OperatorRule X (Alt (Seq (RE \\w+) (NT X)) (RE \\w+)))"
+			, "titi toto", "((X titi (X toto)))"
+		},
+		{	"(OperatorRule X (Alt (Seq (RE \\w+) (NT X)) (RE \\w+)))"
+			, "titi toto tata tutu", "((X titi (X toto (X tata (X tutu)))))"
+		},
+		{	"(OperatorRule X (Alt (Seq (RE \\w+) (NT X)) (RE \\w+)))"
+			, "titi toto tata", "((X titi (X toto (X tata))))"
+		},
+		{ "(OperatorRule X (RawSeq (T ~) (RE [^~,]?) (T ,) (RE [^~,]?) (T ~)))", " ~\",\"~", "((X \" \"))" },
+		{ "(OperatorRule X (RawSeq (T ~) (RE [^~,]?) (T ,) (RE [^~,]?) (T ~)))", " ~\",\"~ ", "((X \" \"))" },
 		{ NULL, NULL, NULL }
 	};
 
@@ -350,138 +375,26 @@ void test_nl() {
 	/*nl.dump_states();*/
 	const char* pouet = "I saw a man in the park with a telescope";
 	ast_node_t ast = nl.parse(pouet, strlen(pouet));
-	char* str = (char*)tinyap_serialize_to_string(ast);
-	std::cout << '"' << pouet << "\" => " << str << std::endl;
+	std::cout << '"' << pouet << "\" => " << ast << std::endl;
 	while(ast) {
-		wast_t wa = make_wast(Car(Car(ast)));
+		wast_t wa = make_wast(Car(ast));
 		tinyap_walk(wa, "prettyprint", NULL);
 		wa_del(wa);
 		ast = Cdr(ast);
 	}
-	free(str);
-	grammar::visitors::debugger debug;
-	g.accept(&debug);
+	std::ofstream df("nl.dot", std::ios::out);
+	df << "digraph i_saw_a_man_in_the_park_with_a_telescope {" << std::endl;
+	df << *nl.stack;
+	df << '}' << std::endl;
+	/*grammar::visitors::debugger debug;*/
+	/*g.accept(&debug);*/
+
 }
 
 int main(int argc, char**argv) {
-	/*tinyap_init();*/
+	test_nl();
 
+	/*return 0;*/
 	return test_grammar() + test_automaton();
-
-
-	/*grammar::Grammar dbg_g(Cdr(Car(tinyap_get_ruleset("test"))));*/
-	/*grammar::Grammar g(Cdr(Car(tinyap_get_ruleset("slr"))));*/
-	/*grammar::Grammar short_gram(Cdr(Car(tinyap_get_ruleset(GRAMMAR_SHORT))));*/
-
-	/*grammar::item::token::Re* re = new grammar::item::token::Re("");*/
-
-	/*grammar::visitors::debugger debug;*/
-
-	/*grammar::Grammar::iterator i=g.begin(), j=g.end();*/
-	/*for(;i!=j;++i) {*/
-		/*std::cout << "got " << (void*)(*i).first << " <=> "; (*i).second->accept(&debug); std::cout << std::endl;*/
-	/*}*/
-
-	/*debug.visit(re);*/
-	/*delete re;*/
-	/*const char* toto = regstr("_start");*/
-	/*std::cout << g.size() << ' ' << (void*)toto << ' ' << g[toto] << std::endl;*/
-	/*debug.visit(&g);*/
-
-	/*std::cout << "v " << sizeof(std::vector<void*>) << std::endl;*/
-	/*std::cout << "m " << sizeof(ext::hash_map<const char*, void*>) << std::endl;*/
-	/*std::cout << "s " << sizeof(std::set<void*>) << std::endl;*/
-
-	/*lr::automaton dbg_a(&dbg_g);*/
-	/*dbg_a.dump_states();*/
-	/*std::cout << "parse epsilon ? " << dbg_a.recognize("", 0) << std::endl;*/
-	/*std::cout << "parse abbbbb ? " << dbg_a.recognize("abbbbb", 6) << std::endl;*/
-	/*std::cout << "parse atotob ? " << dbg_a.recognize("atotob", 6) << std::endl;*/
-
-	/*test_nl();*/
-
-	/*lr::automaton d2(&g);*/
-	/*lr::automaton tinyaglrp(&short_gram);*/
-	/*tinyaglrp.dump_states();*/
-	/*d2.dump_states();*/
-	/*test_lr(d2, "*id");*/
-	/*test_lr(d2, "id=id");*/
-	/*test_lr(d2, "*id=*id=id");*/
-	/*test_lr(d2, "*id=toto");*/
-
-	/*grammar::Grammar g(Cdr(Car(tinyap_get_ruleset("debug_nl"))));*/
-	/*lr::automaton nl(&g);*/
-	/*nl.dump_states();*/
-#if 0
-	/*grammar::rule::base* start = g["_start"];*/
-	/*grammar::rule_iterator is(start);*/
-	/*grammar::rule::base::iterator i = start->begin();*/
-	/*grammar::rule_iterator s(start);*/
-	const char* my_rule_tag = "Rep0N_1";
-	grammar::item::iterator rule = grammar::item::iterator::create(g[my_rule_tag]);
-	((grammar::item::base*)*rule)->accept(&debug);
-	/*lr::item lrs(dynamic_cast<const grammar::rule::base*>(rule.context()), grammar::item::iterator::create(*rule));*/
-	lr::item lrs(g[my_rule_tag], rule);
-	/*lr::item lrs2(g[my_rule_tag], rule.next());*/
-
-	std::cout << lrs << std::endl;
-	/*std::cout << --lrs << std::endl;*/
-	lr::item lrs2(g[my_rule_tag], ++rule);
-	std::cout << lrs2 << std::endl;
-	lr::item lrs3 = lrs2.next();
-	std::cout << lrs3 << std::endl;
-
-	lr::item_set I;
-	lr::item_set C;
-	{I.insert(lrs3);
-	d2.closure(I, C);
-	lr::item_set::iterator i, j=C.end();
-	for(i=C.begin();i!=j;++i) {
-		lr::item tmp = *i;
-		std::cout << " :: " << tmp << std::endl;
-	}}
-
-	std::cout << std::endl;
-	{I.clear();
-	I.insert(lrs);
-	d2.closure(I, C);
-	lr::item_set::iterator i, j=C.end();
-	for(i=C.begin();i!=j;++i) {
-		lr::item tmp = *i;
-		std::cout << " :: " << tmp << std::endl;
-	}}
-
-	std::cout << std::endl;
-	{I.clear();
-	I.insert(lr::item(g[regstr("_start")], grammar::item::iterator::create(g[regstr("_start")])));
-	d2.closure(I, C);
-	lr::item_set::iterator i, j=C.end();
-	for(i=C.begin();i!=j;++i) {
-		lr::item tmp = *i;
-		std::cout << " :: " << tmp << std::endl;
-	}
-	std::cout << std::endl;
-	grammar::visitors::producer_filter f;
-	for(i=C.begin();i!=j;++i) {
-		lr::item tmp = *i;
-		if(f((grammar::item::base*)*tmp)) {
-			std::cout << " :> " << tmp << std::endl;
-			grammar::visitors::debugger d;
-			((grammar::item::base*)*tmp)->accept(&d);
-			std::cout << std::endl;
-			lr::item_set J, D;
-			J.insert(tmp.next());
-			d2.closure(J, D);
-			lr::item_set::iterator k, l=D.end();
-			for(k=D.begin();k!=l;++k) {
-				lr::item ktmp = *k;
-				std::cout << " :: " << ktmp << std::endl;
-			}
-		}
-	}
-	}
-
-	return 0;
-#endif
 }
 
