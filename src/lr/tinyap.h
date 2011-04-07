@@ -111,10 +111,10 @@ extern "C" {
 
 	//void		
 
-	/*! \brief perform parsing of configured source with configured grammar
+	/*! \brief perform parsing of configured source with configured grammar. If the passed flag is true, a full parse is performed, otherwise a simple parse with preference for shifting over reducing is performed.
 	 * \return 1 if parsing was successful, 0 otherwise
 	 */
-	int tinyap_parse(tinyap_t);
+	int tinyap_parse(tinyap_t, int);
 	/*! \brief perform parsing of configured source with configured grammar and uses the output as the new grammar
 	 * \return 1 if parsing was successful, 0 otherwise
 	 */

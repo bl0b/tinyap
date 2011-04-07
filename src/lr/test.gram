@@ -2,3 +2,10 @@
 #
 ## 3
 # 4
+
+_start = test.
+
+test ::= toto pouet wearethe "!".
+toto ::= "hello" | "Hello".
+pouet = ","?.
+wearethe ::= /[Ww]orld/.

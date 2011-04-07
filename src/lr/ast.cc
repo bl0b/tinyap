@@ -185,11 +185,11 @@ ast_node_t newAtom(const char*data,size_t offset) {
 static pair_registry_t pair_registry;
 
 ast_node_t newPair(const ast_node_t a,const ast_node_t d) {
-	ast_node_t ret = pair_registry[pair_key(a, d)];
+	ast_node_t& ret = pair_registry[pair_key(a, d)];
 	if(!ret) {
 		ret = node_alloca();
 		/*std::cout << "new pair " << ret << " : " << a << ", " << d << std::endl;*/
-		pair_registry[pair_key(a, d)] = ret;
+		/*pair_registry[pair_key(a, d)] = ret;*/
 		ret->type=ast_Pair;
 		ret->pair._car=(ast_node_t )a;
 		ret->pair._cdr=(ast_node_t )d;

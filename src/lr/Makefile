@@ -8,14 +8,14 @@ CPPOBJ=$(subst .cc,.o,$(CPPSRC))
 
 
 #PROF=-pg
-DBG=-ggdb
+#DBG=-ggdb
 #OPT=-O3
 
 CFLAGS=$(DBG) $(OPT) -Wall $(PROF)
 CPPFLAGS=$(DBG) $(OPT) -Wno-deprecated -Wall $(PROF)
 
-TARGET=tinyap
-TEST=test
+TARGET=tinyap-$(SUFFIX)
+TEST=test-$(SUFFIX)
 
 CC=gcc $(CFLAGS)
 CXX=g++ $(CPPFLAGS)
@@ -46,4 +46,20 @@ lr.h.gch: lr.h Makefile
 
 test.o main.o $(CPPOBJ):%.o:%.cc Makefile
 	$(CXX) -c $< -o $@
+
+debug:
+	+make DBG=-ggdb SUFFIX=debug all
+
+opt:
+	+make OPT=-O3 SUFFIX=profile all
+
+profile:
+	+make PROF=-pg DBG=-ggdb SUFFIX=profile all
+
+opt-profile:
+	+make OPT=-O3 PROF=-pg SUFFIX=opt-profile all
+
+# one-liner so make -j won't f* up
+flavours:
+	+make clean debug && make clean opt && make clean profile && make clean opt-profile && make clean
 

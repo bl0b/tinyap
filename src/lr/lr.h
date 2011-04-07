@@ -578,17 +578,7 @@ push u onto stack
 					unsigned int ofs = n->id.O;
 					ofs = G->skip(buffer, n->id.O, size);
 
-					/*bool didnt_shift = true;*/
-
-					/*
-					 * PHASE 1 : REDUCE
-					 */
-
-					stack->init_reductions();
-					for(i=S->reductions.begin(), j=S->reductions.end();i!=j;++i) {
-						stack->reduce_all(n, *i, ofs);
-					}
-					stack->flush_reductions();
+					bool didnt_shift = true;
 
 					/*
 					 * PHASE 2 : SHIFT
@@ -603,9 +593,21 @@ push u onto stack
 						std::pair<ast_node_t, unsigned int> ret = token->recognize(buffer, ofs, size);
 						/*std::clog << "follow by "; ((grammar::item::base*)token)->accept(&debug); std::clog << " => " << ((int)(ret.first?ret.second:-1)) << std::endl;*/
 						if(ret.first) {
-							/*didnt_shift=false;*/
+							didnt_shift=false;
 							stack->shift(n, (grammar::item::base*)(*ti).first, (*ti).second, ret.first, ret.second, NULL, NULL);
 						}
+					}
+
+					/*
+					 * PHASE 1 : REDUCE
+					 */
+
+					if(didnt_shift || full_parse) {
+						stack->init_reductions();
+						for(i=S->reductions.begin(), j=S->reductions.end();i!=j;++i) {
+							stack->reduce_all(n, *i, ofs);
+						}
+						stack->flush_reductions();
 					}
 
 					/*

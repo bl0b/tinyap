@@ -360,7 +360,7 @@ void tinyap_set_source_buffer(tinyap_t t,const char* b,const unsigned int sz) {
 	t->source_buffer_sz=sz;
 }
 
-int tinyap_parse(tinyap_t t) {
+int tinyap_parse(tinyap_t t, int full) {
 //	printf("before tinyap_parse : %li nodes (%i alloc'd so far)\n",node_pool_size(),_node_alloc_count);
 	struct timeval t0, t1;
 	unsigned long deltasec;
@@ -388,7 +388,7 @@ int tinyap_parse(tinyap_t t) {
 	}
 
 	gettimeofday(&t0, NULL);
-	t->output = t->A->parse(t->source_buffer, t->source_buffer_sz);
+	t->output = t->A->parse(t->source_buffer, t->source_buffer_sz, !!full);
 	/*t->output = token_produce_any(t->toktext, t->start, NULL);*/
 	/*t->output = pda_parse(t->pda, t->source_buffer, t->source_buffer_sz, t->start, t->flags);*/
 	gettimeofday(&t1, NULL);
@@ -410,7 +410,7 @@ int tinyap_parse(tinyap_t t) {
 
 
 int tinyap_parse_as_grammar(tinyap_t t) {
-	if(tinyap_parse(t)) {
+	if(tinyap_parse(t, false)) {
 		tinyap_set_grammar_ast(t,tinyap_get_output(t));
 		t->output=NULL;
 	}

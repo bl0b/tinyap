@@ -93,7 +93,21 @@ int do_args(int argc,char*argv[]) {
 				/*fprintf(stderr,"parse error at line %i, column %i\n%s\n",tinyap_get_error_row(parser),tinyap_get_error_col(parser),tinyap_get_error(parser));*/
 			}
 		} else if(cmp_param(0,"--parse","-p")) {
-			tinyap_parse(parser);
+			tinyap_parse(parser, false);
+			if(tinyap_parsed_ok(parser)&&tinyap_get_output(parser)) {
+				/*tinyap_serialize_to_file(tinyap_get_output(parser),argv[i]);*/
+				if(tinyap_verbose) {
+					fprintf(stderr, "parsed %u bytes in %.3f seconds (%.3f kBps)\n",
+							tinyap_get_source_buffer_length(parser),
+							tinyap_get_parse_time(parser),
+							tinyap_get_source_buffer_length(parser)/tinyap_get_parse_time(parser)*(1./1024));
+				}
+			} else {
+				fprintf(stderr,"parse error at line %i, column %i\n%s\n",tinyap_get_error_row(parser),tinyap_get_error_col(parser),tinyap_get_error(parser));
+				/*fprintf(stderr,"parse error at line %i, column %i\n%s\n", -1, -1, "TODO");*/
+			}
+		} else if(cmp_param(0,"--full-parse","-fp")) {
+			tinyap_parse(parser, true);
 			if(tinyap_parsed_ok(parser)&&tinyap_get_output(parser)) {
 				/*tinyap_serialize_to_file(tinyap_get_output(parser),argv[i]);*/
 				if(tinyap_verbose) {
@@ -160,7 +174,7 @@ int do_args(int argc,char*argv[]) {
 			fprintf(stderr, "\n\t--parse,-p\t\tparse input text\n");
 			fprintf(stderr, "\n\t--parse-as-grammar,-pag\tparse input text and use output AST as new grammar\n");
 			fprintf(stderr, "\n\t--full-parse,-fp\t\tfind all possible parse trees\n");
-			fprintf(stderr, "\n\t--simple-parse,-p\t\tfind first parse tree\n");
+			fprintf(stderr, "\n\t--parse,-p\t\tfind first parse tree (favor shift over reduce)\n");
 			fprintf(stderr, "\n\t--dump-stack,-ds [dotFile]\tdump the LR stack as a .dot file\n");
 			fprintf(stderr, "\n\t--walk,-w name\t\twalk the current output tree using named ape\n\t\t\t\t(try prettyprint !)\n");
 			fprintf(stderr, "\n\t--help,-h\t\tdisplay this text\n\n");
