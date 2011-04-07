@@ -465,31 +465,42 @@ namespace grammar {
 				private:
 					const char* tag_;
 					bool keep_;
-					static ext::hash_map<const char*, trie_t> all;
+					trie_t mybow;
 				public:
-					Bow(const char*_, bool k) : tag_(_), keep_(k) {}
-					Bow(const Bow& _) : tag_(_.tag_), keep_(_.keep_) {}
+					Bow(const char*_, bool k) : tag_(_), keep_(k) {
+						mybow = find(_);
+						std::clog << "using BOW " << tag_ << " (from " << _ << ") @" << mybow << std::endl;
+					}
+					Bow(const Bow& _) : tag_(_.tag_), keep_(_.keep_), mybow(_.mybow) {}
 					const char* tag() const { return tag_; }
 					bool keep() const { return keep_; }
 					virtual std::pair<ast_node_t, unsigned int> recognize(const char* source, unsigned int offset, unsigned int size) const {
-						unsigned long slen = trie_match_prefix(find(tag_), source+offset);
+						std::clog << "POUET " << tag_ << " @" << mybow << std::endl;
+						trie_dump(mybow, 1);
+						unsigned long slen = trie_match_prefix(mybow, source+offset);
 						if(slen>0) {
+							std::clog << "found a word in bow " << tag_ << " : " << std::string(source+offset, source+offset+slen) << std::endl;
 							if(!keep_) {
 								return std::pair<ast_node_t, unsigned int>(PRODUCTION_OK_BUT_EMPTY, offset+slen);
 							} else {
 								char*tok = _stralloc(slen+1);
 								strncpy(tok, source+offset, slen);
 								tok[slen]=0;
-								return std::pair<ast_node_t, unsigned int>(newPair(newAtom(tok, offset), NULL), offset+slen);
+								ast_node_t ast = newPair(newAtom(tok, offset), NULL);
+								_strfree(tok);
+								return std::pair<ast_node_t, unsigned int>(ast, offset+slen);
 							}
+						} else {
+							std::clog << "didn't find any word in bow " << tag_ << std::endl;
 						}
 						return std::pair<ast_node_t, unsigned int>(NULL, offset);
 					}
 
 					static trie_t find(const char*tag) {
-						trie_t& ret = all[tag];
+						static ext::hash_map<const char*, trie_t> all;
+						trie_t ret = all[tag];
 						if(!ret) {
-							ret = trie_new();
+							all[tag] = ret = trie_new();
 						}
 						return ret;
 					}

@@ -186,9 +186,6 @@ namespace item {
 	}
 
 
-
-	ext::hash_map<const char*, trie_t> token::Bow::all;
-
 	iterator iterator::create(const base*item) {
 		visitors::iterator_factory f;
 		return iterator(f(item));

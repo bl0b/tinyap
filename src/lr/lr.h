@@ -562,7 +562,7 @@ push u onto stack
 					if(!S) {
 						throw "COIN";
 					}
-#if 0
+#if 1
 #define _tinyap_min(a, b) (a<b?a:b)
 					item_set ker;
 					kernel(S->items, ker);
@@ -591,7 +591,7 @@ push u onto stack
 						}
 						const grammar::item::base* token = (*ti).first;
 						std::pair<ast_node_t, unsigned int> ret = token->recognize(buffer, ofs, size);
-						/*std::clog << "follow by "; ((grammar::item::base*)token)->accept(&debug); std::clog << " => " << ((int)(ret.first?ret.second:-1)) << std::endl;*/
+						std::clog << "follow by "; ((grammar::item::base*)token)->accept(&debug); std::clog << " => " << ((int)(ret.first?ret.second:-1)) << std::endl;
 						if(ret.first) {
 							didnt_shift=false;
 							stack->shift(n, (grammar::item::base*)(*ti).first, (*ti).second, ret.first, ret.second, NULL, NULL);

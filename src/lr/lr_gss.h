@@ -247,6 +247,7 @@ namespace lr {
 				/* push ast node */
 				node* n = alloc_node(noid);
 				n->ast = ast;
+				n->reduction_end = red_end;
 				/*n->reduction_end = red_start;*/
 				/*std::clog << "pushed ast node with " << ast << std::endl;*/
 				n->add_pred(p);
@@ -255,7 +256,6 @@ namespace lr {
 				n = alloc_node(id);
 				n->ast = NULL;
 				n->add_pred(p);
-				n->reduction_end = red_end;
 				/*std::clog << "pushed state node with #" << s->id << std::endl;*/
 				activate(n);
 				return n;
@@ -466,6 +466,8 @@ namespace lr {
 						++i;
 						(*isun.first)->preds.insert((*isun.first)->preds.end(),
 								(*k)->preds.begin(), (*k)->preds.end());
+						(*k)->ast = NULL;
+						(*k)->id.S = NULL;
 						active.erase(k);
 					} else {
 						++i;

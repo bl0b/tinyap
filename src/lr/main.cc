@@ -97,14 +97,16 @@ int do_args(int argc,char*argv[]) {
 			trie_t bow;
 			i+=1;
 			const char* tag = argv[i];
-			bow = tinyap_get_bow(tag);
+			bow = tinyap_get_bow(regstr(tag));
 			i+=1;
 			std::ifstream wl(argv[i]);
 			while(!wl.eof()) {
 				std::string word;
 				wl >> word;
-				trie_insert(bow, word.c_str());
-				std::clog << '~' << tag << '~' << ' ' << word << std::endl;
+				if(word.size()) {
+					trie_insert(bow, word.c_str());
+					std::clog << '~' << tag << '~' << ' ' << word << std::endl;
+				}
 			}
 		} else if(cmp_param(0,"--parse","-p")) {
 			tinyap_parse(parser, false);

@@ -133,6 +133,16 @@ int test_grammar() {
 
 	TEST_EQ(g[nt->tag()]->size(), 2);
 
+	trie_t mybow = grammar::item::token::Bow::find("test");
+	trie_t mybow2 = grammar::item::token::Bow::find("test");
+	TEST(mybow==mybow2||!"BOW registry doesn't return unique bows");
+	trie_insert(mybow, "pouet");
+	grammar::item::token::Bow b("test", true);
+	TEST(b.recognize("pouet", 0, 5).second==5 ||!"Bow didn't recognize properly with a singleton !");
+	
+	trie_insert(mybow, "plop");
+	TEST(b.recognize("pouet", 0, 5).second==5 ||!"Bow didn't recognize properly with 2 items !");
+	TEST(b.recognize("plop", 0, 4).second==4 ||!"Bow didn't recognize properly with 2 items !");
 
 	std::cout << "[TEST] [grammar] passed: " << ok << '/' << done << std::endl;
 	return ok-done;
@@ -321,8 +331,16 @@ int test_automaton() {
 		},
 		{ "(OperatorRule X (RawSeq (T ~) (RE [^~,]?) (T ,) (RE [^~,]?) (T ~)))", " ~\",\"~", "((X \" \"))" },
 		{ "(OperatorRule X (RawSeq (T ~) (RE [^~,]?) (T ,) (RE [^~,]?) (T ~)))", " ~\",\"~ ", "((X \" \"))" },
+		{ "(OperatorRule X (BOW _test !))", "pouet", "((X pouet))" },
+		{ "(OperatorRule X (BOW _test ))", "pouet", "((X))" },
 		{ NULL, NULL, NULL }
 	};
+
+	trie_t test_bow = grammar::item::token::Bow::find(regstr("_test"));
+	std::clog << "init BOW _test @" << test_bow << std::endl;
+	trie_insert(test_bow, "pouet");
+	trie_insert(test_bow, "plop");
+	trie_insert(test_bow, "coin");
 
 	test_case* tc = test_cases;
 	unsigned int done=0, ok=0;
@@ -338,7 +356,7 @@ int test_automaton() {
 		ofn << (done+1);
 		if(lr::automaton::test(done+1, (*tc)[0], (*tc)[1], (*tc)[2])) {
 			++ok;
-			std::cout << "[TEST] [automaton] #" << (done+1) << " passed." << std::endl;
+			/*std::cout << "[TEST] [automaton] #" << (done+1) << " passed." << std::endl;*/
 			unlink(ofn.str().c_str());
 		} else {
 			std::ofstream o(ofn.str().c_str(), std::ios_base::out);
@@ -376,12 +394,12 @@ void test_nl() {
 	const char* pouet = "I saw a man in the park with a telescope";
 	ast_node_t ast = nl.parse(pouet, strlen(pouet));
 	std::cout << '"' << pouet << "\" => " << ast << std::endl;
-	while(ast) {
-		wast_t wa = make_wast(Car(ast));
-		tinyap_walk(wa, "prettyprint", NULL);
-		wa_del(wa);
-		ast = Cdr(ast);
-	}
+	/*while(ast) {*/
+		/*wast_t wa = make_wast(Car(ast));*/
+		/*tinyap_walk(wa, "prettyprint", NULL);*/
+		/*wa_del(wa);*/
+		/*ast = Cdr(ast);*/
+	/*}*/
 	std::ofstream df("nl.dot", std::ios::out);
 	df << "digraph i_saw_a_man_in_the_park_with_a_telescope {" << std::endl;
 	df << *nl.stack;
