@@ -1,4 +1,4 @@
-/* Tinya(J)P : this is not yet another (Java) parser.
+/* tinyap : this is not yet another parser.
  * Copyright (C) 2007 Damien Leroux
  *
  * This program is free software; you can redistribute it and/or

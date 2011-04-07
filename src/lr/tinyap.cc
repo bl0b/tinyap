@@ -47,6 +47,8 @@ struct _tinyap_t {
 	/*parse_context_t context;*/
 	lr::automaton* A;
 	grammar::Grammar* G;
+
+	ext::hash_map<const char*, trie_t> bows;
 	
 	char*grammar_source;
 	ast_node_t grammar;
@@ -66,6 +68,14 @@ struct _tinyap_t {
 	float parse_time;
 
 	int error;
+
+	_tinyap_t()
+		: A(0), G(0), bows(),
+		  grammar_source(0), grammar(0),
+		  start(0), output(0), ws(0), ws_source(0),
+		  flags(0), source_file(0), source_buffer(0),
+		  source_buffer_sz(0), parse_time(0), error(0)
+	{}
 };
 
 int tinyap_verbose=0;
@@ -79,6 +89,11 @@ size_t node_pool_size();
 extern volatile int _node_alloc_count;
 void node_pool_init();
 void node_pool_term();
+
+
+trie_t tinyap_get_bow(const char* tag) {
+	return grammar::item::token::Bow::find(tag);
+}
 
 
 void tinyap_set_verbose(int v) {
@@ -154,14 +169,15 @@ void tinyap_delete(tinyap_t t) {
 	if(t->source_file) free(t->source_file);
 	if(t->source_buffer) free(t->source_buffer);
 
-	free(t);
+	/*free(t);*/
+	delete t;
 //	printf("after  tinyap_delete : %li nodes (%i alloc'd so far)\n",node_pool_size(),_node_alloc_count);
 }
 
-
 tinyap_t tinyap_new() {
-	tinyap_t ret=(tinyap_t)malloc(sizeof(struct _tinyap_t));
-	memset(ret,0,sizeof(struct _tinyap_t));
+	tinyap_t ret=new _tinyap_t();
+	/*tinyap_t ret=(tinyap_t)malloc(sizeof(struct _tinyap_t));*/
+	/*memset(ret,0,sizeof(struct _tinyap_t));*/
 	tinyap_set_grammar(ret,"short");
 	ret->flags=0;
 	/*init_pilot_manager();*/

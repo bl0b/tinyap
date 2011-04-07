@@ -26,7 +26,7 @@
 /*!
  * \mainpage tinyap
  *
- * This is not yet another parser.
+ * This is not yet another parser... generator!
  * 
  * \section sec_intro Introduction
  * 
@@ -58,6 +58,7 @@ extern "C" {
 #endif
 
 #include "bootstrap.h"
+#include "trie.h"
 
 /*! \weakgroup api_parser Parser API */
 /*@{*/
@@ -109,7 +110,7 @@ extern "C" {
 	/*! \brief set buffer as text input source */
 	void		tinyap_set_source_buffer(tinyap_t,const char*,const unsigned int);
 
-	//void		
+	trie_t		tinyap_get_bow(const char*);
 
 	/*! \brief perform parsing of configured source with configured grammar. If the passed flag is true, a full parse is performed, otherwise a simple parse with preference for shifting over reducing is performed.
 	 * \return 1 if parsing was successful, 0 otherwise

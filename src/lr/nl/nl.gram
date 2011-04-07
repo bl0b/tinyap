@@ -1,0 +1,8 @@
+_start = sentence.
+sentence ::= n_p v_p.
+sentence ::= sentence p_p.
+n_p ::= ~n!~.
+n_p ::= ~det~ ~n!~.
+n_p ::= n_p p_p.
+p_p ::= ~prep!~ n_p.
+v_p ::= ~v!~ n_p.

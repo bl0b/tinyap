@@ -1,0 +1,12 @@
+I
+you
+he
+she
+we
+us
+him
+her
+they
+man
+park
+telescope

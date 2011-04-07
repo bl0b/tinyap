@@ -138,7 +138,7 @@ namespace item {
 			ret = cached = new token::Str(x&&Car(x)?Value(Car(x)):"", x&&Cdr(x)?Value(Car(Cdr(x))):"");
 		} else if(tag==STR_BOW) {
 			ast_node_t x = Cdr(n);
-			cached = new token::Bow(Value(Car(x)), !!Cdr(x));
+			ret = cached = new token::Bow(Value(Car(x)), !!Cdr(x));
 		} else if(tag==STR_AddToBag) {
 			ret = cached = NULL;
 		} else if(tag==STR_Prefix) {

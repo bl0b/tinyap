@@ -473,7 +473,6 @@ namespace grammar {
 					bool keep() const { return keep_; }
 					virtual std::pair<ast_node_t, unsigned int> recognize(const char* source, unsigned int offset, unsigned int size) const {
 						unsigned long slen = trie_match_prefix(find(tag_), source+offset);
-							/*match_bow(pda, tag_);*/
 						if(slen>0) {
 							if(!keep_) {
 								return std::pair<ast_node_t, unsigned int>(PRODUCTION_OK_BUT_EMPTY, offset+slen);
@@ -488,10 +487,9 @@ namespace grammar {
 					}
 
 					static trie_t find(const char*tag) {
-						trie_t ret = all[tag];
+						trie_t& ret = all[tag];
 						if(!ret) {
 							ret = trie_new();
-							all[tag] = ret;
 						}
 						return ret;
 					}

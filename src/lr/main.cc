@@ -19,6 +19,7 @@
 #include "config.h"
 #include "tinyap.h"
 #include "ast.h"
+#include <fstream>
 
 extern "C" {
 #include "tinyape.h"
@@ -91,6 +92,19 @@ int do_args(int argc,char*argv[]) {
 				tinyap_serialize_to_file(tinyap_get_output(parser),argv[i]);
 			/*} else {*/
 				/*fprintf(stderr,"parse error at line %i, column %i\n%s\n",tinyap_get_error_row(parser),tinyap_get_error_col(parser),tinyap_get_error(parser));*/
+			}
+		} else if(cmp_param(2,"--wordlist","-wl")) {
+			trie_t bow;
+			i+=1;
+			const char* tag = argv[i];
+			bow = tinyap_get_bow(tag);
+			i+=1;
+			std::ifstream wl(argv[i]);
+			while(!wl.eof()) {
+				std::string word;
+				wl >> word;
+				trie_insert(bow, word.c_str());
+				std::clog << '~' << tag << '~' << ' ' << word << std::endl;
 			}
 		} else if(cmp_param(0,"--parse","-p")) {
 			tinyap_parse(parser, false);
