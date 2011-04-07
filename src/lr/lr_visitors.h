@@ -397,10 +397,10 @@ namespace grammar {
 					os << '"' << x->str() << '"';
 				}
 				virtual void visit(item::token::Nt* x) {
-					os << "nt:" << x->tag();
+					os << x->tag();
 				}
 				virtual void visit(item::token::Bow* x) {
-					os << '~' << x->tag() << '~';
+					os << '~' << x->tag() << (x->keep()?"!":"") << '~';
 				}
 
 				virtual void visit(item::token::AddToBag* x) {

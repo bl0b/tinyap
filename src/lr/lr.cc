@@ -140,7 +140,10 @@ namespace item {
 			ast_node_t x = Cdr(n);
 			ret = cached = new token::Bow(Value(Car(x)), !!Cdr(x));
 		} else if(tag==STR_AddToBag) {
-			ret = cached = NULL;
+			ast_node_t x = Cdr(n);
+			// pattern is inside (RE pattern) in Car(x)
+			// bag name is in Car(Cdr(x))
+			ret = cached = new token::AddToBag(Value(Car(Cdr(Car(x)))), Value(Car(Cdr(x))), !!Cdr(Cdr(x)));
 		} else if(tag==STR_Prefix) {
 			ast_node_t x = Cdr(n);
 			ast_node_t nt = Car(Cdr(x));

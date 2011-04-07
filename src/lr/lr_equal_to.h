@@ -115,6 +115,10 @@ namespace grammar {
 			bool operator() (const token::Bow* a, const token::Bow*b) const { return a->keep()==b->keep() && !strcmp(a->tag(), b->tag()); }
 		};
 
+		template <> struct equal_to<token::AddToBag> {
+			bool operator() (const token::AddToBag* a, const token::AddToBag*b) const { return a->keep()==b->keep() && !(strcmp(a->tag(), b->tag()) || strcmp(a->pattern(), b->pattern())); }
+		};
+
 		template <> struct equal_to<token::Str> {
 			bool operator() (const token::Str* a, const token::Str*b) const { return !(strcmp(a->start(), b->start())||strcmp(a->end(), b->end())); }
 		};

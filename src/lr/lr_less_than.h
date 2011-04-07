@@ -164,7 +164,11 @@ namespace grammar {
 		};
 
 		template <> struct less_than<token::Bow> {
-			bool operator() (const token::Bow* a, const token::Bow*b) const { return strcmp(a->tag(), b->tag())<0; }
+			bool operator() (const token::Bow* a, const token::Bow*b) const { return strcmp(a->tag(), b->tag())<0 || a->keep()<b->keep(); }
+		};
+
+		template <> struct less_than<token::AddToBag> {
+			bool operator() (const token::AddToBag* a, const token::AddToBag*b) const { return strcmp(a->tag(), b->tag())<0 || strcmp(a->pattern(), b->pattern())<0 || a->keep()<b->keep(); }
 		};
 
 		template <> struct less_than<token::Str> {

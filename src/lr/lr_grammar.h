@@ -520,9 +520,23 @@ namespace grammar {
 						}
 					}
 				public:
-					AddToBag(const char* p, const char* b, bool k) : Re_base<AddToBag>(p), keep_(k), bag(Bow::find(b)), tag_(b) {}
+					AddToBag(const char* p, const char* b, bool k) : Re_base<AddToBag>(p), keep_(k), bag(Bow::find(b)), tag_(b) {
+						/*std::cout << "NEW AddToBag(" << pattern() << ", " << tag() << ", " << keep() << std::endl;*/
+					}
 					bool keep() const { return keep_; }
 					const char* tag() const { return tag_; }
+					virtual std::pair<ast_node_t, unsigned int> recognize(const char* source, unsigned int offset, unsigned int size) const {
+						std::pair<ast_node_t, unsigned int> ret = Re_base<AddToBag>::recognize(source, offset, size);
+						/*std::cout << "AddToBag => " << ret.first << " +" << ret.second << std::endl;*/
+						if(ret.second>offset) {
+							trie_insert(bag, Value(Car(ret.first)));
+						}
+						if(keep_) {
+							return ret;
+						} else {
+							return std::pair<ast_node_t, unsigned int>(PRODUCTION_OK_BUT_EMPTY, ret.second);
+						}
+					}
 			};
 
 		}

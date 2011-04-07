@@ -467,6 +467,7 @@ push u onto stack
 					virtual void visit(grammar::item::token::T* x) { S->transitions.from_text[x] = GOTO; }
 					virtual void visit(grammar::item::token::Nt* x) { S->transitions.from_stack[x->tag()] = GOTO; }
 					virtual void visit(grammar::item::token::Bow* x) { S->transitions.from_text[x] = GOTO; }
+					virtual void visit(grammar::item::token::AddToBag* x) { S->transitions.from_text[x] = GOTO; }
 
 					virtual void visit(grammar::item::combination::RawSeq* x) { S->transitions.from_text[x] = GOTO; }
 			};
