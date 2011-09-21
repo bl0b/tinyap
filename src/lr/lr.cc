@@ -233,33 +233,74 @@ namespace combination {
 	}
 
 	std::pair<ast_node_t, unsigned int> rec_recog(const char* source, unsigned int offset, unsigned int size, RawSeq::const_iterator i, RawSeq::const_iterator j) {
-		if(i==j||offset>size) {
+		if(i==j) {
 			return std::pair<ast_node_t, unsigned int>(0, size);
 		}
-		std::pair<ast_node_t, unsigned int> cur = (*i)->recognize(source, offset, size);
+		/*typedef std::list<Ast> recog_stack_t;*/
+		typedef std::list<ast_node_t> recog_stack_t;
+		recog_stack_t stack;
+		while(offset<size&&i!=j) {
+			std::pair<ast_node_t, unsigned int> cur = (*i)->recognize(source, offset, size);
+			if(!cur.first) {
+				return std::pair<ast_node_t, unsigned int>(0, offset);
+			}
+			offset = cur.second;
+			if(cur.first!=PRODUCTION_OK_BUT_EMPTY) {
+				stack.push_back(Car(cur.first));
+				Car(cur.first)->raw.ref++;
+			}
+			++i;
+		}
+		ast_node_t ret = NULL;
+		recog_stack_t::reverse_iterator si, sj = stack.rend();
+		for(si=stack.rbegin();si!=sj;++si) {
+			/*ret = rule::internal::append()(*si, ret);*/
+			/*ret = newPair(Car(*si), ret);*/
+			ret = newPair(*si, ret);
+			delete_node(*si);
+		}
+		stack.clear();
+		return std::pair<ast_node_t, unsigned int>(ret, offset);
+#if 0
 		if(!cur.first) {
+			cur.second = 0;
 			return cur;
 		}
 		std::pair<ast_node_t, unsigned int> tail = rec_recog(source, cur.second, size, ++i, j);
 		cur.second = tail.second;
 		if(tail.first) {
-			ast_node_t x = rule::internal::append()(cur.first, tail.first);
-			/*if(x!=cur.first) {*/
-			/*delete_node(cur.first);*/
-			/*delete_node(tail.first);*/
-			/*}*/
+			ast_node_t x;
+			if(cur.first&&cur.first!=PRODUCTION_OK_BUT_EMPTY&&Cdr(cur.first)) {
+				x = rule::internal::append()(cur.first, tail.first);
+			} else {
+				x = newPair(Car(cur.first), tail.first);
+				/*delete_node(tail.first);*/
+				/*delete_node(cur.first);*/
+			}
+
 			return std::pair<ast_node_t, unsigned int>(x, cur.second);
-		} else {
+		} else if(tail.second) {
 			if(cur.first) {
 				return cur;
 			}
 			return tail;
+		} else {
+			delete_node(cur.first);
+			cur.first = NULL;
+			return cur;
 		}
+#endif
 	}
 
 	std::pair<ast_node_t, unsigned int> RawSeq::recognize(const char* source, unsigned int offset, unsigned int size) const {
-#if 0
+#if 1
+#  if 1
 		return rec_recog(source, offset, size, begin(), end());
+#  else
+		std::pair<ast_node_t, unsigned int> skip = rec_recog(source, offset, size, begin(), end());
+		delete_node(skip.first);
+		return std::pair<ast_node_t, unsigned int>(newPair(newAtom("FREEME", 0), NULL), skip.second);
+#  endif
 #else
 		visitors::debugger d;
 		/*rule::internal::append append;*/

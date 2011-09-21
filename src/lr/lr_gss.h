@@ -310,7 +310,7 @@ namespace lr {
 						/*} else if(*i) {*/
 						} else {
 							/* on AST node */
-							ast_node_t tmp = accum;
+							/*ast_node_t tmp = accum;*/
 							accum = grammar::rule::internal::append()(tail->ast, accum, drop_empty);
 							/*accum->raw.ref++;*/
 							/*delete_node(tmp);*/
@@ -381,7 +381,7 @@ namespace lr {
 					if(accum) {
 						grammar::visitors::reducer red(accum, offset);
 						ast_node_t output = red.process((grammar::rule::base*)R);
-						ast_node_t old = accepted;
+						/*ast_node_t old = accepted;*/
 						accepted = grammar::rule::internal::append()(output, accepted);
 						/*accepted->raw.ref++;*/
 						/*delete_node(old);*/

@@ -53,7 +53,7 @@ $(COBJ):$(SUFFIX)/%.o:%.c Makefile
 	$(CC) -c $< -o $@
 
 $(SUFFIX)/lr.h.gch: $(LR_HEADERS) Makefile
-	#$(CXX) lr.h -o $@
+	$(CXX) lr.h -o $@
 
 $(SUFFIX)/test.o $(SUFFIX)/main.o $(CPPOBJ):$(SUFFIX)/%.o:%.cc Makefile
 	$(CXX) -c $< -o $@

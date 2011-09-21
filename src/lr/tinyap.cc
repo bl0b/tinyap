@@ -195,12 +195,34 @@ void tinyap_set_verbose(int v) {
 }
 
 void flush_nodes() {
+	std::list<ast_node_t> stack;
+	pair_registry_t::iterator pi, pj;
+	pi = _static_init.pair_registry.begin();
+	pj = _static_init.pair_registry.end();
+	for(;pi!=pj;++pi) {
+		stack.push_back(pi->second);
+	}
+	for(std::list<ast_node_t>::iterator i=stack.begin(), j=stack.end();i!=j;++i) {
+		delete_node(*i);
+	}
+	stack.clear();
+	atom_registry_t::iterator ai, aj;
+	ai = _static_init.atom_registry.begin();
+	aj = _static_init.atom_registry.end();
+	for(;ai!=aj;++ai) {
+		stack.push_back(pi->second);
+	}
+	for(std::list<ast_node_t>::iterator i=stack.begin(), j=stack.end();i!=j;++i) {
+		delete_node(*i);
+	}
+#if 0
 	std::set<ast_node_t>::iterator i, j;
 	j = _static_init.still_has_refs.end();
 	i = _static_init.still_has_refs.begin();
 	for(;i!=j;++i) {
 		std::cerr << "ast node " << (*i)->raw.ref << " refs " << (*i) << std::endl;
 	}
+#endif
 #if 0
 	std::list<ast_node_t> to_remove;
 	std::set<ast_node_t>::iterator i, j;
@@ -230,12 +252,12 @@ void tinyap_terminate() {
 		return;
 	}
 	is_init=0;
-	node_pool_term();
-	term_pilot_manager();
 	grammar::item::clean_registry_at_exit();
 	flush_nodes();
 	deinit_strreg();
 	term_tinyap_alloc();
+	node_pool_term();
+	term_pilot_manager();
 }
 
 void tinyap_init() {

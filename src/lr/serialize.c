@@ -279,10 +279,10 @@ void ast_serialize(const ast_node_t ast,int(*func)(int,void*),void*param, int sh
 		/*}*/
 		ast_ser_list(ast,func,param, show_offset);
 		func(')',param);
-		if(1&&show_offset) {
+#		ifdef DEBUG_AST_REFS
 			func('#', param);
 			serialize_int(ast->raw.ref, func, param);
-		}
+#		endif
 	/* if ast is atom, output atom */
 	} else if(isAtom(ast)) {
 		srcptr=regstr(getAtom(ast));
@@ -308,13 +308,13 @@ void ast_serialize(const ast_node_t ast,int(*func)(int,void*),void*param, int sh
 #else
 			func(':', param);
 			serialize_int(ast->atom.offset, func, param);
-			if(1) {
-				func('#', param);
-				serialize_int(ast->raw.ref, func, param);
-			}
 #endif
 			/*escape_chr(&ptr, func, param, _LISP);*/
 		}
+#		ifdef DEBUG_AST_REFS
+			func('#', param);
+			serialize_int(ast->raw.ref, func, param);
+#		endif
 /*		*output+=strlen(getAtom(ast));*/
 	}
 	func(0, param);

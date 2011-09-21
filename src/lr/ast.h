@@ -248,16 +248,24 @@ static inline std::ostream& operator<<(std::ostream&os, const ast_node_t n) {
 };
 
 struct Ast {
-	Ast(const ast_node_t _) : n(_) { if(n) { n->raw.ref++; } }
-	Ast(const Ast& a) : n(a) { if(n) { n->raw.ref++; } }
+	Ast(const ast_node_t _)
+		: n(_)
+	{
+		if(n) { n->raw.ref++; } 
+	}
+	Ast(const Ast& a)
+		: n(a)
+	{
+		if(n) { n->raw.ref++; }
+	}
 	Ast() : n(0) {}
 	~Ast() { delete_node(n); }
 	Ast& operator=(const ast_node_t x) {
+		if(x) {
+			x->raw.ref++;
+		}
 		delete_node(n);
 		n=x;
-		if(n) {
-			n->raw.ref++;
-		}
 		return *this;
 	}
 	operator ast_node_t() const { return n; }
