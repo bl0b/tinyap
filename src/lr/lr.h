@@ -6,6 +6,7 @@
 #include "lr_base.h"
 #include "lr_grammar.h"
 #include "lr_visitors.h"
+#include "static_init.h"
 
 #include <algorithm>
 #include <queue>
@@ -13,12 +14,14 @@
 #include <fstream>
 
 
-
 extern "C" {
 ast_node_t  ast_unserialize(const char*input);
-const char* ast_serialize_to_string(const ast_node_t ast);
+const char* ast_serialize_to_string(const ast_node_t ast, int show_offset);
 void ast_serialize_to_file(const ast_node_t ast,FILE*f);
 extern int tinyap_verbose;
+extern volatile int _node_dealloc_count;
+extern "C" void tinyap_init();
+extern "C" void tinyap_terminate();
 }
 
 
@@ -551,7 +554,7 @@ push u onto stack
 				unsigned int farthest=0;
 				if(stack) { delete stack; }
 				stack = new gss(item((*G)["_start"], grammar::item::iterator::create((*G)["_start"])), size);
-				stack->shift(NULL, NULL, S0, NULL, 0, NULL, NULL);
+				stack->shift(NULL, NULL, S0, NULL, 0, NULL);
 				while(!stack->active.empty()) {
 					gss::node* n = stack->consume_active();
 					if(n->id.O>=farthest) {
@@ -563,7 +566,7 @@ push u onto stack
 					if(!S) {
 						throw "COIN";
 					}
-#if 1
+#if 0
 #define _tinyap_min(a, b) (a<b?a:b)
 					item_set ker;
 					kernel(S->items, ker);
@@ -592,10 +595,12 @@ push u onto stack
 						}
 						const grammar::item::base* token = (*ti).first;
 						std::pair<ast_node_t, unsigned int> ret = token->recognize(buffer, ofs, size);
-						std::clog << "follow by "; ((grammar::item::base*)token)->accept(&debug); std::clog << " => " << ((int)(ret.first?ret.second:-1)) << std::endl;
+						/*std::clog << "follow by "; ((grammar::item::base*)token)->accept(&debug); std::clog << " => " << ((int)(ret.first?ret.second:-1)) << std::endl;*/
 						if(ret.first) {
 							didnt_shift=false;
-							stack->shift(n, (grammar::item::base*)(*ti).first, (*ti).second, ret.first, ret.second, NULL, NULL);
+							/*ret.first->raw.ref++;*/
+							stack->shift(n, (grammar::item::base*)(*ti).first, (*ti).second, ret.first, ret.second, NULL);
+							/*delete_node(ret.first);*/
 						}
 					}
 
@@ -689,44 +694,72 @@ push u onto stack
 
 
 			static bool test(int testno, const char* gram, const char* txt, const char* expected) {
+				_static_init.atom_registry.clear();
+				_static_init.pair_registry.clear();
+				tinyap_init();
 				std::string grammar;
-				grammar = "((Grammar (TransientRule _start (NT X)) ";
+				grammar = "((TransientRule _start (NT X)) ";
 				grammar += gram;
-				grammar += "))";
-				ast_node_t g = gram?Cdr(Car(ast_unserialize(grammar.c_str()))):NULL;
-				grammar::Grammar gg(g);
-				automaton r2d2(&gg);
-				std::clog << "===========================================================" << std::endl;
-				std::clog << "===========================================================" << std::endl;
-				std::clog << "Grammar : " << grammar << std::endl;
-				grammar::visitors::debugger d;
-				gg.accept(&d);
-				std::clog << "Input : " << txt << std::endl;
-				std::clog << "===========================================================" << std::endl;
-				r2d2.dump_states();
-				ast_node_t ret = r2d2.parse(txt, strlen(txt));
-				char* tmp = (char*)(ret?ast_serialize_to_string(ret):strdup("nil"));
+				grammar += ")";
+
+				int alloc_delta0 = _node_alloc_count-_node_dealloc_count;
 				bool ok = false;
-				if(!ret) {
-					ok = !expected;
-				} else {
-					ok = !strcmp(tmp, expected);
+				{
+					Ast g = gram?ast_unserialize(grammar.c_str()):NULL;
+					/*ast_node_t g = gram?Car(ast_unserialize(grammar.c_str())):NULL;*/
+					std::clog << "===========================================================" << std::endl;
+					std::clog << "===========================================================" << std::endl;
+					std::clog << "Grammar : " << grammar << std::endl;
+					std::clog << "    AST : " << g << std::endl;
+					grammar::Grammar gg(g);
+					grammar::visitors::debugger d;
+					gg.accept(&d);
+					//if(g) { delete_node(g); }
+					std::clog << "Input : " << txt << std::endl;
+					std::clog << "===========================================================" << std::endl;
+
+					automaton r2d2(&gg);
+					r2d2.dump_states();
+
+					Ast ret = r2d2.parse(txt, strlen(txt));
+
+					char* tmp = (char*)(ret?ast_serialize_to_string(ret, true):strdup("nil"));
+
+					if(!ret) {
+						ok = !expected;
+					} else {
+						ok = !strcmp(tmp, expected);
+					}
+
+					if(!ok) {
+						std::clog << "[TEST] [automaton] #" << testno << ":" << std::endl;
+						std::clog << "[TEST]    With grammar " << gram << std::endl;
+						std::clog << "[TEST]    and input \"" << txt << '"' << std::endl;
+						std::clog << "[TEST]    expected --" << (expected?expected:"nil") << "--" << std::endl;
+						std::clog << "[TEST]    and got  --" << tmp << "-- @" << ((void*)tmp) << std::endl;
+						std::clog << "[TEST]" << std::endl;
+					}
+
+					free(tmp);
+					/*if(ret) { delete_node(ret); }*/
+
+					std::stringstream dot;
+					dot << "graph_" << testno << ".dot";
+					std::ofstream df(dot.str().c_str(), std::ios::out);
+					df << "digraph gss_" << testno << '{' << std::endl;
+					df << *r2d2.stack;
+					df << '}' << std::endl;
 				}
-				if(!ok) {
-					std::clog << "[TEST] [automaton] #" << testno << ":" << std::endl;
-					std::clog << "[TEST]    With grammar " << gram << std::endl;
-					std::clog << "[TEST]    and input \"" << txt << '"' << std::endl;
-					std::clog << "[TEST]    expected --" << (expected?expected:"nil") << "--" << std::endl;
-					std::clog << "[TEST]    and got  --" << tmp << "-- @" << ((void*)tmp) << std::endl;
-					std::clog << "[TEST]" << std::endl;
+				tinyap_terminate();
+				int alloc_delta1 = _node_alloc_count-_node_dealloc_count;
+				if(alloc_delta1 != alloc_delta0) {
+					std::cout << "[TEST] [automaton] #" << testno << " leak detected (" << (alloc_delta1-alloc_delta0) << ')' << std::endl;
+					std::cout << "[TEST] [automaton] #" << testno << " grammar " << gram << std::endl;
+					std::cout << "[TEST] [automaton] #" << testno << " text " << txt << std::endl;
+					std::cout << "[TEST] [automaton] #" << testno << " expected " << expected << std::endl;
+					std::cout << "[TEST] [automaton] #" << testno << " ==================================" << std::endl;
 				}
-				std::stringstream dot;
-				dot << "graph_" << testno << ".dot";
-				std::ofstream df(dot.str().c_str(), std::ios::out);
-				df << "digraph gss_" << testno << '{' << std::endl;
-				df << *r2d2.stack;
-				df << '}' << std::endl;
-				free(tmp);
+
 				return ok;
 			}
 	};

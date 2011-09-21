@@ -63,7 +63,7 @@ namespace lr {
 			struct node {
 				node_id id;
 				bool active;
-				ast_node_t ast;					/* production */
+				Ast ast;					/* production */
 				std::list<node*> preds;
 				node* reduction_end;
 				node() : id(0, 0, 0), active(0), ast(0), preds(), reduction_end(0) {}
@@ -72,12 +72,16 @@ namespace lr {
 					/*p->link = pred;*/
 					/*pred = p;*/
 				}
-				ast_node_t get_state_ast() const {
-					return preds.front()->ast;
+				~node() {
+					/*std::cerr << "delete stack node; ast=" << ast << std::endl;*/
+					/*delete_node(ast);*/
 				}
-				node* get_prev_state() const {
-					return preds.front()->preds.front();
-				}
+				/*ast_node_t get_state_ast() const {*/
+					/*return preds.front()->ast;*/
+				/*}*/
+				/*node* get_prev_state() const {*/
+					/*return preds.front()->preds.front();*/
+				/*}*/
 				std::string to_dot() const {
 					std::stringstream ret;
 					if(ast) {
@@ -93,14 +97,18 @@ namespace lr {
 					std::stringstream tmp;
 					grammar::visitors::debugger d(tmp);
 					for(;i!=j;++i) {
-						ret << 'n' << (ptrdiff_t)*i << " -> n" << (ptrdiff_t)this << "[label=\"";
-						if(id.P) {
-							id.P->accept(&d);
-						} else {
-							ret << "START";
+						ret << 'n' << (ptrdiff_t)*i << " -> n" << (ptrdiff_t)this;
+						if(ast) {
+							ret << "[label=\"";
+							if(id.P) {
+								id.P->accept(&d);
+							} else {
+								ret << "START";
+							}
+							escaper(ret) << tmp.str();
+							ret << "\"]";
 						}
-						escaper(ret) << tmp.str();
-						ret << "\"];" << std::endl;
+						ret << ";" << std::endl;
 					}
 					if(reduction_end) {
 						ret << 'n' << (ptrdiff_t) reduction_end << " -> n" << (ptrdiff_t)this << " [arrowhead=odot];" << std::endl;
@@ -172,6 +180,7 @@ namespace lr {
 				void free(node* n) {
 					++gss_frees;
 					n->preds.push_back(free_);
+					/*delete_node(n->ast);*/
 					free_ = n;
 					--alloc_count;
 				}
@@ -187,31 +196,33 @@ namespace lr {
 			/*std::queue<node*> active;*/
 			std::list<node*> active;
 			item initial;
-			ast_node_t accepted;
+			Ast accepted;
 			unsigned int size;
+
+			~gss() {
+				/*delete_node(accepted);*/
+			}
 
 
 			struct reduction_data {
-				node* red_start;
 				node* red_end;
 				node* tail;
 				item i;
 				unsigned int offset;
 				ast_node_t accum;
-				bool must_cleanup;
-				reduction_data(node* rs, node* re, node* t, item& i_, unsigned int o, ast_node_t a, bool mc)
-					: red_start(rs), red_end(re), tail(t), i(i_), offset(o), accum(a), must_cleanup(mc)
+				reduction_data(node* re, node* t, item& i_, unsigned int o, ast_node_t a)
+					: red_end(re), tail(t), i(i_), offset(o), accum(a)
 				{
 					/*debug();*/
 				}
 				reduction_data(const reduction_data& rd)
-					: red_start(rd.red_start), red_end(rd.red_end), tail(rd.tail), i(rd.i), offset(rd.offset), accum(rd.accum), must_cleanup(rd.must_cleanup)
+					: red_end(rd.red_end), tail(rd.tail), i(rd.i), offset(rd.offset), accum(rd.accum)
 				{
 					/*debug();*/
 				}
 
 				void debug() const {
-					std::clog << "red_dat(" << red_start << ", " << red_end << ", " << tail << ", " << i << ", " << offset << ", " << accum << ", " << must_cleanup << ')' << std::endl;
+					std::clog << "red_dat(" << red_end << ", " << tail << ", " << i << ", " << offset << ", " << accum << ')' << std::endl;
 				}
 			};
 
@@ -220,6 +231,7 @@ namespace lr {
 			node* alloc_node(node_id& id) {
 				node* ret = alloc.alloc();
 				ret->id = id;
+				/*delete_node(ret->ast);*/
 				ret->ast = NULL;
 				ret->preds.clear();
 				return ret;
@@ -235,7 +247,7 @@ namespace lr {
 
 			/* TODO : merge only when shifting a non-terminal ? */
 
-			node* shift(node* p, grammar::item::base* producer, state* s, ast_node_t ast, unsigned int offset, node* red_start, node* red_end) {
+			node* shift(node* p, grammar::item::base* producer, state* s, ast_node_t ast, unsigned int offset, node* red_end) {
 				if(!p) {
 					p=&root;
 				}
@@ -247,8 +259,10 @@ namespace lr {
 				/* push ast node */
 				node* n = alloc_node(noid);
 				n->ast = ast;
+				/*if(ast) {*/
+					/*ast->raw.ref++;*/
+				/*}*/
 				n->reduction_end = red_end;
-				/*n->reduction_end = red_start;*/
 				/*std::clog << "pushed ast node with " << ast << std::endl;*/
 				n->add_pred(p);
 				p = n;
@@ -274,76 +288,35 @@ namespace lr {
 				struct for_each_ {
 					/* track path to head, depth-first. */
 					unsigned int offset;
-					ast_node_t& accepted;
+					/*ast_node_t& accepted;*/
 					unsigned int count;
 					node* red_end;
 					gss* stack;
 					bool drop_empty;
 					unsigned int size;
-					void rec_path(node* tail, node* red_start, ast_node_t accum, lr::item i, bool must_cleanup) {
+					void rec_path(node* tail, ast_node_t accum, lr::item i) {
 						std::list<node*>::iterator a = tail->preds.begin(), b = tail->preds.end();
 						if(tail->id.S) {
 							//std::clog << "on state node " << i << " accum = " << accum << std::endl/* << tail->id.S << std::endl*/;
 							/* on state node */
 							if(i.at_start()) {
 								//std::clog << "found reductible path ! " << accum << std::endl;
-								stack->commit_reduction(red_start, red_end, tail, i, offset, accum, must_cleanup);
+								stack->commit_reduction(red_end, tail, i, offset, accum);
+								/*delete_node(accum);*/
 								return;
 							} else {
 								--i;
 							}
-						} else if(*i/* && (!i.at_start())*/) {
-							//std::clog << "on ast node " << tail->ast << ' ';
-							//if(tail->id.P) {
-							//	grammar::visitors::debugger d(std::clog);
-							//	tail->id.P->accept(&d);
-							//} else {
-							//	std::clog << "null";
-							//}
-							//std::clog << std::endl;
-#if 0
-							if(tail->id.P && !tail->id.P->is_same(*i)) {
-							/*if(tail->id.P != (*i)) {*/
-								std::clog << "mismatch ";
-								grammar::visitors::debugger d(std::clog);
-								if(tail->id.P) {
-									tail->id.P->accept(&d);
-								} else {
-									std::clog << "null";
-								}
-								std::clog << " @" << tail->id.P << ' ';
-								((grammar::item::base*)(*i))->accept(&d);
-								std::clog << " @" << (*i) << ' ' << ((bool)(*i)->is_same(tail->id.P));
-								std::clog << std::endl;
-								return;
-							} else if(tail->id.P) {
-								std::clog << "match ";
-								grammar::visitors::debugger d(std::clog);
-								tail->id.P->accept(&d);
-								std::clog << std::endl;
-							} else {
-								std::clog << "won't compare with initial token" << std::endl;
-								return;
-							}
-#endif
+						/*} else if(*i) {*/
+						} else {
 							/* on AST node */
 							ast_node_t tmp = accum;
 							accum = grammar::rule::internal::append()(tail->ast, accum, drop_empty);
-							must_cleanup |= ((tmp != accum) && (tail->ast != accum));
-							red_start = tail;
+							/*accum->raw.ref++;*/
+							/*delete_node(tmp);*/
 						}
-						/*grammar::item::base* k = (grammar::item::base*)*i;*/
 						for(;a!=b;++a) {
-							/*if(k->is_same((*a)->id.P)) {*/
-								rec_path(*a, red_start, accum, i, must_cleanup);
-							/*} else {*/
-								/*std::clog << "mismatch ";*/
-								/*grammar::visitors::debugger d(std::clog);*/
-								/*(*a)->id.P->accept(&d);*/
-								/*std::clog << ' ';*/
-								/*((grammar::item::base*)(*i))->accept(&d);*/
-								/*std::clog << std::endl;*/
-							/*}*/
+								rec_path(*a, accum, i);
 						}
 					}
 
@@ -351,12 +324,12 @@ namespace lr {
 						//std::clog << "trying to reduce " << i << std::endl;
 						drop_empty = !i.rule()->keep_empty();
 						red_end = tail;
-						rec_path(tail, NULL, NULL, i, false);
+						rec_path(tail, NULL, i);
 						//std::clog << "done trying to reduce " << i << std::endl;
 						return count;
 					}
 
-					for_each_(unsigned int ofs, unsigned int sz, ast_node_t& ac, gss* s) : offset(ofs), accepted(ac), count(0), stack(s), size(sz) {}
+					for_each_(unsigned int ofs, unsigned int sz, ast_node_t ac, gss* s) : offset(ofs), /*accepted(ac),*/ count(0), stack(s), size(sz) {}
 				} reduce_each_path(offset, size, accepted, this);
 				
 
@@ -365,9 +338,10 @@ namespace lr {
 					++gss_reduces;
 					/* epsilon rule : reduce ZERO node, and shift from current node. */
 					grammar::visitors::reducer red(PRODUCTION_OK_BUT_EMPTY, offset);
-					ast_node_t output = red(((grammar::rule::base*)i.rule()));
+					Ast output = red(((grammar::rule::base*)i.rule()));
 					/*std::clog << "epsilon reduction" << std::endl;*/
-					return shift(n, grammar::item::token::Nt::instance(i.rule()->tag()), n->id.S->transitions.from_stack[i.rule()->tag()], output, offset, n, n);
+					/*output->raw.ref++;*/
+					return shift(n, grammar::item::token::Nt::instance(i.rule()->tag()), n->id.S->transitions.from_stack[i.rule()->tag()], output, offset, n);
 				}
 
 				reduce_each_path(n, i);
@@ -379,35 +353,40 @@ namespace lr {
 				pending_reductions.clear();
 			}
 
-			void commit_reduction(node* red_start, node* red_end, node* tail, item i, unsigned int offset, ast_node_t accum, bool must_cleanup) {
-				reduction_data rd(red_start, red_end, tail, i, offset, accum, must_cleanup);
+			void commit_reduction(node* red_end, node* tail, item i, unsigned int offset, ast_node_t accum) {
+				reduction_data rd(red_end, tail, i, offset, accum);
 				pending_reductions.push_back(rd);
 			}
 
 			void flush_reductions() {
 				std::list<reduction_data>::iterator i, j;
 				for(i=pending_reductions.begin(), j=pending_reductions.end();i!=j;++i) {
-					do_reduction((*i).red_start, (*i).red_end, (*i).tail, (*i).i, (*i).offset, (*i).accum, (*i).must_cleanup);
+					do_reduction((*i).red_end, (*i).tail, (*i).i, (*i).offset, (*i).accum);
 				}
 				pending_reductions.clear();
 			}
 
-			void do_reduction(node* red_start, node* red_end, node* tail, item i, unsigned int offset, ast_node_t accum, bool must_cleanup) {
+			void do_reduction(node* red_end, node* tail, item i, unsigned int offset, ast_node_t accum) {
 				const grammar::rule::base* R = i.rule();
 				if(initial==i) {
 					if(offset != size) {
 						/*std::clog << "can't accept at offset " << offset << " because size is " << size << std::endl;*/
-						/*if(must_cleanup) { delete_node(accum); }*/
+						/*delete_node(accum);*/
 						return;
 					}
 					/* accept */
-#if 0
-					char* acc_ast = (char*)ast_serialize_to_string(accum); std::clog << "ACCEPT ! " << acc_ast << " @" << ((void*)accum) << std::endl; free(acc_ast);
+#if 1
+					std::clog << "ACCEPT ! " << accum << " @" << ((void*)accum) << std::endl;
 #endif
 					if(accum) {
 						grammar::visitors::reducer red(accum, offset);
 						ast_node_t output = red.process((grammar::rule::base*)R);
+						ast_node_t old = accepted;
 						accepted = grammar::rule::internal::append()(output, accepted);
+						/*accepted->raw.ref++;*/
+						/*delete_node(old);*/
+						/*delete_node(accum);*/
+						/*delete_node(output);*/
 					}
 					return;
 				} else {
@@ -418,16 +397,21 @@ namespace lr {
 						((grammar::rule::base*)R)->accept(&d);
 						std::clog << " on top of stack from state : " << std::endl << tail->id.S << std::endl;
 						/*throw "coin";*/
-						/*if(must_cleanup) { delete_node(accum); }*/
+						/*delete_node(accum);*/
 						return;
 					}
 					/* do reduction NOW ! */
 					grammar::visitors::reducer red(accum, offset);
 					ast_node_t redast = red((grammar::rule::base*)R);
-					must_cleanup |= redast != accum;
+					/*redast->raw.ref++;*/
 					grammar::item::base* nt = grammar::item::token::Nt::instance(R->tag());
-					/*std::clog << "Reducing " << accum << " into " << redast << std::endl;*/
-					shift(tail, nt, Sprime, redast, offset, red_start, red_end);
+					std::cerr << "Reducing " << accum << " into " << redast << std::endl;
+					shift(tail, nt, Sprime, redast, offset, red_end);
+					/*if(redast!=accum) {*/
+						/*delete_node(redast);*/
+					/*}*/
+					/*delete_node(accum);*/
+					/*delete_node(redast);*/
 					/*std::clog << "one reduction done" << std::endl;*/
 					return;
 				}
@@ -462,10 +446,14 @@ namespace lr {
 				while(i!=j) {
 					std::pair<std::set<node*, node_less>::iterator, bool> isun = uniq.insert(*i);
 					if(!isun.second) {
+						/*std::cerr << "MERGING STATE !" << std::endl;*/
 						k=i;
 						++i;
 						(*isun.first)->preds.insert((*isun.first)->preds.end(),
 								(*k)->preds.begin(), (*k)->preds.end());
+						/*if((*k)->ast) {*/
+							/*delete_node((*k)->ast);*/
+						/*}*/
 						(*k)->ast = NULL;
 						(*k)->id.S = NULL;
 						active.erase(k);

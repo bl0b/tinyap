@@ -31,38 +31,6 @@ extern "C" {
 #include <pcre.h>
 #define RE_TYPE pcre*
 
-#define OP_EOF       1 // immed
-#define OP_RE        2 // immed, append or fail
-#define OP_T         3 // immed, skip or fail
-#define OP_RTR       4 // enter, produce subseq, leave, append or fail
-#define OP_ROP       5 // enter, get tag, produce, make [tag], leave, append or fail
-#define OP_PREFX     6 // enter, produce car, produce cadr, leave, prefix, append or fail
-#define OP_NT        7 // select rule, goto OP_RTR or OP_ROP, append or fail
-#define OP_SEQ       8 // SEQUENCE. produce all elements or fail, append
-#define OP_ALT       9 // BREAKPOINT. push breakpoint, enter, produce or fail, append
-#define OP_POSTFX   10 // enter, produce car, produce cadr, leave, postfix, append or fail
-#define OP_RAWSEQ   11 // SEQUENCE. (no whitespace trimming)
-#define OP_REP_0N   12 // enter, try produce any times, leave, append
-#define OP_REP_01   13 // enter, try produce, leave, append
-#define OP_REP_1N   14 // enter, produce, produce any times, leave, append or fail
-#define OP_EPSILON  15 // skip
-#define OP_RPL      16 // OBSOLETED.
-#define OP_STR      17 // immed, append or fail
-#define OP_BOW      18 // immed, keep ? append : skip
-#define OP_ADDTOBAG 19 // immed, keep ? append : skip
-#define OP_BKEEP    20 // .
-
-
-static inline ast_node_t SafeAppend(ast_node_t a, ast_node_t b) {
-	return a==PRODUCTION_OK_BUT_EMPTY
-		? b
-		: b==PRODUCTION_OK_BUT_EMPTY
-			? a
-			: Append(a, b);
-}
-
-const char* op2string(int typ);
-int string2op(const char* tag);
 
 ast_node_t find_nterm(ast_node_t grammar, const char* tag);
 

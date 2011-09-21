@@ -78,10 +78,10 @@ char* usrlz_token(parse_context_t t,const char*whitespaces,const char*terminator
 	char*srcptr,*destptr=buffer;
 	int isTerminator;
 
-	//debug_writeln("TOKENIZING %20.20s",t->source+t->ofs);
+	/*debug_writeln("TOKENIZING %20.20s",t->source+t->ofs);*/
 
 	/* strip whitespace */
-	while(*(t->source+t->ofs)!=0&&strchr(whitespaces,*(t->source+t->ofs))!=NULL) {
+	while(strchr(whitespaces,*(t->source+t->ofs))!=NULL) {
 		t->ofs+=1;
 	}
 
@@ -90,13 +90,13 @@ char* usrlz_token(parse_context_t t,const char*whitespaces,const char*terminator
 	if((!srcptr)||(!*srcptr)) {
 		return "";
 	} else if(*srcptr=='(') {
+		/*debug_writeln("* %s PARENTHESIS",*srcptr=='('?"OPENING":"CLOSING");*/
 		t->ofs+=1;
 		return OPEN_PAR;
-		//debug_writeln("* %s PARENTHESIS",*srcptr=='('?"OPENING":"CLOSING"); /*)*/
 	} else if(*srcptr==')') {
+		/*debug_writeln("* %s PARENTHESIS",*srcptr=='('?"OPENING":"CLOSING");*/
 		t->ofs+=1;
 		return CLOSE_PAR;
-		//debug_writeln("* %s PARENTHESIS",*srcptr=='('?"OPENING":"CLOSING"); /*)*/
 	} else {
 		do {
 			unescape_chr(&srcptr,&destptr, context, -1);
@@ -106,27 +106,40 @@ char* usrlz_token(parse_context_t t,const char*whitespaces,const char*terminator
 	}
 	/* always append/overwrite the trailing \0 */
 	*destptr=0;
-	//debug_writeln("* <<%s>>",buffer);
+	/*debug_writeln("* <<%s>>",buffer);*/
 	return buffer;
 }
 
 
 
 
+/* IIRC _qlp stands for quick list parse */
+
 ast_node_t  _qlp_elem(parse_context_t t);
 
 ast_node_t  _qlp_list(parse_context_t t) {
-	ast_node_t car=_qlp_elem(t);
-	if(t->source[t->ofs]=='@') {
-		t->ofs+=2;
-		car->node_flags|=IS_FOREST;
-	}
+	ast_node_t car, ret = NULL;
+	/*debug_enter();*/
+	car=_qlp_elem(t);
+	/*if(t->source[t->ofs]=='@') {*/
+		/*t->ofs+=2;*/
+		/*car->node_flags|=IS_FOREST;*/
+	/*}*/
 	if(car) {
-//		printf("\tcar="); dump_node(car); printf("\n");
+		ast_node_t cdr;
+		/*printf("\n");*/
+		/*debug_indent(); printf("car =  "); dump_node(car); printf("\n");*/
+		/*debug_enter();*/
+		cdr = _qlp_list(t);
+		/*debug_leave();*/
+		/*debug_indent(); printf("cdr =  "); dump_node(cdr); printf("\n");*/
 		//return newPair(car,_qlp_list(t,sym));
-		return newPair(car,_qlp_list(t));
+		ret = newPair(car, cdr);
+		/*ret->raw.ref++;*/
+		/*debug_indent(); printf("return "); dump_node(ret); printf("\n");*/
 	}
-	return NULL;
+	/*debug_leave();*/
+	return ret;
 }
 
 ast_node_t  _qlp_elem(parse_context_t t) {
@@ -136,27 +149,28 @@ ast_node_t  _qlp_elem(parse_context_t t) {
  * [^()]* => symbol
  */
 	ast_node_t ret=NULL;
-	char*cur=(char*)(t->source+t->ofs);
+	/*char*cur=(char*)(t->source+t->ofs);*/
 	char*token;
 
-	/*debug_enter();*/
 
-	cur=(char*)(t->source+t->ofs);
+	/*cur=(char*)(t->source+t->ofs);*/
 
 	token=usrlz_token(t,"\n\r\t ","()", _LISP);
 /*	t->ofs+=token_length;*/
 	if(token==OPEN_PAR) {
+		/*debug_enter();*/
 		ret=_qlp_list(t);
 	} else if(token==CLOSE_PAR) {
 		ret=NULL;
+		/*debug_leave();*/
 	} else if(!*token) {
 		ret=NULL;
 	} else {
 		/*debug_write("token='%s' ",token);*/
 		ret=newAtom(token,0);
+		/*ret->raw.ref++;*/
 	}
 
-	/*debug_leave();*/
 	return ret;
 }
 
@@ -167,12 +181,14 @@ ast_node_t  ast_unserialize(const char*input) {
 	toktext.ofs=0;
 	toktext.source=(char*)input;
 	ret = _qlp_elem(&toktext);	/* symbol is anything but parenthesis or whitespace */
+	/*debug_writeln("From string %s\n", input);*/
+	/*debug_write("Got AST "); dump_node(ret); printf("\n");*/
 
 	return ret;
 }
 
 
-void ast_serialize(const ast_node_t ast,int(*func)(int,void*),void*param);
+void ast_serialize(const ast_node_t ast,int(*func)(int,void*),void*param, int show_offset);
 
 int file_put(int c,void*data) {
 	FILE*f=(FILE*)data;
@@ -198,26 +214,47 @@ int incr(int c,void*data) {
 	return 1;
 }
 
-void ast_ser_list(const ast_node_t ast,int(*func)(int,void*),void*param) {
+void ast_ser_list(const ast_node_t ast,int(*func)(int,void*),void*param, int show_offset) {
 	/* FIXME shouldn't happen */
 	if(isAtom(ast)) {
-		ast_serialize(ast,func,param);
+		ast_serialize(ast,func,param, show_offset);
 		return;
 	}
 
 	if(getCar(ast)) {
-		ast_serialize(getCar(ast),func,param);
+		ast_serialize(getCar(ast),func,param, show_offset);
 	}
 	if(getCdr(ast)) {
 		func(' ',param);
-		ast_ser_list(getCdr(ast),func,param);
+		ast_ser_list(getCdr(ast),func,param, show_offset);
 	}
 }
 
 
 extern ast_node_t PRODUCTION_OK_BUT_EMPTY;
 
-void ast_serialize(const ast_node_t ast,int(*func)(int,void*),void*param) {
+void serialize_int(int x, int(*func)(int, void*), void* param) {
+	char buf[32];
+	char* ptr = buf+31;
+	char sign=0;
+	*ptr = 0;
+	if(x<0) {
+		sign = '-';
+		x = -x;
+	} else if(x==0) {
+		func('0', param);
+		return;
+	}
+	do {
+		*--ptr = '0'+(x%10);
+		x /= 10;
+	} while(x>0);
+	while(*ptr) {
+		func(*ptr++, param);
+	}
+}
+
+void ast_serialize(const ast_node_t ast,int(*func)(int,void*),void*param, int show_offset) {
 	char*srcptr;
 	/* if ast is nil, output '()' */
 	/*inside_lisp = 1;*/
@@ -236,37 +273,67 @@ void ast_serialize(const ast_node_t ast,int(*func)(int,void*),void*param) {
 	/* if ast is pair, serialize list */
 	} else if(isPair(ast)) {
 		func('(',param);
-		if(ast->node_flags&IS_FOREST) {
-		func('@',param);
-		func(' ',param);
-		}
-		ast_ser_list(ast,func,param);
+		/*if(ast->node_flags&IS_FOREST) {*/
+		/*func('@',param);*/
+		/*func(' ',param);*/
+		/*}*/
+		ast_ser_list(ast,func,param, show_offset);
 		func(')',param);
+		if(1&&show_offset) {
+			func('#', param);
+			serialize_int(ast->raw.ref, func, param);
+		}
 	/* if ast is atom, output atom */
 	} else if(isAtom(ast)) {
 		srcptr=regstr(getAtom(ast));
 		while(*srcptr!=0) {
 			escape_chr(&srcptr,func,param, _LISP);
 		}
+		if(show_offset) {
+#if 0
+			char buf[32];
+			char* ptr = buf+31;
+			size_t ofs = ast->atom.offset;
+			*ptr = 0;
+			if(ofs==0) {
+				*--ptr = '0';
+			} else do {
+				*--ptr = '0'+(ofs%10);
+				ofs/=10;
+			} while(ofs>0);
+			func(':', param);
+			while(*ptr) {
+				func(*ptr++, param);
+			}
+#else
+			func(':', param);
+			serialize_int(ast->atom.offset, func, param);
+			if(1) {
+				func('#', param);
+				serialize_int(ast->raw.ref, func, param);
+			}
+#endif
+			/*escape_chr(&ptr, func, param, _LISP);*/
+		}
 /*		*output+=strlen(getAtom(ast));*/
 	}
-	func('\0',param);
+	func(0, param);
 	/*inside_lisp = 0;*/
 }
 
 
-const char* ast_serialize_to_string(const ast_node_t ast) {
+const char* ast_serialize_to_string(const ast_node_t ast, int show_offset) {
 	unsigned int size=0;
 	char*ret,*tmp;
-	ast_serialize(ast,incr,(void*)&size);
+	ast_serialize(ast,incr,(void*)&size, show_offset);
 //	printf("serialize needs %i bytes\n",size);
 	tmp=ret=(char*)malloc(size+1);
-	ast_serialize(ast,str_put,(void*)&tmp);
+	ast_serialize(ast,str_put,(void*)&tmp, show_offset);
 //	printf("serialized to %s (%i)\n",ret,strlen(ret));
 	return ret;
 }
 
 void ast_serialize_to_file(const ast_node_t ast,FILE*f) {
-	ast_serialize(ast,file_put,(void*)f);
+	ast_serialize(ast,file_put,(void*)f, 0);
 }
 

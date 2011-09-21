@@ -151,8 +151,8 @@ int do_args(int argc,char*argv[]) {
 			wast_t grammar, short_gram;
 			const char* up;
 
-			grammar = make_wast(tinyap_list_get_element(tinyap_get_grammar_ast(parser), 0));
-			short_gram = make_wast(tinyap_list_get_element(tinyap_get_ruleset(GRAMMAR_SHORT), 0));
+			grammar = make_wast(parser, tinyap_list_get_element(tinyap_get_grammar_ast(parser), 0));
+			short_gram = make_wast(parser, tinyap_list_get_element(tinyap_get_ruleset(GRAMMAR_SHORT), 0));
 			up = tinyap_unparse(short_gram, grammar);
 			if(up) {
 				fputs(up, stdout);
@@ -190,8 +190,9 @@ int do_args(int argc,char*argv[]) {
 			fprintf(stderr, "\n\t--parse,-p\t\tparse input text\n");
 			fprintf(stderr, "\n\t--parse-as-grammar,-pag\tparse input text and use output AST as new grammar\n");
 			fprintf(stderr, "\n\t--full-parse,-fp\t\tfind all possible parse trees\n");
-			fprintf(stderr, "\n\t--parse,-p\t\tfind first parse tree (favor shift over reduce)\n");
+			fprintf(stderr, "\n\t--parse,-p\t\tparse input text favoring shift over reduce\n");
 			fprintf(stderr, "\n\t--dump-stack,-ds [dotFile]\tdump the LR stack as a .dot file\n");
+			fprintf(stderr, "\n\t--print-states,-ps\t\tprint the LR(0) states to standard output\n");
 			fprintf(stderr, "\n\t--walk,-w name\t\twalk the current output tree using named ape\n\t\t\t\t(try prettyprint !)\n");
 			fprintf(stderr, "\n\t--help,-h\t\tdisplay this text\n\n");
 			exit(0);
@@ -199,7 +200,7 @@ int do_args(int argc,char*argv[]) {
 			i+=1;
 			ast_node_t one = tinyap_get_output(parser);
 			while(one) {
-				wast_t wa = tinyap_make_wast(Car(one));
+				wast_t wa = tinyap_make_wast(parser, Car(one));
 				tinyap_walk(wa,argv[i],NULL);
 				tinyap_free_wast(wa);
 				one = Cdr(one);

@@ -3,6 +3,8 @@
 
 #include <cxxabi.h>		/* for demangling */
 
+#include "string_registry.h"
+
 namespace grammar {
 	struct _h {
 		size_t operator()(const char*k) const {
@@ -466,20 +468,21 @@ namespace grammar {
 					const char* tag_;
 					bool keep_;
 					trie_t mybow;
+					static ext::hash_map<const char*, trie_t>& all;
 				public:
 					Bow(const char*_, bool k) : tag_(_), keep_(k) {
 						mybow = find(_);
-						std::clog << "using BOW " << tag_ << " (from " << _ << ") @" << mybow << std::endl;
+						/*std::clog << "using BOW " << tag_ << " (from " << _ << ") @" << mybow << std::endl;*/
 					}
 					Bow(const Bow& _) : tag_(_.tag_), keep_(_.keep_), mybow(_.mybow) {}
 					const char* tag() const { return tag_; }
 					bool keep() const { return keep_; }
 					virtual std::pair<ast_node_t, unsigned int> recognize(const char* source, unsigned int offset, unsigned int size) const {
-						std::clog << "POUET " << tag_ << " @" << mybow << std::endl;
-						trie_dump(mybow, 1);
+						/*std::clog << "POUET " << tag_ << " @" << mybow << std::endl;*/
+						/*trie_dump(mybow, 1);*/
 						unsigned long slen = trie_match_prefix(mybow, source+offset);
 						if(slen>0) {
-							std::clog << "found a word in bow " << tag_ << " : " << std::string(source+offset, source+offset+slen) << std::endl;
+							/*std::clog << "found a word in bow " << tag_ << " : " << std::string(source+offset, source+offset+slen) << std::endl;*/
 							if(!keep_) {
 								return std::pair<ast_node_t, unsigned int>(PRODUCTION_OK_BUT_EMPTY, offset+slen);
 							} else {
@@ -490,14 +493,21 @@ namespace grammar {
 								_strfree(tok);
 								return std::pair<ast_node_t, unsigned int>(ast, offset+slen);
 							}
-						} else {
-							std::clog << "didn't find any word in bow " << tag_ << std::endl;
+						/*} else {*/
+							/*std::clog << "didn't find any word in bow " << tag_ << std::endl;*/
 						}
 						return std::pair<ast_node_t, unsigned int>(NULL, offset);
 					}
 
 					static trie_t find(const char*tag) {
-						static ext::hash_map<const char*, trie_t> all;
+						/*static struct tries : ext::hash_map<const char*, trie_t> {
+							~tries() {
+								iterator i, j;
+								for(i=begin(), j=end(); i!=j; ++i) {
+									trie_free((*i).second);
+								}
+							}
+						} all;*/
 						trie_t ret = all[tag];
 						if(!ret) {
 							all[tag] = ret = trie_new();
@@ -599,30 +609,46 @@ namespace grammar {
 		namespace internal {
 			struct append {
 				ast_node_t operator()(ast_node_t a, ast_node_t b, bool drop_empty = true) const {
+					std::cerr << "append <= " << a << " + " << b << std::endl;
 					if(a==PRODUCTION_OK_BUT_EMPTY||!a) { return b?b:PRODUCTION_OK_BUT_EMPTY; }
-					if(b==PRODUCTION_OK_BUT_EMPTY||!b) { return a?a:PRODUCTION_OK_BUT_EMPTY; }
-					return rec(a, b, drop_empty);
+					if(b==PRODUCTION_OK_BUT_EMPTY||!b) { return a; }
+					ast_node_t ret = rec(a, b, drop_empty);
+					if(a!=ret&&b!=ret) {
+						/*delete_node(a);*/
+						/*delete_node(b);*/
+					}
+					/*delete_node(a);*/
+					std::cerr << "append => " << ret << std::endl;
+					return ret;
 				}
 				private:
 					ast_node_t rec(ast_node_t a, ast_node_t b, bool drop_empty) const {
+						/*std::cout << "rec a:" << (a?a->raw.ref:-1) << "=" << a << " b:" << (b?b->raw.ref:-1) << "=" << b << std::endl;*/
 						if(!a) {
+							/*std::cout << "rec return b" << std::endl;*/
 							return b;
 						}
+						ast_node_t tail = rec(Cdr(a), b, drop_empty);
 						if(drop_empty && Car(a)==PRODUCTION_OK_BUT_EMPTY) {
-							return rec(Cdr(a), b, drop_empty);
+							/*std::cout << "rec return tail " << tail << std::endl;*/
+							return tail;
 						}
-						return newPair(Car(a), rec(Cdr(a), b, drop_empty));
+						ast_node_t ret = newPair(Car(a), tail);
+						/*std::cout << "rec return new pair " << ret << std::endl;*/
+						return ret;
 					}
 			};
 			struct pfx_extract : public append {
 				ast_node_t rule, pfx, tag, cdr;
 				pfx_extract(ast_node_t ast) {
 					struct {
+						/* store last valid car(ast) in rule, prefix is the rest. */
 						ast_node_t operator()(ast_node_t ast, ast_node_t&rule) const {
 							if(Cdr(ast)) {
 								return newPair(Car(ast), (*this)(Cdr(ast), rule));
 							}
 							rule = Car(ast);
+							/*rule->raw.ref++;*/
 							return NULL;
 						}
 					} dirty_extraction;
@@ -636,8 +662,11 @@ namespace grammar {
 					/*rule = Car(rule);*/
 					/*std::clog << "rule = " << rule << std::endl;*/
 					tag = Car(rule);
+					/*tag->raw.ref++;*/
 					/*std::clog << "tag = " << tag << std::endl;*/
 					cdr = Cdr(rule);
+					/*cdr->raw.ref++;*/
+					/*delete_node(ast);*/
 					/*std::clog << "cdr = " << cdr << std::endl;*/
 				}
 				ast_node_t prefix() const { return newPair(tag, internal::append()(pfx, cdr)); }
@@ -655,7 +684,8 @@ namespace grammar {
 					/*return newPair(newAtom(tag(), offset), ast==PRODUCTION_OK_BUT_EMPTY?NULL:ast);*/
 					/*return internal::append()(newPair(newAtom(tag(), offset), NULL), ast);*/
 					/*std::clog << "Operator reduction" << std::endl;*/
-					return newPair(internal::append()(newPair(newAtom(tag(), offset), NULL), ast), NULL);
+					return newPair(newPair(newAtom(tag(), offset), ast==PRODUCTION_OK_BUT_EMPTY?NULL:ast), NULL);
+					/*return newPair(internal::append()(newPair(newAtom(tag(), offset), NULL), ast), NULL);*/
 					/*return newPair(newPair(newAtom(tag(), offset), ast==PRODUCTION_OK_BUT_EMPTY?NULL:ast), NULL);*/
 				}
 				virtual const bool keep_empty() const { return false; }
@@ -669,6 +699,7 @@ namespace grammar {
 				/*virtual reduction_mode mode() const { return List; }*/
 				virtual ast_node_t reduce_ast(ast_node_t ast, unsigned int offset) const {
 					/*std::clog << "Transient reduction" << std::endl;*/
+					/*if(ast) { ast->raw.ref++; }*/
 					return ast;
 				}
 				virtual const bool keep_empty() const { return false; }
@@ -746,6 +777,7 @@ namespace grammar {
 		namespace token {
 			class Nt : public impl<Nt> {
 				private:
+					static ext::hash_map<const char*, Nt*>& registry;
 					const char* tag_;
 				public:
 					Nt(const char*_) : tag_(_) {}
@@ -773,11 +805,18 @@ namespace grammar {
 					}
 #endif
 					static Nt* instance(const char*tag) {
-						static ext::hash_map<const char*, Nt*> registry;
+						/*static struct internal_registry : public ext::hash_map<const char*, Nt*> {
+							~internal_registry() {
+								internal_registry::iterator i, j=end();
+								for(i=begin();i!=j;++i) {
+									delete i->second;
+								}
+							}
+						} registry;*/
 						Nt* ret = registry[tag];
 						/*std::clog << "(NT) requesting Nt(\"" << tag << "\")" << std::endl;*/
 						if(!ret) {
-							ret = registry[tag] = grammar::item::gc(new Nt(regstr(tag)));
+							ret = registry[tag] = new Nt(regstr(tag));
 							/*std::clog << "(NT)   created Nt(\"" << tag << "\") @" << ret << std::endl;*/
 						}
 						/*std::clog << "(NT)   returning @" << ret << std::endl;*/

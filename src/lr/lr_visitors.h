@@ -13,7 +13,7 @@ namespace grammar {
 							i->accept(this);
 							return output;
 						} else {
-							return NULL;
+							return (O)0;
 						}
 					}
 
@@ -744,7 +744,7 @@ namespace grammar {
 
 		class reducer : public dummy_filter<ast_node_t> {
 			private:
-				ast_node_t ast;
+				Ast ast;
 				unsigned int o;
 			public:
 				reducer(ast_node_t _, unsigned int o_) : ast(_), o(o_) {}

@@ -25,7 +25,7 @@
 #define _T    4
 
 
-const char* ast_serialize_to_string(const ast_node_t ast);
+/*const char* ast_serialize_to_string(const ast_node_t ast, int show_offset);*/
 /*void delete_node(ast_node_t n);*/
 
 size_t hash_str(hash_key k);
@@ -54,6 +54,7 @@ ast_node_t find_nterm(const ast_node_t ruleset,const char*ntermid) {
 }
 
 
+#if 0
 const char* op2string(int typ) {
 	switch(typ) {
 	case OP_EOF: return STR_EOF;
@@ -127,12 +128,13 @@ int string2op(const char* tag) {
 	/*fprintf(stderr, "      string2op(%s) = %i\n", tag, typ);*/
 	return typ;
 }
-
+#endif
 
 
 int dump_node(const ast_node_t n) {
 	const char*ptr=tinyap_serialize_to_string(n);
-	debug_writeln("%s", ptr);
+	/*debug_writeln("%s", ptr);*/
+	fputs(ptr, stdout);
 	free((char*)ptr);
 	return 0;
 }
@@ -210,7 +212,8 @@ char*match2str(const char*src,const size_t start,const size_t end, const char*lo
 	char* buf = _stralloc(end-start+1);
 	char* rd = (char*)src+start;
 	char* wr = buf;
-	size_t sz=end-start-1,ofs=0;
+	size_t sz = end-start-1, ofs = 0;
+	char* ret = NULL;
 
 	if(end>start) {
 //	printf("match2str orig = \"%*.*s\" sz=%li\n",(int)(end-start),(int)(end-start),rd,sz);
@@ -234,14 +237,16 @@ char*match2str(const char*src,const size_t start,const size_t end, const char*lo
 //	static char buf[256];
 //	memset(buf,0,256);
 //	strncpy(buf,src+start,end-start);
-	return buf;
+	ret = regstr(buf);
+	_strfree(buf);
+	return ret;
 }
 
 
 
 
 
-
+#if 0
 
 static inline const char* node_compare_tag(const char* n) {
 	return n<((const char*)0x100) ? op2string((int)n) : n;
@@ -274,4 +279,5 @@ int node_compare(ast_node_t tok1, ast_node_t tok2) {
 }
 
 
+#endif
 

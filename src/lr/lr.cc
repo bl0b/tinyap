@@ -1,7 +1,8 @@
 #include "lr.h"
+#include "static_init.h"
 
 extern "C" {
-	const char* ast_serialize_to_string(ast_node_t);
+	const char* ast_serialize_to_string(ast_node_t, int);
 }
 
 
@@ -24,23 +25,47 @@ namespace grammar {
 namespace item {
 
 	registry_t::~registry_t() {
+		/*std::cerr << "registry_t::~registry_t" << std::endl;*/
 		std::vector<base*>::iterator i,j;
 		for(i=begin(), j=end();i!=j;++i) {
 			delete *i;
 		}
 	}
 
-	ext::hash_map<const ast_node_t, base*, lr::hash_an, lr::ptr_eq<_ast_node_t> > registry;
+	static ext::hash_map<const ast_node_t, base*, lr::hash_an, lr::ptr_eq<_ast_node_t> >& registry = _static_init.grammar_registry;
 
-	struct clean_registry_at_exit {
-		~clean_registry_at_exit() {
-			ext::hash_map<const ast_node_t, base*, lr::hash_an, lr::ptr_eq<_ast_node_t> >::iterator
-				i, j=registry.end();
-			for(i=registry.begin();i!=j;++i) {
-				delete (*i).second;
-			}
+	ext::hash_map<const char*, token::Nt*>& token::Nt::registry = _static_init.nt_registry;
+	ext::hash_map<const char*, trie_t>& token::Bow::all = _static_init.trie_registry;
+
+	void clean_registry_at_exit() {
+		typedef ext::hash_map<const ast_node_t, base*, lr::hash_an, lr::ptr_eq<_ast_node_t> >::iterator mapiter_t;
+		typedef ext::hash_map<const char*, token::Nt*>::iterator nt_reg_iter_t;
+		typedef ext::hash_map<const char*, trie_t>::iterator trie_reg_iter_t;
+		mapiter_t i, j=registry.end();
+		for(i=registry.begin();i!=j;++i) {
+			delete_node((ast_node_t)i->first);
+			delete i->second;
 		}
-	} _clean_registry_at_exit;
+		registry.clear();
+
+		nt_reg_iter_t nti, ntj;
+		nti = _static_init.nt_registry.begin();
+		ntj = _static_init.nt_registry.end();
+		for(;nti!=ntj;++nti) {
+			delete nti->second;
+		}
+		_static_init.nt_registry.clear();
+
+		trie_reg_iter_t ti, tj;
+		ti = _static_init.trie_registry.begin();
+		tj = _static_init.trie_registry.end();
+		for(;ti!=tj;++ti) {
+			trie_free(ti->second);
+		}
+		_static_init.trie_registry.clear();
+
+		/*std::cerr << "clean_registry_at_exit" << std::endl;*/
+	}
 
 	base* base::from_ast(const ast_node_t n, Grammar* g) {
 		base* ret=NULL;
@@ -148,6 +173,7 @@ namespace item {
 			ast_node_t x = Cdr(n);
 			ast_node_t nt = Car(Cdr(x));
 			ret = cached = new combination::Prefix(g, from_ast(Car(x), g), Value(Car(Cdr(nt))));
+			std::cerr << "x=" << x << " nt=" << nt << std::endl;
 		} else if(tag==STR_Postfix) {
 			ast_node_t x = Cdr(n);
 			ast_node_t nt = Car(Cdr(x));
@@ -179,7 +205,13 @@ namespace item {
 		/*std::cout << " in cache for node " << ast_serialize_to_string(n) << std::endl;*/
 
 
-		registry[n] = cached;
+		if(cached) {
+			registry[n] = cached;
+			std::cerr << "registry[" << n << "] = " << cached << std::endl;
+			n->raw.ref++;
+		} else {
+			registry.erase(n);
+		}
 
 		
 		/*std::cout << "now registry[" << ast_serialize_to_string(n) << "] = ";*/
@@ -200,33 +232,70 @@ namespace combination {
 		visitors::item_rewriter(g).process(raw_cts);
 	}
 
-	std::pair<ast_node_t, unsigned int> RawSeq::recognize(const char* source, unsigned int offset, unsigned int size) const
-	{
-		/*visitors::debugger d;*/
+	std::pair<ast_node_t, unsigned int> rec_recog(const char* source, unsigned int offset, unsigned int size, RawSeq::const_iterator i, RawSeq::const_iterator j) {
+		if(i==j||offset>size) {
+			return std::pair<ast_node_t, unsigned int>(0, size);
+		}
+		std::pair<ast_node_t, unsigned int> cur = (*i)->recognize(source, offset, size);
+		if(!cur.first) {
+			return cur;
+		}
+		std::pair<ast_node_t, unsigned int> tail = rec_recog(source, cur.second, size, ++i, j);
+		cur.second = tail.second;
+		if(tail.first) {
+			ast_node_t x = rule::internal::append()(cur.first, tail.first);
+			/*if(x!=cur.first) {*/
+			/*delete_node(cur.first);*/
+			/*delete_node(tail.first);*/
+			/*}*/
+			return std::pair<ast_node_t, unsigned int>(x, cur.second);
+		} else {
+			if(cur.first) {
+				return cur;
+			}
+			return tail;
+		}
+	}
+
+	std::pair<ast_node_t, unsigned int> RawSeq::recognize(const char* source, unsigned int offset, unsigned int size) const {
+#if 0
+		return rec_recog(source, offset, size, begin(), end());
+#else
+		visitors::debugger d;
 		/*rule::internal::append append;*/
 		RawSeq::const_iterator i, j;
 		std::pair<ast_node_t, unsigned int> ret(NULL, offset);
-		/*std::cout << "matching rawseq ? " << std::string(source+offset, source+offset+20) << std::endl;*/
-		for(i=begin(), j=end();ret.second<size&&i!=j&&ret.second<=size;++i) {
-			/*(*i)->accept(&d);*/
+		std::cout << "matching rawseq ? " << std::string(source+offset, source+offset+20) << std::endl;
+		for(i=begin(), j=end();i!=j&&ret.second<=size;++i) {
+			(*i)->accept(&d);
 			std::pair<ast_node_t, unsigned int> tmp = (*i)->recognize(source, ret.second, size);
 			if(tmp.first) {
-				/*std::cout << " matched" << std::endl;*/
-				ret.first = rule::internal::append()(ret.first, tmp.first);
-				/*ret.first = append(tmp.first, ret.first);*/
+				std::cout << " matched" << std::endl;
+				ast_node_t oldret = ret.first;
+				if(ret.first==PRODUCTION_OK_BUT_EMPTY) {
+					ret.first = tmp.first;
+				} else if(tmp.first!=PRODUCTION_OK_BUT_EMPTY) {
+					ret.first = rule::internal::append()(ret.first, tmp.first);
+				}
+				///*ret.first = append(tmp.first, ret.first);*/
+				/*delete_node(oldret);*/
 				ret.second = tmp.second;
-				/*std::cout << ret.first << std::endl;*/
+				/*delete_node(tmp.first);*/
+				std::cout << ret.first << std::endl;
 			} else {
-				/*std::cout << " failed" << std::endl;*/
+				std::cout << " failed" << std::endl;
+				delete_node(ret.first);
 				return std::pair<ast_node_t, unsigned int>(NULL, offset);
 			}
 		}
 		if(i!=j) {
-			/*std::cout << "failed at end of text" << std::endl;*/
+			std::cout << "failed at end of text" << std::endl;
+			delete_node(ret.first);
 			return std::pair<ast_node_t, unsigned int>(NULL, offset);
 		}
-		/*std::cout << "OK ! new offset = " << ret.second << std::endl;*/
+		std::cout << "OK ! new offset = " << ret.second << std::endl;
 		return ret;
+#endif
 	}
 
 
@@ -239,8 +308,8 @@ namespace combination {
 		Alt* alt = gc(new Alt());
 		Seq* seq = gc(new Seq());
 		alt->insert(token::Epsilon::instance());
-		seq->push_back(_);
 		seq->push_back(X);
+		seq->push_back(_);
 		alt->insert(seq);
 		/*alt->contents(g, alt);*/
 		/*alt->commit(g);*/
@@ -255,8 +324,8 @@ namespace combination {
 		raw_cts = x;
 		item::base* X = visitors::item_rewriter(g).process(raw_cts);
 		alt->insert(X);
-		seq->push_back(_);
 		seq->push_back(X);
+		seq->push_back(_);
 		alt->insert(seq);
 		/*alt->contents(g, alt);*/
 		/*alt->commit(g);*/
@@ -269,7 +338,7 @@ namespace combination {
 namespace rule {
 	void base::init(const char* name, item::base* _, Grammar*g)
 	{
-		tag_ = name;
+		tag_ = regstr(name);
 		if(!_) { std::cout << "NULL rmember !" << std::endl; throw "COIN!"; return; }
 		visitors::rmember_rewriter rw(g, this);
 		visitors::debugger debug;
@@ -288,10 +357,11 @@ namespace rule {
 
 Grammar::Grammar(ast_node_t rules) {
 	if(rules) {
-		/*std::cout << "DEBUG GRAMMAR " << ast_serialize_to_string(rules) << std::endl;*/
+		/*std::cout << "DEBUG GRAMMAR " << rules << std::endl;*/
 		/*std::cout << "pouet" << std::endl;*/
 		while(rules) {
 			ast_node_t rule = Car(rules);
+			/*std::cout << "         RULE " << rule << std::endl;*/
 			if(regstr(Value(Car(rule)))!=STR_Comment) {
 				const char* tag = Value(Car(Cdr(rule)));
 				add_rule(tag, dynamic_cast<rule::base*>(item::base::from_ast(rule, this)));

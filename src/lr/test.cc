@@ -23,6 +23,173 @@ extern "C" {
 
 #define TEST_EQ(_lv, _rv) do { if((_lv) != (_rv)) { TEST_FAIL(); std::cout << "[TEST] [grammar] Test " __(_lv == _rv) " failed, got " __(_lv) " == " << (_lv) << " instead" << std::endl; } else { TEST_OK(); } } while(0)
 
+extern volatile int _node_alloc_count;
+extern volatile int _node_dealloc_count;
+extern volatile int delete_node_count;
+extern volatile int newAtom_count;
+extern volatile int newPair_count;
+
+struct node_alloc_register {
+	int nac;
+	int ndc;
+	int dnc;
+	int ac;
+	int pc;
+	int done;
+	int ok;
+	const char* fnam;
+	node_alloc_register(const char* _)
+		: nac(_node_alloc_count), ndc(_node_dealloc_count)
+		, dnc(delete_node_count)
+		, ac(newAtom_count), pc(newPair_count)
+		, done(0), ok(0)
+		, fnam(_)
+	{}
+	node_alloc_register(int nac_, int ndc_, int dnc_, int ac_, int pc_)
+		: nac(nac_), ndc(ndc_)
+		, dnc(dnc_)
+		, ac(ac_), pc(pc_)
+		, done(0), ok(0)
+	{}
+	node_alloc_register& operator = (const node_alloc_register& t) {
+		nac = t.nac;
+		ndc = t.ndc;
+		dnc = t.dnc;
+		ac = t.ac;
+		pc = t.pc;
+		return *this;
+	}
+	void update() {
+		*this = node_alloc_register(fnam);
+	}
+	int expect(const char* msg, int exp, int got) {
+		std::cout << "[TEST] [" << fnam << "] " << msg << "; expected " << exp << ", got " << got << std::endl;
+		return 0;
+	}
+	bool assert_one(int got, int exp, const char* msg, const char* f, size_t l) {
+		if(got!=exp) {
+			TEST_FAIL();
+			std::cout << "[TEST] [" << fnam << "] " << f << ':' << l << " #" << done << ' ' << msg << "; expected " << exp << ", got " << got << std::endl;
+			return false;
+		} else {
+			TEST_OK();
+			return true;
+		}
+	}
+	bool assert_delta_(int nacd, int ndcd, int dncd, int acd, int pcd, const char* f, size_t l) {
+		bool ret = true;
+		node_alloc_register cur(fnam);
+		node_alloc_register delta = cur - *this;
+		ret &= assert_one(delta.nac, nacd, "Wrong number of node allocations", f, l);
+		ret &= assert_one(delta.ndc, ndcd, "Wrong number of node deallocations", f, l);
+		ret &= assert_one(delta.dnc, dncd, "Wrong number of calls to delete_node", f, l);
+		ret &= assert_one(delta.ac, acd, "Wrong number of calls to newAtom", f, l);
+		ret &= assert_one(delta.pc, pcd, "Wrong number of calls to newPair", f, l);
+		update();
+		return ret;
+	}
+	bool assert_node_ref_(ast_node_t node, int ref, const char* f, size_t l) {
+		return assert_one(node->raw.ref, ref, "Wrong reference counter", f, l);
+	}
+	node_alloc_register operator -(const node_alloc_register& t) const {
+		return node_alloc_register(nac-t.nac, ndc-t.ndc, dnc-t.dnc, ac-t.ac, pc-t.pc);
+	}
+#define assert_delta(_1, _2, _3, _4, _5) assert_delta_(_1, _2, _3, _4, _5, __FILE__, __LINE__)
+#define assert_node_ref(_1, _2) assert_node_ref_(_1, _2, __FILE__, __LINE__)
+#define assert_eq(_got, _exp, _msg) assert_one(_got, _exp, _msg, __FILE__, __LINE__)
+};
+
+
+#define test_ONE_ATOM_ALLOC() assert_delta(1, 0, 0, 1, 0)
+#define test_ONE_PAIR_ALLOC() assert_delta(1, 0, 0, 0, 1)
+#define test_ONE_ATOM_REUSE() assert_delta(0, 0, 0, 1, 0)
+#define test_ONE_PAIR_REUSE() assert_delta(0, 0, 0, 0, 1)
+#define test_ONE_DEALLOC()    assert_delta(0, 1, 1, 0, 0)
+#define test_ONE_DEREF()      assert_delta(0, 0, 1, 0, 0)
+
+
+
+
+int hunt_leak() {
+	return 0;
+}
+
+
+int test_append() {
+	node_alloc_register alloc0("append");
+	ast_node_t a,b,c;
+	grammar::rule::internal::append append;
+	a = PRODUCTION_OK_BUT_EMPTY;
+	b = PRODUCTION_OK_BUT_EMPTY;
+	c = append(a, b);
+	alloc0.assert_delta(0, 0, 0, 0, 0);
+	a = newPair(newAtom("w", 0), NULL);
+	alloc0.assert_delta(2, 0, 0, 1, 1);
+	b = PRODUCTION_OK_BUT_EMPTY;
+	c = append(a, b);
+	alloc0.ok += (c==a); alloc0.done++;
+	c = append(b, a);
+	alloc0.ok += (c==a); alloc0.done++;
+
+	a = newPair(newAtom("tata", 0), NULL);
+	a->raw.ref++;
+	alloc0.assert_delta(2, 0, 0, 1, 1);
+
+	c = append(a, a);
+	alloc0.assert_delta(1, 0, 0, 0, 1);
+
+	delete_node(c);
+	alloc0.assert_delta(0, 1, 3, 0, 0);
+	
+
+	b = newPair(newAtom("toto", 0), newPair(newAtom("titi", 0), NULL));
+	b->raw.ref++;
+	alloc0.assert_delta(4, 0, 0, 2, 2);
+	c = append(a, b);
+	alloc0.assert_delta(1, 0, 0, 0, 1);
+	delete_node(a);
+	delete_node(b);
+	delete_node(c);
+	alloc0.assert_delta(0, 6, 6, 0, 0);
+	return alloc0.ok-alloc0.done;
+}
+
+int test_nodealloc() {
+	node_alloc_register alloc0("nodealloc");
+	ast_node_t x, y, z;
+	x = newAtom("omaeifnlkfubvljrbv", -5);
+	x->raw.ref++;
+	alloc0.assert_node_ref(x, 1);
+	alloc0.test_ONE_ATOM_ALLOC();
+	delete_node(x);
+	alloc0.test_ONE_DEALLOC();
+	y = newAtom("omaeiufnvalkfubvlzakejrbv", -1);
+	y->raw.ref++;
+	alloc0.test_ONE_ATOM_ALLOC();
+	y = newAtom("omaeiufnvalkfubvlzakejrbv", -1);
+	y->raw.ref++;
+	alloc0.assert_node_ref(y, 2);
+	alloc0.test_ONE_ATOM_REUSE();
+	delete_node(y);
+	alloc0.test_ONE_DEREF();
+	delete_node(y);
+	alloc0.test_ONE_DEALLOC();
+	z = newPair(newAtom("aemlhg", -1), newAtom("aemfuhvn", -12));
+	z->raw.ref++;
+	alloc0.assert_delta(3, 0, 0, 2, 1);
+	alloc0.assert_node_ref(z, 1);
+	alloc0.assert_node_ref(z->pair._car, 1);
+	alloc0.assert_node_ref(z->pair._cdr, 1);
+	delete_node(z);
+	alloc0.assert_delta(0, 3, 3, 0, 0);
+	std::cout << "[TEST] [node_alloc] passed: " << alloc0.ok << '/' << alloc0.done << std::endl;
+
+	return alloc0.ok-alloc0.done;
+}
+
+
+
+
 int test_grammar() {
 	using namespace grammar;
 	using namespace item;
@@ -34,9 +201,12 @@ int test_grammar() {
 	token::Nt* nt = gc(new token::Nt("test"));
 	token::Re* re = gc(new token::Re("..."));
 	combination::Seq* seq = gc(new combination::Seq());
+	ast_node_t tmp_ast;
 
-	TEST_EQ(newAtom("toto", 0), newAtom("toto", 0));
-	TEST_EQ(newPair(newAtom("toto", 0), NULL), newPair(newAtom("toto", 0), NULL));
+	TEST_EQ((tmp_ast=newAtom("toto", 0)), newAtom("toto", 0));
+	delete_node(tmp_ast);
+	TEST_EQ((tmp_ast=newPair(newAtom("toto", 0), NULL)), newPair(newAtom("toto", 0), NULL));
+	delete_node(tmp_ast);
 
 	seq->push_back(re);
 	seq->push_back(nt);
@@ -138,114 +308,138 @@ int test_grammar() {
 	TEST(mybow==mybow2||!"BOW registry doesn't return unique bows");
 	trie_insert(mybow, "pouet");
 	grammar::item::token::Bow b("test", true);
-	TEST(b.recognize("pouet", 0, 5).second==5 ||!"Bow didn't recognize properly with a singleton !");
+	std::pair<ast_node_t, size_t> tmp_rec;
+	TEST((tmp_rec = b.recognize("pouet", 0, 5)).second==5 ||!"Bow didn't recognize properly with a singleton !");
+	delete_node(tmp_rec.first);
 	
 	trie_insert(mybow, "plop");
-	TEST(b.recognize("pouet", 0, 5).second==5 ||!"Bow didn't recognize properly with 2 items !");
-	TEST(b.recognize("plop", 0, 4).second==4 ||!"Bow didn't recognize properly with 2 items !");
+	TEST((tmp_rec=b.recognize("pouet", 0, 5)).second==5 ||!"Bow didn't recognize properly with 2 items !");
+	delete_node(tmp_rec.first);
+	TEST((tmp_rec=b.recognize("plop", 0, 4)).second==4 ||!"Bow didn't recognize properly with 2 items !");
+	delete_node(tmp_rec.first);
 
 	std::cout << "[TEST] [grammar] passed: " << ok << '/' << done << std::endl;
 	return ok-done;
 }
 
-int test_automaton() {
+int test_automaton(int n=-1) {
 	typedef const char* test_case[3];
 	test_case test_cases[] = {
 		// start rule is X
-#if 1
-/*1*/	{ "(OperatorRule X (EOF))", "", "((X))" },
-		{ "(OperatorRule X (EOF))", "   ", "((X))" },
+/*#if 1*/
+/*1*/
+		{ "(OperatorRule X (EOF))", "", "((X:0))" },
+		{ "(OperatorRule X (EOF))", "   ", "((X:3))" },
 		{ "(OperatorRule X (EOF))", "a", NULL },
-		{ "(OperatorRule X (Epsilon))", "", "((X))" },
+		{ "(OperatorRule X (Epsilon))", "", "((X:0))" },
 		{ "(OperatorRule X (Epsilon))", "a", NULL },
-		{ "(OperatorRule X (Epsilon))", "   ", "((X))" },
-		{ "(OperatorRule X (T toto))", "toto", "((X))" },
-		{ "(OperatorRule X (RE toto))", "toto", "((X toto))" },
+		{ "(OperatorRule X (Epsilon))", "   ", "((X:3))" },
+		{ "(OperatorRule X (T toto))", "toto", "((X:4))" },
 		{ "(OperatorRule X (T toto))", "pouet", NULL },
+		{ "(OperatorRule X (RE toto))", "toto", "((X:4 toto:0))" },
 
-/*10*/	{ "(OperatorRule X (Rep01 (T pouet)))", "pouet", "((X))" },
-		{ "(OperatorRule X (Rep01 (T pouet)))", "", "((X))" },
-		{ "(OperatorRule X (Rep0N (T pouet)))", "pouet", "((X))" },
-		{ "(OperatorRule X (Rep0N (T pouet)))", "pouet pouet pouet", "((X))" },
-		{ "(OperatorRule X (Rep0N (T pouet)))", "", "((X))" },
-		{ "(OperatorRule X (Rep1N (T pouet)))", "pouet", "((X))" },
-		{ "(OperatorRule X (Rep1N (T pouet)))", "pouet pouet pouet", "((X))" },
+		/*{ "(OperatorRule X (Seq (T foo) (Rep01 (T pouet))))", "foo pouet", "((X))" },*/
+#if 1
+
+/*10*/	{ "(OperatorRule X (Rep01 (T pouet)))", "pouet", "((X:5))" },
+		{ "(OperatorRule X (Rep01 (T pouet)))", "", "((X:0))" },
+		{ "(OperatorRule X (Rep0N (T pouet)))", "pouet", "((X:5))" },
+		{ "(OperatorRule X (Rep0N (T pouet)))", "pouet pouet pouet", "((X:17))" },
+		{ "(OperatorRule X (Rep0N (T pouet)))", "", "((X:0))" },
+		{ "(OperatorRule X (Rep1N (T pouet)))", "pouet", "((X:5))" },
+		{ "(OperatorRule X (Rep1N (T pouet)))", "pouet pouet pouet", "((X:17))" },
 		{ "(OperatorRule X (Rep1N (T pouet)))", "", NULL },
 
-		{ "(OperatorRule X (Seq (T foo) (Rep01 (T pouet))))", "foo pouet", "((X))" },
-		{ "(OperatorRule X (Seq (T foo) (Rep01 (T pouet))))", "foo ", "((X))" },
-/*20*/	{ "(OperatorRule X (Seq (T foo) (Rep0N (T pouet))))", "foo pouet", "((X))" },
-		{ "(OperatorRule X (Seq (T foo) (Rep0N (T pouet))))", "foo pouet pouet pouet", "((X))" },
-		{ "(OperatorRule X (Seq (T foo) (Rep0N (T pouet))))", "foo ", "((X))" },
-		{ "(OperatorRule X (Seq (T foo) (Rep1N (T pouet))))", "foo pouet", "((X))" },
-		{ "(OperatorRule X (Seq (T foo) (Rep1N (T pouet))))", "foo pouet pouet pouet", "((X))" },
+		{ "(OperatorRule X (Seq (T foo) (Rep01 (T pouet))))", "foo pouet", "((X:9))" },
+		{ "(OperatorRule X (Seq (T foo) (Rep01 (T pouet))))", "foo ", "((X:4))" },
+/*20*/	{ "(OperatorRule X (Seq (T foo) (Rep0N (T pouet))))", "foo pouet", "((X:9))" },
+		{ "(OperatorRule X (Seq (T foo) (Rep0N (T pouet))))", "foo pouet pouet pouet", "((X:21))" },
+		{ "(OperatorRule X (Seq (T foo) (Rep0N (T pouet))))", "foo ", "((X:4))" },
+		{ "(OperatorRule X (Seq (T foo) (Rep1N (T pouet))))", "foo pouet", "((X:9))" },
+		{ "(OperatorRule X (Seq (T foo) (Rep1N (T pouet))))", "foo pouet pouet pouet", "((X:21))" },
 		{ "(OperatorRule X (Seq (T foo) (Rep1N (T pouet))))", "foo", NULL },
 
-		{ "(OperatorRule X (Alt (T foo) (Rep01 (T pouet))))", "pouet", "((X))" },
-		{ "(OperatorRule X (Alt (T foo) (Rep01 (T pouet))))", "", "((X))" },
-		{ "(OperatorRule X (Alt (T foo) (Rep0N (T pouet))))", "pouet", "((X))" },
-		{ "(OperatorRule X (Alt (T foo) (Rep0N (T pouet))))", "pouet pouet pouet", "((X))" },
-/*30*/	{ "(OperatorRule X (Alt (T foo) (Rep0N (T pouet))))", "", "((X))" },
-		{ "(OperatorRule X (Alt (T foo) (Rep1N (T pouet))))", "pouet", "((X))" },
-		{ "(OperatorRule X (Alt (T foo) (Rep1N (T pouet))))", "pouet pouet pouet", "((X))" },
+		{ "(OperatorRule X (Alt (T foo) (Rep01 (T pouet))))", "pouet", "((X:5))" },
+		{ "(OperatorRule X (Alt (T foo) (Rep01 (T pouet))))", "", "((X:0))" },
+		{ "(OperatorRule X (Alt (T foo) (Rep0N (T pouet))))", "pouet", "((X:5))" },
+		{ "(OperatorRule X (Alt (T foo) (Rep0N (T pouet))))", "pouet pouet pouet", "((X:17))" },
+/*30*/	{ "(OperatorRule X (Alt (T foo) (Rep0N (T pouet))))", "", "((X:0))" },
+		{ "(OperatorRule X (Alt (T foo) (Rep1N (T pouet))))", "pouet", "((X:5))" },
+		{ "(OperatorRule X (Alt (T foo) (Rep1N (T pouet))))", "pouet pouet pouet", "((X:17))" },
 		{ "(OperatorRule X (Alt (T foo) (Rep1N (T pouet))))", "", NULL },
 
-		{ "(OperatorRule X (Alt (T foo) (Rep01 (T pouet))))", "foo", "((X))" },
+		{ "(OperatorRule X (Alt (T foo) (Rep01 (T pouet))))", "foo", "((X:3))" },
 		{ "(OperatorRule X (Alt (T foo) (Rep01 (T pouet))))", "foo foo", NULL },
 
-		{ "(OperatorRule X (NT Y)) (OperatorRule Y (Epsilon))", "", "((X (Y)))" },
-		{ "(OperatorRule X (Prefix (RE toto) (NT Y))) (OperatorRule Y (RE pouet))", "totopouet", "((X (Y toto pouet)))" },
-		{ "(OperatorRule X (Prefix (NT Z) (NT Y))) (TransientRule Z (Seq (RE toto) (RE pou))) (OperatorRule Y (RE et))", "totopouet", "((X (Y toto pou et)))" },
-/*40*/	{ "(OperatorRule X (Postfix (RE toto) (NT Y))) (OperatorRule Y (RE pouet))", "totopouet", "((X (Y pouet toto)))" },
-		{ "(OperatorRule X (RawSeq (T ~) (RE [^~,]?) (T ,) (RE [^~,]?) (T ~)))", "~\",\"~", "((X \" \"))" },
-		{ "(OperatorRule X (Rep1N (NT pouet))) (OperatorRule pouet (RE pouet))", "pouet pouet pouet", "((X (pouet pouet) (pouet pouet) (pouet pouet)))" },
-		{ "(OperatorRule X (Rep1N (NT coin))) (OperatorRule coin (RE pouet))", "pouet pouet pouet", "((X (coin pouet) (coin pouet) (coin pouet)))" },
-		{ "(OperatorRule X (Rep1N (NT coin))) (OperatorRule coin (RawSeq (RE pou) (RE ..)))", "pouet pouat pouit", "((X (coin pou et) (coin pou at) (coin pou it)))" },
-		{ "(OperatorRule X (RawSeq (T to) (RE ...) (T ouet)))", "totopouet", "((X top))" },
+		{ "(OperatorRule X (NT Y)) (OperatorRule Y (Epsilon))", "", "((X:0 (Y:0)))" },
+		{ "(OperatorRule X (Prefix (RE toto) (NT Y))) (OperatorRule Y (RE pouet))", "totopouet", "((X:9 (Y:9 toto:0 pouet:4)))" },
+		{ "(OperatorRule X (Prefix (NT Z) (NT Y))) (TransientRule Z (Seq (RE toto) (RE pou))) (OperatorRule Y (RE et))", "totopouet", "((X:9 (Y:9 toto:0 pou:4 et:7)))" },
+		{ "(OperatorRule X (Postfix (RE toto) (NT Y))) (OperatorRule Y (RE pouet))", "totopouet", "((X:9 (Y:9 pouet:4 toto:0)))" },
+/*40*/	{ "(OperatorRule X (RawSeq (T ~) (RE [^~,]?) (T ,) (RE [^~,]?) (T ~)))", "~\",\"~", "((X:5 \":1 \":3))" },
+		{ "(OperatorRule X (Rep1N (NT pouet))) (OperatorRule pouet (RE pouet))", "pouet pouet pouet", "((X:17 (pouet:6 pouet:0) (pouet:12 pouet:6) (pouet:17 pouet:12)))" },
+		{ "(OperatorRule X (Rep1N (NT coin))) (OperatorRule coin (RE pouet))", "pouet pouet pouet", "((X:17 (coin:6 pouet:0) (coin:12 pouet:6) (coin:17 pouet:12)))" },
+		{ "(OperatorRule X (Rep1N (NT coin))) (OperatorRule coin (RawSeq (RE pou) (RE ..)))", "pouet pouat pouit", "((X:17 (coin:6 pou:0 et:3) (coin:12 pou:6 at:9) (coin:17 pou:12 it:15)))" },
+		{ "(OperatorRule X (RawSeq (T to) (RE ...) (T ouet)))", "totopouet", "((X:9 top:2))" },
 		{
 			"(OperatorRule X (RawSeq (T #) (RE [^\\\\r\\n]*)))"
-			, "# toto pouet", "((X \\ toto\\ pouet))"
+			, "# toto pouet", "((X:12 \\ toto\\ pouet:1))"
 		},
 		{
 			"(OperatorRule X (NT Comment))"
 			"(OperatorRule Comment (Alt (T #\\n) (T #\\r\\n) (RawSeq (T #) (RE [^\\\\r\\\\n]+))))"
-			, "# toto pouet\n", "((X (Comment \\ toto\\ pouet)))"
+			, "# toto pouet\n", "((X:13 (Comment:13 \\ toto\\ pouet:1)))"
 		},
 		{
 			"(OperatorRule X (NT Comment))"
 			"(OperatorRule Comment (Alt (T #\\n) (T #\\r\\n) (RawSeq (T #) (RE [^\\\\r\\\\n]+))))"
-			, "\r\n# toto pouet\n\r\n", "((X (Comment \\ toto\\ pouet)))"
+			, "\r\n# toto pouet\n\r\n", "((X:17 (Comment:17 \\ toto\\ pouet:3)))"
 		},
 		{
 			"(OperatorRule X (Seq (NT Comment) (NT Comment) (NT Comment)))"
 			"(OperatorRule Comment (RawSeq (T #) (RE [^\\\\r\\\\n]*)))"
-			, "# toto pouet\n#\n#toto", "((X (Comment \\ toto\\ pouet) (Comment ) (Comment toto)))"
-		},
-/*50*/	{
-			"(OperatorRule X (Rep1N (NT Comment)))"
-			"(OperatorRule Comment (RawSeq (T #) (RE [^\\\\r\\\\n]*)))"
-			, "# toto pouet\n#\n#toto", "((X (Comment \\ toto\\ pouet) (Comment ) (Comment toto)))"
+			, "# toto pouet\n#\n#toto", "((X:20 (Comment:13 \\ toto\\ pouet:1) (Comment:15 :14) (Comment:20 toto:16)))"
 		},
 		{
+			"(OperatorRule X (Rep1N (NT Comment)))"
+			"(OperatorRule Comment (RawSeq (T #) (RE [^\\\\r\\\\n]*)))"
+			, "# toto pouet\n#\n#toto", "((X:20 (Comment:13 \\ toto\\ pouet:1) (Comment:15 :14) (Comment:20 toto:16)))"
+		},
+/*50*/	{
 			"(OperatorRule X (Rep1N (Alt (RE toto) (RE pouet))))"
-			, "toto toto pouet\t toto", "((X toto toto pouet toto))"
+			, "toto toto pouet\t toto", "((X:21 toto:0 toto:5 pouet:10 toto:17))"
 		},
 		{
 			"(OperatorRule X (Rep1N (Alt (NT Comment))))"
 			"(OperatorRule Comment (RawSeq (T #) (RE [^\\\\r\\\\n]*)))"
-			, "# toto pouet\n#\n#toto", "((X (Comment \\ toto\\ pouet) (Comment ) (Comment toto)))"
+			/*, "# toto pouet\n#\n#toto", "((X (Comment \\ toto\\ pouet) (Comment ) (Comment toto)))"*/
+			, "# toto pouet\n#\n#toto", "((X:20 (Comment:13 \\ toto\\ pouet:1) (Comment:15 :14) (Comment:20 toto:16)))"
 		},
 		{
 			"(OperatorRule X (NT Grammar))"
 			"(OperatorRule Grammar (Rep1N (Alt (NT Comment))))"
 			"(OperatorRule Comment (RawSeq (T #) (RE [^\\\\r\\\\n]*)))"
-			, "# toto pouet\n#\n#toto", "((X (Grammar (Comment \\ toto\\ pouet) (Comment ) (Comment toto))))"
+			/*, "# toto pouet\n#\n#toto", "((X (Grammar (Comment \\ toto\\ pouet) (Comment ) (Comment toto))))"*/
+			, "# toto pouet\n#\n#toto", "((X:20 (Grammar:20 (Comment:13 \\ toto\\ pouet:1) (Comment:15 :14) (Comment:20 toto:16))))"
 		},
 		{
 			"(OperatorRule X (NT Gramar))"
 			"(OperatorRule Gramar (Rep1N (Alt (NT Coment))))"
 			"(OperatorRule Coment (RawSeq (T #) (RE [^\\\\r\\\\n]*)))"
-			, "# toto pouet\n#\n#toto", "((X (Gramar (Coment \\ toto\\ pouet) (Coment ) (Coment toto))))"
+			/*, "# toto pouet\n#\n#toto", "((X (Gramar (Coment \\ toto\\ pouet) (Coment ) (Coment toto))))"*/
+			, "# toto pouet\n#\n#toto", "((X:20 (Gramar:20 (Coment:13 \\ toto\\ pouet:1) (Coment:15 :14) (Coment:20 toto:16))))"
+		},
+		{
+			"(TransientRule symbol (RE [_a-zA-Z][0-9a-zA-Z_]*))"
+			"(OperatorRule T (STR \" \"))"
+			"(OperatorRule RE (STR / /))"
+			"(OperatorRule STR (RawSeq (T ~) (RE [^~,]?)  (T ,)"
+			"  (RE [^~,]?) (T ~)))"
+			"(OperatorRule BOW (RawSeq (T ~) (RE [_a-zA-Z][_a-zA-Z0-9]*) (RE !?) (T ~)))"
+			"(OperatorRule AddToBag (Seq (NT RE) (T :) (NT symbol) (RE !?)))"
+			"(OperatorRule X (NT RawSeq))"
+			" (OperatorRule RawSeq (Seq (T .raw) (Rep1N (Alt (NT T) (NT STR) (NT RE) (NT BOW) (NT AddToBag)))))"
+			/*, ".raw \"~\" /[^~,]?/ \",\" /[^~,]?/ \"~\"", "((X (RawSeq (T ~) (RE [^~,]?) (T ,) (RE [^~,]?) (T ~))))"*/
+			, ".raw \"~\" /[^~,]?/ \",\" /[^~,]?/ \"~\"", "((X:34 (RawSeq:34 (T:9 ~:5) (RE:18 [^~,]?:9) (T:22 ,:18) (RE:31 [^~,]?:22) (T:34 ~:31))))"
 		},
 /*55*/	{
 			"(TransientRule symbol (RE [_a-zA-Z][0-9a-zA-Z_]*))"
@@ -256,21 +450,10 @@ int test_automaton() {
 			"(OperatorRule BOW (RawSeq (T ~) (RE [_a-zA-Z][_a-zA-Z0-9]*) (RE !?) (T ~)))"
 			"(OperatorRule AddToBag (Seq (NT RE) (T :) (NT symbol) (RE !?)))"
 			"(OperatorRule X (NT RawSeq))"
-			" (OperatorRule RawSeq (Seq (T .raw) (Rep1N (Alt (NT T) (NT STR) (NT RE) (NT BOW) (NT AddToBag)))))"
-			, ".raw \"~\" /[^~,]?/ \",\" /[^~,]?/ \"~\"", "((X (RawSeq (T ~) (RE [^~,]?) (T ,) (RE [^~,]?) (T ~))))"
-		},
-		{
-			"(TransientRule symbol (RE [_a-zA-Z][0-9a-zA-Z_]*))"
-			"(OperatorRule T (STR \" \"))"
-			"(OperatorRule RE (STR / /))"
-			"(OperatorRule STR (RawSeq (T ~) (RE [^~,]?)  (T ,)"
-			"  (RE [^~,]?) (T ~)))"
-			"(OperatorRule BOW (RawSeq (T ~) (RE [_a-zA-Z][_a-zA-Z0-9]*) (RE !?) (T ~)))"
-			"(OperatorRule AddToBag (Seq (NT RE) (T :) (NT symbol) (RE !?)))"
-			"(OperatorRule X (NT RawSeq))"
 			" (OperatorRule RawSeq (Seq (T .raw) (Rep1N (NT rawseq_contents))))"
 			" (TransientRule	rawseq_contents	(Alt (NT T) (NT STR) (NT RE) (NT BOW) (NT AddToBag)))"
-			, ".raw \"~\" /[^~,]?/ \",\" /[^~,]?/ \"~\"", "((X (RawSeq (T ~) (RE [^~,]?) (T ,) (RE [^~,]?) (T ~))))"
+			/*, ".raw \"~\" /[^~,]?/ \",\" /[^~,]?/ \"~\"", "((X (RawSeq (T ~) (RE [^~,]?) (T ,) (RE [^~,]?) (T ~))))"*/
+			, ".raw \"~\" /[^~,]?/ \",\" /[^~,]?/ \"~\"", "((X:34 (RawSeq:34 (T:9 ~:5) (RE:18 [^~,]?:9) (T:22 ,:18) (RE:31 [^~,]?:22) (T:34 ~:31))))"
 		},
 		{
 			"(TransientRule symbol (RE [_a-zA-Z][0-9a-zA-Z_]*))"
@@ -283,7 +466,8 @@ int test_automaton() {
 			"(OperatorRule X (NT RawSeq))"
 			" (OperatorRule RawSeq (Seq (T .raw) (Rep1N (Seq (Space) (NT rawseq_contents)))))"
 			" (TransientRule rawseq_contents (Alt (NT T) (NT STR) (NT RE) (NT BOW) (NT AddToBag)))"
-			, ".raw \"~\" /[^~,]?/ \",\" /[^~,]?/ \"~\"", "((X (RawSeq (T ~) (RE [^~,]?) (T ,) (RE [^~,]?) (T ~))))"
+			/*, ".raw \"~\" /[^~,]?/ \",\" /[^~,]?/ \"~\"", "((X (RawSeq (T ~) (RE [^~,]?) (T ,) (RE [^~,]?) (T ~))))"*/
+			, ".raw \"~\" /[^~,]?/ \",\" /[^~,]?/ \"~\"", "((X:34 (RawSeq:34 (T:9 ~:5) (RE:18 [^~,]?:9) (T:22 ,:18) (RE:31 [^~,]?:22) (T:34 ~:31))))"
 		},
 		{
 			"(TransientRule symbol (RE [_a-zA-Z][0-9a-zA-Z_]*))"
@@ -296,12 +480,13 @@ int test_automaton() {
 			"(OperatorRule X (NT RawSeq))"
 			" (OperatorRule RawSeq (Seq (T .raw) (Rep1N (Alt (NT rawseq_contents)))))"
 			" (TransientRule rawseq_contents (Alt (NT T) (NT STR) (NT RE) (NT BOW) (NT AddToBag)))"
-			, ".raw \"~\" /[^~,]?/ \",\" /[^~,]?/ \"~\"", "((X (RawSeq (T ~) (RE [^~,]?) (T ,) (RE [^~,]?) (T ~))))"
+			/*, ".raw \"~\" /[^~,]?/ \",\" /[^~,]?/ \"~\"", "((X (RawSeq (T ~) (RE [^~,]?) (T ,) (RE [^~,]?) (T ~))))"*/
+			, ".raw \"~\" /[^~,]?/ \",\" /[^~,]?/ \"~\"", "((X:34 (RawSeq:34 (T:9 ~:5) (RE:18 [^~,]?:9) (T:22 ,:18) (RE:31 [^~,]?:22) (T:34 ~:31))))"
 		},
 		// now for some more tricky things
 		{
 			"(OperatorRule X (Alt (Seq (NT X) (NT X)) (T a)))"
-			, "aa", "((X (X) (X)))"
+			, "aa", "((X:2 (X:1) (X:2)))"
 		},
 		{
 			"(TransientRule symbol (RE [_a-zA-Z][0-9a-zA-Z_]*))"
@@ -314,25 +499,27 @@ int test_automaton() {
 			"(OperatorRule X (NT RawSeq))"
 			" (OperatorRule RawSeq (Seq (T .raw) (Rep1N (Seq (Space) (NT rawseq_contents)))))"
 			" (TransientRule rawseq_contents (Alt (NT T) (NT STR) (NT RE) (NT BOW) (NT AddToBag)))"
-			, ".raw \"'\" /[\\]?./ \"'\"", "((X (RawSeq (T ') (RE [\\\\]?.) (T '))))"
+			/*, ".raw \"'\" /[\\]?./ \"'\"", "((X (RawSeq (T ') (RE [\\\\]?.) (T '))))"*/
+			, ".raw \"'\" /[\\]?./ \"'\"", "((X:20 (RawSeq:20 (T:9 ':5) (RE:17 [\\\\]?.:9) (T:20 ':17))))"
 		},
-#endif
+/*#endif*/
 /*60*/	{	"(OperatorRule X (Alt (Seq (RE \\w+) (NT X)) (RE \\w+)))"
-			, "titi", "((X titi))"
+			, "titi", "((X:4 titi:0))"
 		},
 		{	"(OperatorRule X (Alt (Seq (RE \\w+) (NT X)) (RE \\w+)))"
-			, "titi toto", "((X titi (X toto)))"
+			, "titi toto", "((X:9 titi:0 (X:9 toto:5)))"
 		},
 		{	"(OperatorRule X (Alt (Seq (RE \\w+) (NT X)) (RE \\w+)))"
-			, "titi toto tata tutu", "((X titi (X toto (X tata (X tutu)))))"
+			, "titi toto tata tutu", "((X:19 titi:0 (X:19 toto:5 (X:19 tata:10 (X:19 tutu:15)))))"
 		},
 		{	"(OperatorRule X (Alt (Seq (RE \\w+) (NT X)) (RE \\w+)))"
-			, "titi toto tata", "((X titi (X toto (X tata))))"
+			, "titi toto tata", "((X:14 titi:0 (X:14 toto:5 (X:14 tata:10))))"
 		},
-		{ "(OperatorRule X (RawSeq (T ~) (RE [^~,]?) (T ,) (RE [^~,]?) (T ~)))", " ~\",\"~", "((X \" \"))" },
-		{ "(OperatorRule X (RawSeq (T ~) (RE [^~,]?) (T ,) (RE [^~,]?) (T ~)))", " ~\",\"~ ", "((X \" \"))" },
-		{ "(OperatorRule X (BOW _test !))", "pouet", "((X pouet))" },
-		{ "(OperatorRule X (BOW _test ))", "pouet", "((X))" },
+		{ "(OperatorRule X (RawSeq (T ~) (RE [^~,]?) (T ,) (RE [^~,]?) (T ~)))", " ~\",\"~", "((X:6 \":2 \":4))" },
+		{ "(OperatorRule X (RawSeq (T ~) (RE [^~,]?) (T ,) (RE [^~,]?) (T ~)))", " ~\",\"~ ", "((X:7 \":2 \":4))" },
+		{ "(OperatorRule X (BOW _test !))", "pouet", "((X:5 pouet:0))" },
+		{ "(OperatorRule X (BOW _test ))", "pouet", "((X:5))" },
+#endif
 		{ NULL, NULL, NULL }
 	};
 
@@ -347,10 +534,14 @@ int test_automaton() {
 	std::streambuf* rdclog = std::clog.rdbuf();
 	std::streambuf* rdcerr = std::cerr.rdbuf();
 	std::vector<int> failures;
-	while((*tc)[0]) {
+	tinyap_terminate();
+	while((*tc)[0]&&n--) {
+		std::cerr << "\r[automaton] #" << (done+1) << "...";
+		int alloc_delta0 = _node_alloc_count-_node_dealloc_count;
+		/*int alloc_delta2 = newPair_count + newAtom_count - delete_node_count;*/
 		std::stringstream capture;
-		std::clog.rdbuf(capture.rdbuf());
-		std::cerr.rdbuf(capture.rdbuf());
+		//std::clog.rdbuf(capture.rdbuf());
+		//std::cerr.rdbuf(capture.rdbuf());
 		std::stringstream ofn;
 		ofn << "failed.test.";
 		ofn << (done+1);
@@ -365,9 +556,18 @@ int test_automaton() {
 		}
 		++done;
 		++tc;
+		int alloc_delta1 = _node_alloc_count-_node_dealloc_count;
+		/*int alloc_delta3 = newPair_count + newAtom_count - delete_node_count;*/
+		/*if(alloc_delta1 != alloc_delta0) {*/
+			/*std::cout << "[TEST] [automaton] #" << done << " leak detected (" << (alloc_delta1-alloc_delta0) << ')' << std::endl;*/
+		/*}*/
+		/*if(alloc_delta2 != alloc_delta3) {*/
+			/*std::cout << "[TEST] [automaton] #" << done << " new/delete leak detected (" << (alloc_delta3-alloc_delta2) << ')' << std::endl;*/
+		/*}*/
+		std::clog.rdbuf(rdclog);
+		std::cerr.rdbuf(rdcerr);
 	}
-	std::clog.rdbuf(rdclog);
-	std::cerr.rdbuf(rdcerr);
+	tinyap_init();
 	for(std::vector<int>::iterator i=failures.begin(), j=failures.end();i!=j;++i) {
 		std::cout << "[TEST] [automaton] #" << (*i) << " failed. See ./failed.test." << (*i) << " for output." << std::endl;
 	}
@@ -392,7 +592,7 @@ void test_nl() {
 	lr::automaton nl(&g);
 	/*nl.dump_states();*/
 	const char* pouet = "I saw a man in the park with a telescope";
-	ast_node_t ast = nl.parse(pouet, strlen(pouet));
+	Ast ast = nl.parse(pouet, strlen(pouet));
 	std::cout << '"' << pouet << "\" => " << ast << std::endl;
 	/*while(ast) {*/
 		/*wast_t wa = make_wast(Car(ast));*/
@@ -410,9 +610,14 @@ void test_nl() {
 }
 
 int main(int argc, char**argv) {
-	test_nl();
+	int n=-1;
+	if(argc>1) {
+		std::stringstream(argv[1]) >> n;
+	}
+	/*test_nl();*/
 
 	/*return 0;*/
-	return test_grammar() + test_automaton();
+	return test_nodealloc() + test_grammar() + test_automaton(n);
+	/*return test_nodealloc();*/
 }
 

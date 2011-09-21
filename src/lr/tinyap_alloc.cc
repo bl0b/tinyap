@@ -18,9 +18,105 @@
 
 #include "tinyap_alloc.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-#include<pthread.h>
+#include <iostream>
+#include <iomanip>
+#include <map>
+#include <sstream>
+#include <algorithm>
+
+
+#ifdef DEBUG_ALLOCS
+
+struct alloc_data {
+	unsigned long allocs;
+	unsigned long frees;
+	const char* what;
+	alloc_data() : allocs(0), frees(0), what(0) {}
+	~alloc_data() {}
+	alloc_data(const alloc_data& ad) : allocs(ad.allocs), frees(ad.frees), what(ad.what) {}
+	alloc_data& operator=(const alloc_data& ad) {
+		allocs = ad.allocs;
+		frees = ad.frees;
+		what = ad.what;
+		return *this;
+	}
+};
+
+typedef std::map<size_t, alloc_data> alloc_by_line_t;
+typedef std::map<const char*, alloc_by_line_t> alloc_by_file_and_line_t;
+typedef alloc_data* alloc_counter_t;
+
+alloc_by_file_and_line_t alloc_counters;
+
+std::map<void*, alloc_counter_t> buffer_to_alloc_data;
+
+static inline std::string __fl2str(const char*f, size_t l, const char* what, size_t frees) {
+	std::stringstream tmp;
+	tmp << frees << '\t';
+	if(what) {
+		tmp << std::setiosflags(std::ios_base::left) << std::setw(16) << what;
+	}
+	tmp << f << ':' << l;
+	return std::string(tmp.str());
+}
+
+
+extern "C" {
+
+	void* _alloc_debug(struct __allocator* al, const char* f, size_t l, const char* what) {
+		void* ret = _alloc(al);
+		record_alloc(ret, f, l, what);
+		return ret;
+	}
+
+	void _free_debug(struct __allocator* al, void* p) {
+		/*std::pair<int, int>& ctr = alloc_counters[f][l];*/
+		/*ctr.second--;*/
+		alloc_counter_t ad = buffer_to_alloc_data[p];
+		if(ad) {
+			buffer_to_alloc_data.erase(p);
+			ad->frees++;
+		}
+		_free(al, p);
+	}
+
+	void record_alloc(void*buf, const char* f, size_t l, const char* what) {
+		alloc_data& ad = alloc_counters[f][l];
+		ad.allocs++;
+		if(!ad.what) {
+			ad.what = what;
+		}
+		buffer_to_alloc_data[buf] = &ad;
+	}
+
+	void _dump_allocs() {
+		std::multimap<int, std::string> results;
+		alloc_by_file_and_line_t::iterator fi, fj;
+		alloc_by_line_t::iterator li, lj;
+		fi = alloc_counters.begin();
+		fj = alloc_counters.end();
+		for(;fi!=fj;++fi) {
+			const char* f = (*fi).first;
+			li = (*fi).second.begin();
+			lj = (*fi).second.end();
+			for(;li!=lj;++li) {
+				size_t l = (*li).first;
+				alloc_data& ad = (*li).second;
+				results.insert(std::pair<int, std::string>(ad.allocs, __fl2str(f, l, ad.what, ad.frees)));
+			}
+		}
+
+		std::multimap<int, std::string>::iterator i, j;
+		std::cout << "ALLOCs\tFREEs\tLOCATION" << std::endl;
+		for(i=results.begin(), j=results.end(); i!=j; ++i) {
+			std::cout << (*i).first << '\t' << (*i).second << std::endl;
+		}
+	}
+}
+
+#endif
+
+
 
 struct _memorybloc {
 	struct _alloc_unit node;
@@ -80,6 +176,8 @@ void _term_allocator(struct __allocator*A) {
 	}
 }
 
+#ifndef USE_MALLOC
+
 void* _alloc(struct __allocator*A) {
 	struct _memorybloc* current_bloc = (struct _memorybloc*)A->blocs.head;
 	struct _alloc_unit* x;
@@ -112,6 +210,7 @@ void* _alloc(struct __allocator*A) {
 	}
 }
 
+
 void _free(struct __allocator*A, void* ptr) {
 	struct _alloc_unit*n = (struct _alloc_unit*)ptr;
 	/*n->prev=NULL;*/
@@ -120,3 +219,15 @@ void _free(struct __allocator*A, void* ptr) {
 	A->free.head = n;
 }
 
+
+#else
+
+void* _alloc(struct __allocator*A) {
+	return malloc(A->size);
+}
+
+void _free(struct __allocator*A, void* ptr) {
+	free(ptr);
+}
+
+#endif

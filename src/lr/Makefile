@@ -1,5 +1,5 @@
-CSRC=ape_prettyprint.c bootstrap.c parse_context.c pilot_manager.c serialize.c stack.c string_registry.c tinyap_alloc.c token_utils.c walkableast.c walker.c
-CPPSRC=lr.cc ast.cc tinyap.cc unparser.cc trie.cc
+CSRC=ape_prettyprint.c bootstrap.c parse_context.c pilot_manager.c serialize.c stack.c token_utils.c walkableast.c walker.c
+CPPSRC=lr.cc ast.cc tinyap.cc unparser.cc trie.cc tinyap_alloc.cc string_registry.cc
 
 COMMON_SRC = $(CSRC) $(CPPSRC)
 
@@ -12,29 +12,34 @@ HEADERS=ast.h bootstrap.h config.h hashtab.h list.h parse_context.h pilot_cache.
 #DBG=-ggdb
 #OPT=-O3
 
-CFLAGS=$(DBG) $(OPT) -Wall $(PROF)
-CPPFLAGS=$(DBG) $(OPT) -Wno-deprecated -Wall $(PROF)
+ALLOC=-DUSE_MALLOC
+
+CFLAGS=$(DBG) $(OPT) $(ALLOC) -Wall $(PROF)
+CPPFLAGS=$(DBG) $(OPT) $(ALLOC) -Wno-deprecated -Wall $(PROF)
 
 TARGET=$(SUFFIX)/tinyap
 TEST=$(SUFFIX)/test
 
 CC=gcc $(CFLAGS)
-CXX=g++ $(CPPFLAGS)
-LD=g++ -ldl -lpcre -rdynamic $(PROF)
+CXX=g++ -I $(SUFFIX) $(CPPFLAGS)
+LD=g++ -ldl -lpcre -rdynamic $(DBG) $(PROF)
 
 all: flavours
 
 -include .depend-$(SUFFIX)
 
+test: debug
+	./debug/test
+
 clean:
-	rm -f {,*/}*.o {,*/}$(TARGET) {,*/}$(TEST) .depend
+	rm -f *.o */*.o $(TARGET) */$(TARGET) $(TEST) */$(TEST) .depend
 
 targets: $(TARGET) $(TEST)
 
-$(TARGET): lr.h.gch $(COBJ) $(CPPOBJ) $(SUFFIX)/main.o
+$(TARGET): $(SUFFIX)/lr.h.gch $(COBJ) $(CPPOBJ) $(SUFFIX)/main.o
 	$(LD) $(COBJ) $(CPPOBJ) $(SUFFIX)/main.o -o $@
 
-$(TEST): lr.h.gch $(COBJ) $(CPPOBJ) $(SUFFIX)/test.o
+$(TEST): $(SUFFIX)/lr.h.gch $(COBJ) $(CPPOBJ) $(SUFFIX)/test.o
 	$(LD) $(COBJ) $(CPPOBJ) $(SUFFIX)/test.o -o $@
 
 .depend: $(HEADERS) $(LR_HEADERS) $(CSRC) $(CPPSRC) main.cc test.cc Makefile
@@ -47,8 +52,8 @@ $(TEST): lr.h.gch $(COBJ) $(CPPOBJ) $(SUFFIX)/test.o
 $(COBJ):$(SUFFIX)/%.o:%.c Makefile
 	$(CC) -c $< -o $@
 
-lr.h.gch: $(LR_HEADERS) Makefile
-	$(CXX) lr.h
+$(SUFFIX)/lr.h.gch: $(LR_HEADERS) Makefile
+	#$(CXX) lr.h -o $@
 
 $(SUFFIX)/test.o $(SUFFIX)/main.o $(CPPOBJ):$(SUFFIX)/%.o:%.cc Makefile
 	$(CXX) -c $< -o $@
@@ -57,16 +62,16 @@ debug: FORCE
 	mkdir -p $@
 	+make DBG=-ggdb SUFFIX=$@ targets
 
-opt: FORCE
+opt: FORCE test
 	mkdir -p $@
 	+make OPT=-O3 SUFFIX=$@ targets
 	cp $@/$(TARGET) $@/$(TEST) .
 
-profile: FORCE
+profile: FORCE test
 	mkdir -p $@
-	+make PROF=-pg DBG=-ggdb SUFFIX=$@ targets
+	+make PROF=-pg\ -fprofile-arcs\ -ftest-coverage\ --coverage DBG=-g SUFFIX=$@ targets
 
-opt-profile: FORCE
+opt-profile: FORCE test
 	mkdir -p $@
 	+make OPT=-O3 PROF=-pg SUFFIX=$@ targets
 

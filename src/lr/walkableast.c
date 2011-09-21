@@ -111,7 +111,7 @@ void wa_add(wast_t f,wast_t s) {
 
 
 
-wast_t make_wast(ast_node_t a) {
+wast_t make_wast(tinyap_t t, ast_node_t a) {
 	wast_t ret;
 	int i;
 	int max;
@@ -119,13 +119,13 @@ wast_t make_wast(ast_node_t a) {
 		return NULL;
 	}
 	if(tinyap_node_is_string(a)) {
-		ret = wa_new(tinyap_node_get_string(a),tinyap_node_get_row(a), tinyap_node_get_col(a));
+		ret = wa_new(tinyap_node_get_string(a),tinyap_node_get_row(t, a), tinyap_node_get_col(t, a));
 	} else {
-		ret = wa_new(tinyap_node_get_operator(a),tinyap_node_get_row(a), tinyap_node_get_col(a));
+		ret = wa_new(tinyap_node_get_operator(a),tinyap_node_get_row(t, a), tinyap_node_get_col(t, a));
 		max=tinyap_node_get_operand_count(a);
 		for(i=0;i<max;i+=1) {
 			/* FIXME : quadratic complexity in the AST size instead of linear complexity, it suxx. recursion over cdr(a) would perform better. */
-			wa_add(ret,make_wast(tinyap_node_get_operand(a,i)));
+			wa_add(ret,make_wast(t, tinyap_node_get_operand(a,i)));
 		}
 	}
 	return ret;
