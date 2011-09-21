@@ -523,12 +523,6 @@ int test_automaton(int n=-1) {
 		{ NULL, NULL, NULL }
 	};
 
-	trie_t test_bow = grammar::item::token::Bow::find(regstr("_test"));
-	std::clog << "init BOW _test @" << test_bow << std::endl;
-	trie_insert(test_bow, "pouet");
-	trie_insert(test_bow, "plop");
-	trie_insert(test_bow, "coin");
-
 	test_case* tc = test_cases;
 	unsigned int done=0, ok=0;
 	std::streambuf* rdclog = std::clog.rdbuf();
@@ -536,6 +530,12 @@ int test_automaton(int n=-1) {
 	std::vector<int> failures;
 	tinyap_terminate();
 	while((*tc)[0]&&n--) {
+		trie_t test_bow = grammar::item::token::Bow::find(regstr("_test"));
+		/*std::clog << "init BOW _test @" << test_bow << std::endl;*/
+		trie_insert(test_bow, "pouet");
+		trie_insert(test_bow, "plop");
+		trie_insert(test_bow, "coin");
+
 		std::cerr << "\r[automaton] #" << (done+1) << "...";
 		int alloc_delta0 = _node_alloc_count-_node_dealloc_count;
 		/*int alloc_delta2 = newPair_count + newAtom_count - delete_node_count;*/
