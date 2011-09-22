@@ -301,8 +301,42 @@ push u onto stack
 			gss* stack;
 
 			struct error {
-				unsigned int line, column;
+				unsigned int farthest, nl_before, nl_after, line, column;
+				const char* text;
+				automaton* A;
+				std::list<gss::node*> farthest_nodes;
+				error()
+					: farthest(-1), nl_before(0), nl_after(0), line(-1), column(-1), text(""), A(0), farthest_nodes()
+				{}
+				std::string message() {
+					std::stringstream buffer;
+					buffer << std::endl << "parse error at line " << line << ", column " << column << std::endl;
+					std::string line_from_text(text+nl_before, text+nl_after);
+					buffer << line_from_text << std::endl;
+					buffer << std::setw(farthest-nl_before) << "" << '^' << std::endl;
+					std::list<gss::node*>::iterator i, j;
+					for(i=farthest_nodes.begin(), j=farthest_nodes.end();i!=j;++i) {
+						follow_set_text::iterator ti, tj;
+						state* S = (*i)->id.S;
+						item_set K;
+						A->kernel(S->items, K);
+						buffer << K;
+						if(S->transitions.from_text.size()) {
+							buffer << "expected one of ";
+							grammar::visitors::debugger d(buffer);
+							for(ti=S->transitions.from_text.begin(), tj=S->transitions.from_text.end();ti!=tj;++ti) {
+								((grammar::item::base*)(*ti).first)->accept(&d); buffer << ' ';
+							}
+						} else {
+							buffer << "expected end of text";
+						}
+					}
+					buffer << std::endl;
+					return buffer.str();
+				}
 			};
+
+			std::list<error> errors;
 
 			automaton(grammar::Grammar* _)
 				: G(_), S(), S0(0), states(), furthest(0), stack(0)
@@ -553,6 +587,7 @@ push u onto stack
 				std::list<gss::node*> farthest_nodes;
 				unsigned int farthest=0;
 				if(stack) { delete stack; }
+				errors.clear();
 				stack = new gss(item((*G)["_start"], grammar::item::iterator::create((*G)["_start"])), size);
 				stack->shift(NULL, NULL, S0, NULL, 0, NULL);
 				while(!stack->active.empty()) {
@@ -646,6 +681,7 @@ push u onto stack
 				farthest = G->skip(buffer, farthest, size);
 				/* error handling */
 				if(farthest!=size) {
+					errors.push_back(error());
 					unsigned int nl_before = 0, nl_after = 0, tmp = 0;
 					struct {
 						unsigned int operator()(const char*buffer, unsigned int ofs) {
@@ -666,27 +702,14 @@ push u onto stack
 					while((tmp=find_nl(buffer, nl_before))<=farthest) { nl_before = tmp; ++line; }
 					nl_after = tmp;
 					column = farthest - nl_before + 1;
-					std::clog << std::endl << "parsing stopped at line " << line << ", column " << column << std::endl;
-					std::clog << std::string(buffer+nl_before, buffer+nl_after) << std::endl;
-					std::clog << std::setw(farthest-nl_before) << "" << '^' << std::endl;
-					std::list<gss::node*>::iterator i, j;
-					for(i=farthest_nodes.begin(), j=farthest_nodes.end();i!=j;++i) {
-						follow_set_text::iterator ti, tj;
-						state* S = (*i)->id.S;
-						item_set K;
-						kernel(S->items, K);
-						std::clog << K;
-						if(S->transitions.from_text.size()) {
-							std::clog << "expected one of ";
-							grammar::visitors::debugger d(std::clog);
-							for(ti=S->transitions.from_text.begin(), tj=S->transitions.from_text.end();ti!=tj;++ti) {
-								((grammar::item::base*)(*ti).first)->accept(&d); std::clog << ' ';
-							}
-						} else {
-							std::clog << "expected end of text";
-						}
-					}
-					std::clog << std::endl;
+					errors.back().text = buffer;
+					errors.back().A = this;
+					errors.back().nl_before = nl_before;
+					errors.back().nl_after = nl_after;
+					errors.back().line = line;
+					errors.back().column = column;
+					errors.back().farthest_nodes = farthest_nodes;
+					std::cerr << errors.back().message() << std::endl;
 				}
 				furthest=farthest;
 				return stack->accepted;

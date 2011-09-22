@@ -207,7 +207,7 @@ namespace item {
 
 		if(cached) {
 			registry[n] = cached;
-			std::cerr << "registry[" << n << "] = " << cached << std::endl;
+			/*std::cerr << "registry[" << n << "] = " << cached << std::endl;*/
 			n->raw.ref++;
 		} else {
 			registry.erase(n);
@@ -234,7 +234,7 @@ namespace combination {
 
 	std::pair<ast_node_t, unsigned int> rec_recog(const char* source, unsigned int offset, unsigned int size, RawSeq::const_iterator i, RawSeq::const_iterator j) {
 		if(i==j) {
-			return std::pair<ast_node_t, unsigned int>(0, size);
+			return std::pair<ast_node_t, unsigned int>(0, offset);
 		}
 		/*typedef std::list<Ast> recog_stack_t;*/
 		typedef std::list<ast_node_t> recog_stack_t;
@@ -248,6 +248,7 @@ namespace combination {
 			if(cur.first!=PRODUCTION_OK_BUT_EMPTY) {
 				stack.push_back(Car(cur.first));
 				Car(cur.first)->raw.ref++;
+				delete_node(cur.first);
 			}
 			++i;
 		}

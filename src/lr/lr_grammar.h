@@ -609,7 +609,7 @@ namespace grammar {
 		namespace internal {
 			struct append {
 				ast_node_t operator()(ast_node_t a, ast_node_t b, bool drop_empty = true) const {
-					std::cerr << "append <= " << a << " + " << b << std::endl;
+					/*std::cerr << "append <= " << a << " + " << b << std::endl;*/
 					if(a==PRODUCTION_OK_BUT_EMPTY||!a) { return b?b:PRODUCTION_OK_BUT_EMPTY; }
 					if(b==PRODUCTION_OK_BUT_EMPTY||!b) { return a; }
 					ast_node_t ret = rec(a, b, drop_empty);
@@ -618,7 +618,7 @@ namespace grammar {
 						/*delete_node(b);*/
 					}
 					/*delete_node(a);*/
-					std::cerr << "append => " << ret << std::endl;
+					/*std::cerr << "append => " << ret << std::endl;*/
 					return ret;
 				}
 				private:

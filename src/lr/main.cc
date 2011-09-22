@@ -152,7 +152,8 @@ int do_args(int argc,char*argv[]) {
 			const char* up;
 
 			grammar = make_wast(parser, tinyap_list_get_element(tinyap_get_grammar_ast(parser), 0));
-			short_gram = make_wast(parser, tinyap_list_get_element(tinyap_get_ruleset(GRAMMAR_SHORT), 0));
+			Ast short_gram_ast = tinyap_get_ruleset(GRAMMAR_SHORT);
+			short_gram = make_wast(parser, tinyap_list_get_element(short_gram_ast, 0));
 			up = tinyap_unparse(short_gram, grammar);
 			if(up) {
 				fputs(up, stdout);
@@ -161,7 +162,7 @@ int do_args(int argc,char*argv[]) {
 			}
 			free((char*)up);
 			wa_del(grammar);
-
+			wa_del(short_gram);
 		} else if(cmp_param(0,"--verbose","-V")) {
 			tinyap_set_verbose(1);
 		} else if(cmp_param(0,"--quiet","-q")) {

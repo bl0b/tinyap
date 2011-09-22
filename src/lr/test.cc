@@ -537,11 +537,11 @@ int test_automaton(int n=-1) {
 		trie_insert(test_bow, "coin");
 
 		std::cerr << "\r[automaton] #" << (done+1) << "...";
-		int alloc_delta0 = _node_alloc_count-_node_dealloc_count;
+		/*int alloc_delta0 = _node_alloc_count-_node_dealloc_count;*/
 		/*int alloc_delta2 = newPair_count + newAtom_count - delete_node_count;*/
 		std::stringstream capture;
-		//std::clog.rdbuf(capture.rdbuf());
-		//std::cerr.rdbuf(capture.rdbuf());
+		std::clog.rdbuf(capture.rdbuf());
+		std::cerr.rdbuf(capture.rdbuf());
 		std::stringstream ofn;
 		ofn << "failed.test.";
 		ofn << (done+1);
@@ -556,7 +556,7 @@ int test_automaton(int n=-1) {
 		}
 		++done;
 		++tc;
-		int alloc_delta1 = _node_alloc_count-_node_dealloc_count;
+		/*int alloc_delta1 = _node_alloc_count-_node_dealloc_count;*/
 		/*int alloc_delta3 = newPair_count + newAtom_count - delete_node_count;*/
 		/*if(alloc_delta1 != alloc_delta0) {*/
 			/*std::cout << "[TEST] [automaton] #" << done << " leak detected (" << (alloc_delta1-alloc_delta0) << ')' << std::endl;*/
@@ -567,6 +567,7 @@ int test_automaton(int n=-1) {
 		std::clog.rdbuf(rdclog);
 		std::cerr.rdbuf(rdcerr);
 	}
+	std::cerr << '\r';
 	tinyap_init();
 	for(std::vector<int>::iterator i=failures.begin(), j=failures.end();i!=j;++i) {
 		std::cout << "[TEST] [automaton] #" << (*i) << " failed. See ./failed.test." << (*i) << " for output." << std::endl;

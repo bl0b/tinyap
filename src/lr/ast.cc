@@ -210,7 +210,7 @@ ast_node_t newAtom_impl(const char*data,size_t offset) {
 		/*std::cout << "reuse alloc'd atom " << ret;*/
 		/*ret->raw.ref++;*/
 	}
-	std::cout << "newAtom: " << ret << std::endl;
+	/*std::cerr << "newAtom: " << ret << std::endl;*/
 
 	return ret;
 }
@@ -234,7 +234,7 @@ ast_node_t newPair_impl(const ast_node_t a,const ast_node_t d) {
 		/*std::cout << "reuse alloc'd pair " << ret << std::endl;*/
 		/*ret->raw.ref++;*/
 	}
-	std::cout << "newPair: " << ret << std::endl;
+	/*std::cerr << "newPair: " << ret << std::endl;*/
 	return ret;
 }
 
@@ -250,14 +250,14 @@ void delete_node(ast_node_t n) {
 	n->raw.ref--;
 	if(n->raw.ref>0) {
 		/*std::cout << std::setw(rec_lvl) << "Node " << n << " still has " << n->raw.ref << " references." << std::endl;*/
-		if(still_has_refs.find(n)==still_has_refs.end()) {
-			still_has_refs.insert(n);
-		}
+		/*if(still_has_refs.find(n)==still_has_refs.end()) {*/
+			/*still_has_refs.insert(n);*/
+		/*}*/
 		return;
 	}
-	else {
-		still_has_refs.erase(still_has_refs.lower_bound(n), still_has_refs.upper_bound(n));
-	}
+	/*else {*/
+		/*still_has_refs.erase(still_has_refs.lower_bound(n), still_has_refs.upper_bound(n));*/
+	/*}*/
 	++rec_lvl;
 	switch(n->type) {
 	case ast_Atom:

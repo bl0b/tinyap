@@ -195,6 +195,7 @@ void tinyap_set_verbose(int v) {
 }
 
 void flush_nodes() {
+#if 0
 	std::list<ast_node_t> stack;
 	pair_registry_t::iterator pi, pj;
 	pi = _static_init.pair_registry.begin();
@@ -203,44 +204,17 @@ void flush_nodes() {
 		stack.push_back(pi->second);
 	}
 	for(std::list<ast_node_t>::iterator i=stack.begin(), j=stack.end();i!=j;++i) {
-		delete_node(*i);
+		/*delete_node(*i);*/
 	}
 	stack.clear();
 	atom_registry_t::iterator ai, aj;
 	ai = _static_init.atom_registry.begin();
 	aj = _static_init.atom_registry.end();
 	for(;ai!=aj;++ai) {
-		stack.push_back(pi->second);
+		stack.push_back(ai->second);
 	}
 	for(std::list<ast_node_t>::iterator i=stack.begin(), j=stack.end();i!=j;++i) {
-		delete_node(*i);
-	}
-#if 0
-	std::set<ast_node_t>::iterator i, j;
-	j = _static_init.still_has_refs.end();
-	i = _static_init.still_has_refs.begin();
-	for(;i!=j;++i) {
-		std::cerr << "ast node " << (*i)->raw.ref << " refs " << (*i) << std::endl;
-	}
-#endif
-#if 0
-	std::list<ast_node_t> to_remove;
-	std::set<ast_node_t>::iterator i, j;
-	std::list<ast_node_t>::iterator k, l;
-	while(	j = _static_init.still_has_refs.end(),
-			i = _static_init.still_has_refs.begin(),
-			i!=j) {
-		to_remove.clear();
-		for(;i!=j;++i) {
-			std::cerr << "ast node " << (*i)->raw.ref << " refs " << (*i) << std::endl;
-			if((*i)->raw.ref==1) {
-				to_remove.push_back(*i);
-			}
-		}
-		l=to_remove.end();
-		for(k=to_remove.begin();k!=l;++k) {
-			delete_node(*k);
-		}
+		/*delete_node(*i);*/
 	}
 #endif
 }
@@ -300,7 +274,7 @@ void tinyap_print_states(tinyap_t t) {
 }
 
 void tinyap_delete(tinyap_t t) {
-	fprintf(stderr, "before tinyap_delete : %u nodes (%u alloc'd so far)\n",node_pool_size(),_node_alloc_count);
+	/*fprintf(stderr, "before tinyap_delete : %u nodes (%u alloc'd so far)\n",node_pool_size(),_node_alloc_count);*/
 	if(t->A) delete t->A;
 	if(t->G) delete t->G;
 
@@ -318,7 +292,7 @@ void tinyap_delete(tinyap_t t) {
 
 	/*free(t);*/
 	delete t;
-	fprintf(stderr, "after tinyap_delete : %i allocs / %i deallocs\n", _node_alloc_count, _node_dealloc_count);
+	/*fprintf(stderr, "after tinyap_delete : %i allocs / %i deallocs\n", _node_alloc_count, _node_dealloc_count);*/
 }
 
 tinyap_t tinyap_new() {
@@ -566,7 +540,7 @@ int tinyap_parse(tinyap_t t, int full) {
 //	token_context_free(t->toktext);
 //	t->toktext=NULL;
 
-	fprintf(stderr, "after  tinyap_parse : %u nodes (%i alloc'd so far)\n",node_pool_size(),_node_alloc_count);
+	/*fprintf(stderr, "after  tinyap_parse : %u nodes (%i alloc'd so far)\n",node_pool_size(),_node_alloc_count);*/
 	deltasec = t1.tv_sec-t0.tv_sec;
 	t->parse_time = 1.e-6f*(t1.tv_usec-t0.tv_usec)+deltasec;
 
@@ -601,7 +575,7 @@ int tinyap_get_error_row(const tinyap_t t) {
 	return p.row();
 	return -1 /*parse_error_line(t->context)*/;
 }
-const char* tinyap_get_error(const tinyap_t t) { return "TODO" /*parse_error(t->context)*/; }
+const char* tinyap_get_error(const tinyap_t t) { return t->A->errors.back().message().c_str(); }
 #endif
 
 int tinyap_node_is_nil(const ast_node_t  n) {

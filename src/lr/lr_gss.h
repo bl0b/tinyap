@@ -375,7 +375,7 @@ namespace lr {
 						return;
 					}
 					/* accept */
-#if 1
+#if 0
 					std::clog << "ACCEPT ! " << accum << " @" << ((void*)accum) << std::endl;
 #endif
 					if(accum) {
@@ -405,7 +405,7 @@ namespace lr {
 					ast_node_t redast = red((grammar::rule::base*)R);
 					/*redast->raw.ref++;*/
 					grammar::item::base* nt = grammar::item::token::Nt::instance(R->tag());
-					std::cerr << "Reducing " << accum << " into " << redast << std::endl;
+					/*std::cerr << "Reducing " << accum << " into " << redast << std::endl;*/
 					shift(tail, nt, Sprime, redast, offset, red_end);
 					/*if(redast!=accum) {*/
 						/*delete_node(redast);*/

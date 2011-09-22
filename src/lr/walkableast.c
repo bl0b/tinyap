@@ -30,7 +30,7 @@ struct _walkable_ast_t {
 	wast_t father;
 	unsigned int opd_count;
 	wast_t* operands;
-	ast_node_t*node;
+	/*ast_node_t*node;*/
 	int l,c;
 };
 
