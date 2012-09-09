@@ -79,8 +79,6 @@ struct _tinyap_t {
 	lr::automaton* A;
 	grammar::Grammar* G;
 
-	ext::hash_map<const char*, trie_t> bows;
-	
 	char*grammar_source;
 	Ast grammar;
 	/*ast_node_t start;*/
@@ -128,10 +126,10 @@ struct _tinyap_t {
 		position_t position_of(int ofs) {
 			position_t ret;
 			if(((size_t)ofs)>sz) {
-				std::cerr << "position_of beyond end at " << ofs << std::endl;
+				/*std::cerr << "position_of beyond end at " << ofs << std::endl;*/
 				ret.row(-1);
 				ret.col(-1);
-				throw 0;
+				/*throw 0;*/
 				return ret;
 			}
 			if(ofs>row_offset.back()) {
@@ -171,7 +169,7 @@ struct _tinyap_t {
 	} pos_cache;
 
 	_tinyap_t()
-		: A(0), G(0), bows(),
+		: A(0), G(0),
 		  grammar_source(0), grammar(0),
 		  /*start(0),*/ output(0), ws(0), ws_source(0),
 		  flags(0), source_file(0), source_buffer(0),
@@ -180,10 +178,6 @@ struct _tinyap_t {
 	{}
 
 	~_tinyap_t() {
-		ext::hash_map<const char*, trie_t>::iterator i, j;
-		for(i=bows.begin(), j=bows.end(); i!=j; ++i) {
-			trie_free((*i).second);
-		}
 	}
 };
 
@@ -203,6 +197,11 @@ void node_pool_term();
 
 trie_t tinyap_get_bow(const char* tag) {
 	return grammar::item::token::Bow::find(tag);
+}
+
+
+void tinyap_add_bow(const char* tag, const char* word) {
+    trie_insert(grammar::item::token::Bow::find(tag), word);
 }
 
 
@@ -551,7 +550,7 @@ int tinyap_parse(tinyap_t t, int full) {
 
 	if(tinyap_verbose) {
 		/*fprintf(stderr, "TinyaP parsed %u of %u characters.\n",t->toktext->farthest,t->toktext->size);*/
-		fprintf(stderr, "TinyaP parsed %u of %u characters.\n",t->A->furthest,t->source_buffer_sz);
+		fprintf(stderr, "TinyaP parsed %u of %lu characters.\n",t->A->furthest,t->source_buffer_sz);
 	}
 //	token_context_free(t->toktext);
 //	t->toktext=NULL;

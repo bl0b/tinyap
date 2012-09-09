@@ -207,9 +207,11 @@ namespace lr {
 		int id;
 		item_set items;
 		struct transitions_ {
-			follow_set_text from_text;
+			follow_set_text from_text_t;
+			follow_set_text from_text_bow;
+			follow_set_text from_text_re;
 			follow_set_stack from_stack;
-			transitions_() : from_text(), from_stack() {}
+			transitions_() : from_text_t(), from_text_bow(), from_text_re(), from_stack() {}
 		} transitions;
 		item_set reductions;
 		state(item_set& s) : id(0), items(s), transitions(), reductions() {}
@@ -235,26 +237,33 @@ namespace lr {
 		o << "===(" << std::setw(4) << S->id << ")======================================================" << std::endl;
 		o << S->items;
 		follow_set_text::const_iterator
-			fti = S->transitions.from_text.begin(),
-			ftj = S->transitions.from_text.end();
-		if(fti!=ftj) {
-			o << "-- Token transitions ------------------------------------------" << std::endl;
-			for(;fti!=ftj;++fti) {
-				if((*fti).second) { o << (*fti); }
-			}
+			fti = S->transitions.from_text_t.begin(),
+			ftj = S->transitions.from_text_t.end();
+        o << "-- Token transitions ------------------------------------------" << std::endl;
+        for(;fti!=ftj;++fti) {
+            if((*fti).second) { o << (*fti); }
 		}
+        fti = S->transitions.from_text_bow.begin();
+        ftj = S->transitions.from_text_bow.end();
+        for(;fti!=ftj;++fti) {
+            if((*fti).second) { o << (*fti); }
+		}
+        fti = S->transitions.from_text_re.begin();
+        ftj = S->transitions.from_text_re.end();
+        for(;fti!=ftj;++fti) {
+            if((*fti).second) { o << (*fti); }
+		}
+            
 		follow_set_stack::const_iterator
 			fsi = S->transitions.from_stack.begin(),
 			fsj = S->transitions.from_stack.end();
+        o << "-- Non-terminal transitions -----------------------------------" << std::endl;
 		if(fsi!=fsj) {
-			o << "-- Non-terminal transitions -----------------------------------" << std::endl;
 			for(;fsi!=fsj;++fsi) {
 				if((*fsi).second) { o << (*fsi); }
 			}
 		}
-		if(S->reductions.size()) {
-			o << "-- Reductions -------------------------------------------------" << std::endl << S->reductions;
-		}
+        o << "-- Reductions -------------------------------------------------" << std::endl << S->reductions;
 		return o;
 	}
 
@@ -321,10 +330,18 @@ push u onto stack
 						item_set K;
 						A->kernel(S->items, K);
 						buffer << K;
-						if(S->transitions.from_text.size()) {
+						if(S->transitions.from_text_t.size()
+                           + S->transitions.from_text_bow.size()
+                           + S->transitions.from_text_re.size()) {
 							buffer << "expected one of ";
 							grammar::visitors::debugger d(buffer);
-							for(ti=S->transitions.from_text.begin(), tj=S->transitions.from_text.end();ti!=tj;++ti) {
+							for(ti=S->transitions.from_text_t.begin(), tj=S->transitions.from_text_t.end();ti!=tj;++ti) {
+								((grammar::item::base*)(*ti).first)->accept(&d); buffer << ' ';
+							}
+							for(ti=S->transitions.from_text_bow.begin(), tj=S->transitions.from_text_bow.end();ti!=tj;++ti) {
+								((grammar::item::base*)(*ti).first)->accept(&d); buffer << ' ';
+							}
+							for(ti=S->transitions.from_text_re.begin(), tj=S->transitions.from_text_re.end();ti!=tj;++ti) {
 								((grammar::item::base*)(*ti).first)->accept(&d); buffer << ' ';
 							}
 						} else {
@@ -496,17 +513,17 @@ push u onto stack
 						GOTO = GOTO_;
 						tr->accept(this);
 					}
-					virtual void visit(grammar::item::token::Str* x) { S->transitions.from_text[x] = GOTO; }
-					virtual void visit(grammar::item::token::Re* x) { S->transitions.from_text[x] = GOTO; }
+					virtual void visit(grammar::item::token::Str* x) { S->transitions.from_text_t[x] = GOTO; }
+					virtual void visit(grammar::item::token::Re* x) { S->transitions.from_text_re[x] = GOTO; }
 					virtual void visit(grammar::item::token::Epsilon* x) {}
-					virtual void visit(grammar::item::token::Eof* x) { S->transitions.from_text[x] = GOTO; }
-					virtual void visit(grammar::item::token::Comment* x) { S->transitions.from_text[x] = GOTO; }
-					virtual void visit(grammar::item::token::T* x) { S->transitions.from_text[x] = GOTO; }
+					virtual void visit(grammar::item::token::Eof* x) { S->transitions.from_text_t[x] = GOTO; }
+					virtual void visit(grammar::item::token::Comment* x) { S->transitions.from_text_re[x] = GOTO; }
+					virtual void visit(grammar::item::token::T* x) { S->transitions.from_text_t[x] = GOTO; }
 					virtual void visit(grammar::item::token::Nt* x) { S->transitions.from_stack[x->tag()] = GOTO; }
-					virtual void visit(grammar::item::token::Bow* x) { S->transitions.from_text[x] = GOTO; }
-					virtual void visit(grammar::item::token::AddToBag* x) { S->transitions.from_text[x] = GOTO; }
+					virtual void visit(grammar::item::token::Bow* x) { S->transitions.from_text_bow[x] = GOTO; }
+					virtual void visit(grammar::item::token::AddToBag* x) { S->transitions.from_text_bow[x] = GOTO; }
 
-					virtual void visit(grammar::item::combination::RawSeq* x) { S->transitions.from_text[x] = GOTO; }
+					virtual void visit(grammar::item::combination::RawSeq* x) { S->transitions.from_text_re[x] = GOTO; }
 			};
 
 			void compute_transitions(item_set& items, follow_set_builder& transitions) {
@@ -605,7 +622,7 @@ push u onto stack
 #define _tinyap_min(a, b) (a<b?a:b)
 					item_set ker;
 					kernel(S->items, ker);
-					char* aststr = (char*)ast_serialize_to_string(n->get_state_ast());
+					char* aststr = (char*)ast_serialize_to_string(n->ast, 0);
 					std::clog	<< " ===  ACTIVE STATE ===(" << S->id << ") @" << n->id.O << ':'
 								<< std::string(buffer+n->id.O, _tinyap_min(buffer+n->id.O+20, buffer+size)) << std::endl
 								<< ker << "ast : " << aststr << std::endl; free(aststr);
@@ -623,7 +640,7 @@ push u onto stack
 					 * PHASE 2 : SHIFT
 					 */
 
-					for(ti=S->transitions.from_text.begin(), tj=S->transitions.from_text.end();ti!=tj;++ti) {
+					for(ti=S->transitions.from_text_t.begin(), tj=S->transitions.from_text_t.end();ti!=tj && didnt_shift;++ti) {
 						if(!(*ti).second) {
 							std::cerr << "null entry in transition table !" << std::endl;
 							continue;
@@ -638,6 +655,38 @@ push u onto stack
 							/*delete_node(ret.first);*/
 						}
 					}
+
+                    for(ti=S->transitions.from_text_bow.begin(), tj=S->transitions.from_text_bow.end();ti!=tj && didnt_shift;++ti) {
+                        if(!(*ti).second) {
+                            std::cerr << "null entry in transition table !" << std::endl;
+                            continue;
+                        }
+                        const grammar::item::base* token = (*ti).first;
+                        std::pair<ast_node_t, unsigned int> ret = token->recognize(buffer, ofs, size);
+                        /*std::clog << "follow by "; ((grammar::item::base*)token)->accept(&debug); std::clog << " => " << ((int)(ret.first?ret.second:-1)) << std::endl;*/
+                        if(ret.first) {
+                            didnt_shift=false;
+                            /*ret.first->raw.ref++;*/
+                            stack->shift(n, (grammar::item::base*)(*ti).first, (*ti).second, ret.first, ret.second, NULL);
+                            /*delete_node(ret.first);*/
+                        }
+                    }
+
+                    for(ti=S->transitions.from_text_re.begin(), tj=S->transitions.from_text_re.end();ti!=tj && didnt_shift;++ti) {
+                        if(!(*ti).second) {
+                            std::cerr << "null entry in transition table !" << std::endl;
+                            continue;
+                        }
+                        const grammar::item::base* token = (*ti).first;
+                        std::pair<ast_node_t, unsigned int> ret = token->recognize(buffer, ofs, size);
+                        /*std::clog << "follow by "; ((grammar::item::base*)token)->accept(&debug); std::clog << " => " << ((int)(ret.first?ret.second:-1)) << std::endl;*/
+                        if(ret.first) {
+                            didnt_shift=false;
+                            /*ret.first->raw.ref++;*/
+                            stack->shift(n, (grammar::item::base*)(*ti).first, (*ti).second, ret.first, ret.second, NULL);
+                            /*delete_node(ret.first);*/
+                        }
+                    }
 
 					/*
 					 * PHASE 1 : REDUCE

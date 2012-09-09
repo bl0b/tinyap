@@ -468,7 +468,7 @@ namespace grammar {
 					const char* tag_;
 					bool keep_;
 					trie_t mybow;
-					static ext::hash_map<const char*, trie_t>& all;
+					/*static ext::hash_map<const char*, trie_t>& all;*/
 				public:
 					Bow(const char*_, bool k) : tag_(_), keep_(k) {
 						mybow = find(_);
@@ -500,6 +500,11 @@ namespace grammar {
 						return std::pair<ast_node_t, unsigned int>(NULL, offset);
 					}
 
+					static ext::hash_map<const char*, trie_t>& _registry() {
+                        static ext::hash_map<const char*, trie_t> all;
+                        return all;
+                    }
+
 					static trie_t find(const char*tag) {
 						/*static struct tries : ext::hash_map<const char*, trie_t> {
 							~tries() {
@@ -509,9 +514,9 @@ namespace grammar {
 								}
 							}
 						} all;*/
-						trie_t ret = all[tag];
+						trie_t ret = _registry()[tag];
 						if(!ret) {
-							all[tag] = ret = trie_new();
+							_registry()[tag] = ret = trie_new();
 						}
 						return ret;
 					}
@@ -531,16 +536,22 @@ namespace grammar {
 						}
 					}
 				public:
-					AddToBag(const char* p, const char* b, bool k) : Re_base<AddToBag>(p), keep_(k), bag(Bow::find(b)), tag_(b) {
-						/*std::cout << "NEW AddToBag(" << pattern() << ", " << tag() << ", " << keep() << std::endl;*/
+					AddToBag(const char* p, const char* b, bool k)
+                        : Re_base<AddToBag>(p), keep_(k),
+                          bag(Bow::find(b)),
+                          tag_(b) {
+						/*std::cout << "NEW AddToBag(" << pattern() << ", " << tag()*/
+                            /*<< ", " << (keep() ? "keep" : "discard") << " "*/
+                            /*<< ((void*)bag) << std::endl;*/
 					}
 					bool keep() const { return keep_; }
 					const char* tag() const { return tag_; }
 					virtual std::pair<ast_node_t, unsigned int> recognize(const char* source, unsigned int offset, unsigned int size) const {
 						std::pair<ast_node_t, unsigned int> ret = Re_base<AddToBag>::recognize(source, offset, size);
-						/*std::cout << "AddToBag => " << ret.first << " +" << ret.second << std::endl;*/
 						if(ret.second>offset) {
+                            /*std::cout << "AddToBag(" << ((void*)bag) << ") => " << Value(Car(ret.first)) << " +" << ret.second << std::endl;*/
 							trie_insert(bag, Value(Car(ret.first)));
+                            /*trie_dump(bag, 0);*/
 						}
 						if(keep_) {
 							return ret;
@@ -1050,27 +1061,29 @@ namespace grammar {
 
 			class Prefix : public tagged_single<Prefix> {
 				protected:
-					virtual void contents(Grammar*g, item::base*x) {}
+					virtual void contents(Grammar*g, item::base*x); // {}
 				public:
 					typedef rule::Prefix expansion_rule_type;
 					using single<Prefix>::contents;
 					using single<Prefix>::commit;
 					Prefix(Grammar*g, item::base* prefix, const char* nt) : tagged_single<Prefix>(nt) {
-						_ = item::token::Nt::instance(rule::base::auto_tag<Prefix>());
-						cts = gc(new Seq())->add(prefix)->add(item::token::Nt::instance(nt));
+						/*_ = item::token::Nt::instance(rule::base::auto_tag<Prefix>());*/
+						/*cts = gc(new Seq())->add(prefix)->add(item::token::Nt::instance(nt));*/
+                        contents(g, prefix);
 					}
 			};
 
 			class Postfix : public tagged_single<Postfix> {
 				protected:
-					virtual void contents(Grammar*g, item::base*x) {}
+					virtual void contents(Grammar*g, item::base*x);// {}
 				public:
 					typedef rule::Postfix expansion_rule_type;
 					using single<Postfix>::contents;
 					using single<Postfix>::commit;
 					Postfix(Grammar*g, item::base* postfix, const char* nt) : tagged_single<Postfix>(nt) {
-						_ = item::token::Nt::instance(rule::base::auto_tag<Postfix>());
-						cts = gc(new Seq())->add(postfix)->add(token::Nt::instance(nt));
+						/*_ = item::token::Nt::instance(rule::base::auto_tag<Postfix>());*/
+						/*cts = gc(new Seq())->add(postfix)->add(token::Nt::instance(nt));*/
+                        contents(g, postfix);
 					}
 			};
 		}

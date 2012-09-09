@@ -35,7 +35,6 @@ namespace item {
 	static ext::hash_map<const ast_node_t, base*, lr::hash_an, lr::ptr_eq<_ast_node_t> >& registry = _static_init.grammar_registry;
 
 	ext::hash_map<const char*, token::Nt*>& token::Nt::registry = _static_init.nt_registry;
-	ext::hash_map<const char*, trie_t>& token::Bow::all = _static_init.trie_registry;
 
 	void clean_registry_at_exit() {
 		typedef ext::hash_map<const ast_node_t, base*, lr::hash_an, lr::ptr_eq<_ast_node_t> >::iterator mapiter_t;
@@ -373,6 +372,20 @@ namespace combination {
 		/*alt->commit(g);*/
 		cts = alt;
 	}
+
+    void Prefix::contents(Grammar* g, item::base* x) {
+        _ = item::token::Nt::instance(rule::base::auto_tag<Prefix>());
+        cts = item::gc(new Seq())
+                ->add(visitors::item_rewriter(g).process(x))
+                ->add(item::token::Nt::instance(tag()));
+    }
+
+    void Postfix::contents(Grammar* g, item::base* x) {
+        _ = item::token::Nt::instance(rule::base::auto_tag<Postfix>());
+        cts = item::gc(new Seq())
+                ->add(visitors::item_rewriter(g).process(x))
+                ->add(item::token::Nt::instance(tag()));
+    }
 
 } /* namespace combination */
 } /* namespace item */

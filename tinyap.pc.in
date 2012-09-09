@@ -5,9 +5,9 @@ libdir=${prefix}/lib
 staticlink=${libdir}/libtinyap.a -Wl,-export-dynamic -pthread
 
 Name: Tinyap (This is not yet another parser)
-Description: An abstract LL parser (rather, a meta-parser) with facilities for visiting the AST resulting from a parsing.
+Description: An abstract GLR parser (rather, a meta-parser) with facilities for visiting the AST(s) resulting from a parsing.
 Version: #VERSION#
-URL: http://tinyap.googlecode.com/
+URL: https://github.com/bl0b/tinyap
 Libs: -L${libdir} -ltinyap -Wl,-export-dynamic -pthread
 Libs.private: -ldl
 Cflags: -I${includedir}

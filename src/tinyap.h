@@ -111,6 +111,8 @@ extern "C" {
 
 	/*! \brief access a Bag of Words by tag */
 	trie_t		tinyap_get_bow(const char*);
+    /*! \brief insert a word in a Bag of Words */
+    void tinyap_add_bow(const char* tag, const char* word);
 
 	/*! \brief perform parsing of configured source with configured grammar. If the passed flag is true, a full parse is performed, otherwise a simple parse with preference for shifting over reducing is performed.
 	 * \return 1 if parsing was successful, 0 otherwise

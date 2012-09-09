@@ -19,7 +19,9 @@ my @env_pkgconfig  = $ENV{'PKG_CONFIG_PATH'} ? split( ':', $ENV{'PKG_CONFIG_PATH
 my $pkgconfigdir = &check_dir(@env_pkgconfig, "/usr/local/lib/pkgconfig", "/usr/share/pkgconfig", "/usr/lib/pkgconfig") or die("Can't locate pkg-config install directory");
 
 open my $fd, "<$input";
-my $pcfile = "$pkgconfigdir/$input";
+my $basename = $input;
+$basename =~ s/.*\///;
+my $pcfile = "$pkgconfigdir/$basename";
 $pcfile =~ s/\.in$//;
 open my $out, ">$pcfile" or die("Couldn't open file $pcfile for writing.\n");
 

@@ -1,3 +1,11 @@
+INSTALL_PREFIX=/usr/local
+
+
+INSTALL_BIN=$(INSTALL_PREFIX)/bin
+INSTALL_INCLUDE=$(INSTALL_PREFIX)/include/tinyap
+INSTALL_LIB=$(INSTALL_PREFIX)/lib
+
+
 CSRC=ape_prettyprint.c bootstrap.c parse_context.c pilot_manager.c serialize.c stack.c token_utils.c walkableast.c walker.c
 CPPSRC=lr.cc ast.cc tinyap.cc unparser.cc trie.cc tinyap_alloc.cc string_registry.cc
 
@@ -93,9 +101,12 @@ flavours: $(FLAVOURS)
 FORCE:
 
 install:
-	mkdir -p /usr/local/lib/tinyap
-	mkdir -p /usr/local/include/tinyap
-	cp -v opt/libtinyap.so /usr/local/lib/tinyap
-	rm -f /usr/local/include/tinyap/*.h
-	cp -v *.h /usr/local/include/tinyap
-	cp opt/tinyap /usr/local/bin
+	mkdir -p $(INSTALL_LIB)
+	mkdir -p $(INSTALL_BIN)
+	mkdir -p $(INSTALL_INCLUDE)
+	cp -v opt/libtinyap.so $(INSTALL_LIB)
+	rm -f $(INSTALL_INCLUDE)/*.h
+	cp -v *.h $(INSTALL_INCLUDE)
+	cp opt/tinyap $(INSTALL_BIN)
+	../gen_pc.pl ../tinyap.pc.in $(INSTALL_PREFIX) 2.0
+
