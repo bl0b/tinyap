@@ -26,14 +26,15 @@
 /*!
  * \mainpage tinyap
  *
- * This is not yet another parser... generator!
+ * This is not yet another parser.
  * 
  * \section sec_intro Introduction
  * 
  * Actually, this is an abstract parser. It takes a grammar description and some
  * source text to produce an Abstract Syntax Tree (AST) that structures the information
  * that was contained in the source.
- * It's a GLR parser blah blah blah
+ * It's an LL parser using the recursive descent with backup algorithm, and it can produce
+ * litteral strings and regular expressions from its input text.
  *
  * You may wish to read the \ref Tutorial "Tutorial" if it's your first time with tinyap.
  *
@@ -57,7 +58,6 @@ extern "C" {
 #endif
 
 #include "bootstrap.h"
-#include "trie.h"
 
 /*! \weakgroup api_parser Parser API */
 /*@{*/
@@ -85,6 +85,9 @@ extern "C" {
 	/*! \brief modification of grammar source (any filename, or "explicit" or "CamelCasing") */
 	void		tinyap_set_grammar(tinyap_t,const char*);
 
+	/*! \brief enable (1) or disable (0) the full parsing algorithm. Slower but handles parse forests. */
+	void		tinyap_set_full_parse(tinyap_t, int);
+
 	/*! \brief access to grammar ast */
 	ast_node_t	tinyap_get_grammar_ast(tinyap_t);
 	/*! \brief modification of grammar ast */
@@ -98,10 +101,6 @@ extern "C" {
 	unsigned int	tinyap_get_source_buffer_length(tinyap_t);
 	/*! \brief access to duration of last parsing, in seconds */
 	float		tinyap_get_parse_time(tinyap_t);
-	/*! \brief dump the last parse stack as a .dot file */
-	void		tinyap_dump_stack(tinyap_t, const char*);
-	/*! \brief output the LR automaton states */
-	void		tinyap_print_states(tinyap_t);
 	/*! \brief set named file as text input
 	 * CAUTION : if source filename is "-" or "stdin", standard input will be read until closed, and the function will block meanwhile.
 	 */
@@ -109,13 +108,12 @@ extern "C" {
 	/*! \brief set buffer as text input source */
 	void		tinyap_set_source_buffer(tinyap_t,const char*,const unsigned int);
 
-	/*! \brief access a Bag of Words by tag */
-	trie_t		tinyap_get_bow(const char*);
+	//void		
 
-	/*! \brief perform parsing of configured source with configured grammar. If the passed flag is true, a full parse is performed, otherwise a simple parse with preference for shifting over reducing is performed.
+	/*! \brief perform parsing of configured source with configured grammar
 	 * \return 1 if parsing was successful, 0 otherwise
 	 */
-	int tinyap_parse(tinyap_t, int);
+	int tinyap_parse(tinyap_t);
 	/*! \brief perform parsing of configured source with configured grammar and uses the output as the new grammar
 	 * \return 1 if parsing was successful, 0 otherwise
 	 */
@@ -191,12 +189,12 @@ extern "C" {
 	 */
 	const char*	tinyap_node_get_operator(const ast_node_t);
 
-	/*! \brief get the offset corresponding to this node in source text
+	/*! \brief get the row corresponding to this node in source text
 	 */
-	int		tinyap_node_get_row(tinyap_t, const ast_node_t);
+	int		tinyap_node_get_row(const ast_node_t);
 	/*! \brief get the col corresponding to this node in source text
 	 */
-	int		tinyap_node_get_col(tinyap_t, const ast_node_t);
+	int		tinyap_node_get_col(const ast_node_t);
 
 	/*! \brief serialize this node to the named file
 	 */
@@ -208,10 +206,9 @@ extern "C" {
 	/*! \brief make this AST walkable.
 	 * \return a walkable copy of the given tree.
 	 */
-	wast_t		tinyap_make_wast(tinyap_t, const ast_node_t);
+	wast_t		tinyap_make_wast(const ast_node_t);
 
 	/*! \brief make this walkable AST a serializable AST.
-	 * FIXME loses all offset info.
 	 * \return a serializable copy of the given tree.
 	 */
 	ast_node_t	tinyap_make_ast(const wast_t);
@@ -318,7 +315,6 @@ extern "C" {
 #ifdef __cplusplus
 }
 
-#if 0
 namespace TinyaP {
 
 	class AstNode {
@@ -497,7 +493,6 @@ namespace TinyaP {
 		AstNode*grammar,*output;
 	};
 }
-#endif
 
 
 #endif

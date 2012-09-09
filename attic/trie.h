@@ -15,18 +15,23 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
-#ifndef _TINYAP_BOOTSTRAP_H__
-#define _TINYAP_BOOTSTRAP_H__
 
-/*! \brief AST Node public type
- */
-typedef union _ast_node_t* ast_node_t;
+#ifndef TINYAP_TRIE_H
+#define TINYAP_TRIE_H
 
-#define GRAMMAR_EXPLICIT "explicit"
-#define GRAMMAR_CAMELCASING "CamelCasing"
-#define GRAMMAR_SHORT "short"
+#include "tinyap_alloc.h"
+#include "string_registry.h"
 
-ast_node_t  tinyap_get_ruleset(const char*name);
+typedef struct _trie_node_t* trie_t;
+
+trie_t trie_new();
+void trie_dump(trie_t t, int indent);
+void trie_free(trie_t t);
+unsigned long trie_match(trie_t t, const char*s);
+unsigned long trie_match_prefix(trie_t t, const char*s);
+void trie_insert(trie_t t, const char*s);
+
 
 
 #endif
+

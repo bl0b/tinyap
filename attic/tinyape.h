@@ -48,7 +48,7 @@ int wa_row(wast_t);
 int wa_col(wast_t);
 
 //! transform a serializable AST into a walkable AST
-wast_t make_wast(tinyap_t, ast_node_t a);
+wast_t make_wast(ast_node_t a);
 //! transform a walkable AST into a serializable AST
 ast_node_t make_ast(wast_t a);
 

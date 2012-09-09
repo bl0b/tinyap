@@ -22,28 +22,80 @@
 #include <string.h>
 #include "tinyap_alloc.h"
 
+#ifdef __cplusplus
+static inline unsigned int _srh(const char*notnull) {
+	register unsigned int accum = 0;
+//	if((unsigned int)notnull<0x100) {
+//		 /* suspect an optimized tag (not-a-string) */
+//		notnull = op2string((int)notnull);
+//	}
+	while(*notnull) {
+		/*accum = (accum<<5)^((accum>>27) | (int)*notnull);*/
+		accum = (accum<<7) + *notnull;
+		++notnull;
+	}
+	/*return accum%HASH_SIZE;*/
+	return accum;
+}
+
+extern "C" {
+#endif
 void init_strreg();
-char* regstr(const char*);
+char* regstr_impl(const char*);
 void unregstr(const char* str);
 void deinit_strreg();
+#ifdef __cplusplus
+}
+#endif
 
 #define TINYAP_STRCMP(_a, _b) ( (_a) != (_b) )
 
 
-static inline char* _stralloc(unsigned long l) {
+static inline char* _stralloc_impl(unsigned long l) {
 	struct __allocator* A = _select_alloca(l);
 	return (char*) (A?_alloc(A):malloc(l));
 }
 
+static inline void _strfree_impl(char*str) {
+	unsigned long l = strlen(str)+1;
+	struct __allocator* A = _select_alloca(l);
+#ifdef DEBUG_ALLOCS
+	A ? _free_debug(A, str) : free(str);
+#else
+	A ? _free(A, str) : free(str);
+#endif
+}
+
+#ifdef DEBUG_ALLOCS
+static inline char* _stralloc_debug(unsigned long l, const char* f, size_t line, const char* what) {
+	char* ret = _stralloc_impl(l);
+	record_alloc(ret, f, l, what?what:"_stralloc");
+	return ret;
+}
+
+static inline void _strfree_debug(char*str) {
+	_strfree_impl(str);
+}
+
+static inline char* regstr_debug(const char* str, const char* f, size_t l) {
+	char* ret = regstr_impl(str);
+	record_alloc(ret, f, l, "regstr");
+	return ret;
+}
+
+#define _stralloc(_l) _stralloc_debug(_l, __FILE__, __LINE__, "_stralloc")
+#define _stralloc_what(_l, _w) _stralloc_debug(_l, __FILE__, __LINE__, _w)
+#define _strfree(_s) _strfree_debug(_s)
+#define regstr(_x_) regstr_debug(_x_, __FILE__, __LINE__)
+#else
+#define _stralloc(_l) _stralloc_impl(_l)
+#define _strfree(_s) _strfree_impl(_s)
+#define regstr(_x_) regstr_impl(_x_)
+#endif
+
 static inline char* _strdup(const char*str) {
 	unsigned long l = strlen(str)+1;
 	return (char*) memcpy(_stralloc(l), str, l);
-}
-
-static inline void _strfree(char*str) {
-	register unsigned long l = strlen(str)+1;
-	struct __allocator* A = _select_alloca(l);
-	A ? _free(A, str) : free(str);
 }
 
 

@@ -59,7 +59,6 @@ node_visit_method get_visit_method(pilot_t p, const char* nodetype);
 WalkDirection do_visit(pilot_t p, wast_t node);
 
 void init_pilot_manager();
-void term_pilot_manager();
 
 
 #endif

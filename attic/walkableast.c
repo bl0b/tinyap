@@ -30,7 +30,7 @@ struct _walkable_ast_t {
 	wast_t father;
 	unsigned int opd_count;
 	wast_t* operands;
-	/*ast_node_t*node;*/
+	ast_node_t*node;
 	int l,c;
 };
 
@@ -111,7 +111,7 @@ void wa_add(wast_t f,wast_t s) {
 
 
 
-wast_t make_wast(tinyap_t t, ast_node_t a) {
+wast_t make_wast(ast_node_t a) {
 	wast_t ret;
 	int i;
 	int max;
@@ -119,13 +119,13 @@ wast_t make_wast(tinyap_t t, ast_node_t a) {
 		return NULL;
 	}
 	if(tinyap_node_is_string(a)) {
-		ret = wa_new(tinyap_node_get_string(a),tinyap_node_get_row(t, a), tinyap_node_get_col(t, a));
+		ret = wa_new(tinyap_node_get_string(a),tinyap_node_get_row(a), tinyap_node_get_col(a));
 	} else {
-		ret = wa_new(tinyap_node_get_operator(a),tinyap_node_get_row(t, a), tinyap_node_get_col(t, a));
+		ret = wa_new(tinyap_node_get_operator(a),tinyap_node_get_row(a), tinyap_node_get_col(a));
 		max=tinyap_node_get_operand_count(a);
 		for(i=0;i<max;i+=1) {
 			/* FIXME : quadratic complexity in the AST size instead of linear complexity, it suxx. recursion over cdr(a) would perform better. */
-			wa_add(ret,make_wast(t, tinyap_node_get_operand(a,i)));
+			wa_add(ret,make_wast(tinyap_node_get_operand(a,i)));
 		}
 	}
 	return ret;
@@ -139,12 +139,12 @@ ast_node_t make_ast(wast_t t) {
 		return NULL;
 	}
 	if(wa_opd_count(t)==0) {
-		return newAtom(wa_op(t),0);
+		return newAtom(wa_op(t),0,0);
 	}
 	for(i=wa_opd_count(t)-1;i>=0;i-=1) {
-		ret = newPair( make_ast(wa_opd(t,i)), ret);
+		ret = newPair( make_ast(wa_opd(t,i)), ret, wa_row(wa_opd(t,i)), wa_col(wa_opd(t,i)) );
 	}
-	ret = newPair( newAtom(wa_op(t), wa_row(t)), ret);
+	ret = newPair( newAtom(wa_op(t), wa_row(t), wa_col(t)), ret, wa_row(t), wa_col(t));
 	return ret;
 }
 

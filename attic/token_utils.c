@@ -17,15 +17,14 @@
  */
 #include "token_utils.h"
 #include "string_registry.h"
+#include "pda_impl.h"
 #include "trie.h"
-#include "serialize.h"
-#include "tinyap.h"
 
 #define _RE   2
 #define _T    4
 
 
-/*const char* ast_serialize_to_string(const ast_node_t ast, int show_offset);*/
+const char* ast_serialize_to_string(const ast_node_t ast);
 /*void delete_node(ast_node_t n);*/
 
 size_t hash_str(hash_key k);
@@ -54,7 +53,6 @@ ast_node_t find_nterm(const ast_node_t ruleset,const char*ntermid) {
 }
 
 
-#if 0
 const char* op2string(int typ) {
 	switch(typ) {
 	case OP_EOF: return STR_EOF;
@@ -128,13 +126,12 @@ int string2op(const char* tag) {
 	/*fprintf(stderr, "      string2op(%s) = %i\n", tag, typ);*/
 	return typ;
 }
-#endif
+
 
 
 int dump_node(const ast_node_t n) {
 	const char*ptr=tinyap_serialize_to_string(n);
-	/*debug_writeln("%s", ptr);*/
-	fputs(ptr, stdout);
+	debug_writeln("%s", ptr);
 	free((char*)ptr);
 	return 0;
 }
@@ -147,7 +144,7 @@ int dump_node(const ast_node_t n) {
 
 
 
-trie_t token_find_bow(parse_context_t pda, char* name) {
+trie_t token_find_bow(pda_t pda, char* name) {
 	trie_t ret = (trie_t) hash_find(&pda->bows, name);
 	if(!ret) {
 		ret = trie_new();
@@ -156,11 +153,11 @@ trie_t token_find_bow(parse_context_t pda, char* name) {
 	return ret;
 }
 
-void token_bow_add(parse_context_t pda, char* name, char* word) {
+void token_bow_add(pda_t pda, char* name, char* word) {
 	trie_insert(token_find_bow(pda, name), word);
 }
 
-unsigned long match_bow(parse_context_t pda, char*name) {
+unsigned long match_bow(pda_t pda, char*name) {
 	return trie_match_prefix(token_find_bow(pda, name), pda->source+pda->ofs);
 }
 
@@ -177,7 +174,7 @@ RE_TYPE token_regcomp(const char*reg_expr) {
 	return initiatur;
 }
 
-void escape_ncpy(char**dest, char**src, int count, const char* delim) {
+void escape_ncpy(char**dest, char**src, int count, int delim) {
 	const char* base=*src;
 	while( (*src-base) < count) {
 		/*unescape_chr(src,dest, -1, delim);*/
@@ -208,19 +205,18 @@ void escape_ncpy(char**dest, char**src, int count, const char* delim) {
 
 
 
-char*match2str(const char*src,const size_t start,const size_t end, const char*long_delim) {
+char*match2str(const char*src,const size_t start,const size_t end) {
 	char* buf = _stralloc(end-start+1);
 	char* rd = (char*)src+start;
 	char* wr = buf;
-	size_t sz = end-start-1, ofs = 0;
-	char* ret = NULL;
+	size_t sz=end-start-1,ofs=0;
 
 	if(end>start) {
 //	printf("match2str orig = \"%*.*s\" sz=%li\n",(int)(end-start),(int)(end-start),rd,sz);
 //		memset(buf,0,end-start);
 //	printf("              => \"%s\"\n",buf);
 		while(ofs<sz) {
-			unescape_chr_l(&rd, &wr, 0, long_delim);
+			unescape_chr(&rd, &wr, _RE, '/');
 			ofs = rd-src-start;
 //		printf("match2str orig = \"%*.*s\"\n",(int)(end-start-ofs),(int)(end-start-ofs),rd);
 //		printf("              => \"%s\" %p %p %li\n",buf,rd,buf,ofs);
@@ -237,20 +233,16 @@ char*match2str(const char*src,const size_t start,const size_t end, const char*lo
 //	static char buf[256];
 //	memset(buf,0,256);
 //	strncpy(buf,src+start,end-start);
-	ret = regstr(buf);
-	_strfree(buf);
-	return ret;
+	return buf;
 }
 
 
 
 
 
-#if 0
 
-static inline const char* node_compare_tag(const char* n) {
-	return n<((const char*)0x100) ? op2string((int)n) : n;
-}
+
+
 
 int node_compare(ast_node_t tok1, ast_node_t tok2) {
 	if(tok1==tok2) {
@@ -261,10 +253,12 @@ int node_compare(ast_node_t tok1, ast_node_t tok2) {
 	} else if(isNil(tok2)) {
 		return 1;
 	} else if(isAtom(tok1)) {
+		char* n;
 		return isPair(tok2)
 			? 1
 			: isAtom(tok2)
-				? strcmp(node_compare_tag(Value(tok1)), node_compare_tag(Value(tok2)))
+				? strcmp((n=Value(tok1))<((char*)0x100) ? op2string((int)n) : n,
+					 (n=Value(tok2))<((char*)0x100) ? op2string((int)n) : n)
 				: 0;
 	} else if(isPair(tok1)) {
 		if(isPair(tok2)) {
@@ -279,5 +273,4 @@ int node_compare(ast_node_t tok1, ast_node_t tok2) {
 }
 
 
-#endif
 

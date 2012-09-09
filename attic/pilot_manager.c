@@ -102,7 +102,7 @@ void init_pilot_manager() {
 		pilot_mgr.cache = (hashtab_t) malloc(sizeof(struct _hashtable));
 		init_hashtab(pilot_mgr.cache, hash_str, cmp_str);
 		pilot_mgr.dl_self = dlopen(NULL, RTLD_LAZY);
-		/*atexit(term_pilot_manager);*/
+		atexit(term_pilot_manager);
 		pilot_manager_is_init=1;
 	}
 }

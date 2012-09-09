@@ -19,10 +19,6 @@
 #ifndef __TINYAP_ALLOC_H__
 #define __TINYAP_ALLOC_H__
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include "list.h"
 #include <pthread.h>
 #include <malloc.h>
@@ -66,25 +62,12 @@ extern struct __allocator _alloca_1, _alloca_2, _alloca_4, _alloca_8, _alloca_16
 								: NULL)
 
 
+
+#define tinyap_alloc(type) (type*) _alloc(_select_alloca(sizeof(type)))
+#define tinyap_free(type, ptr) _free(_select_alloca(sizeof(type)), ptr)
+
 void* _alloc(struct __allocator*A);
 void _free(struct __allocator*A, void* ptr);
-
-#ifdef DEBUG_ALLOCS
-void* _alloc_debug(struct __allocator* al, const char* f, size_t l, const char* what);
-void _free_debug(struct __allocator* al, void* p);
-
-void record_alloc(void*buffer, const char* f, size_t l, const char* what);
-
-#	define tinyap_alloc(type) (type*) _alloc_debug(_select_alloca(sizeof(type)), __FILE__, __LINE__, NULL)
-#	define tinyap_free(type, ptr) _free_debug(_select_alloca(sizeof(type)), ptr)
-
-void _dump_allocs();
-
-#else
-#	define tinyap_alloc(type) (type*) _alloc(_select_alloca(sizeof(type)))
-#	define tinyap_free(type, ptr) _free(_select_alloca(sizeof(type)), ptr)
-#	define _dump_allocs() ((void)0)
-#endif
 
 void _term_allocator(struct __allocator*A);
 
@@ -97,14 +80,10 @@ void _term_allocator(struct __allocator*A);
 		_term_allocator(&_alloca_16);\
 		_term_allocator(&_alloca_32);\
 		_term_allocator(&_alloca_64);\
-		_dump_allocs();\
 	} while(0)
 
-#ifdef __cplusplus
-}
 #endif
 
-#endif
 
 #if 0
 

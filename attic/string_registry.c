@@ -19,14 +19,8 @@
 #include "string_registry.h"
 #include <stdlib.h>
 #include <stdio.h>
-#include <ext/hash_map>
 
-using namespace ext=__gnu_cxx;
-
-
-/*struct _hashtable str_registry;*/
-
-
+struct _hashtable str_registry;
 
 char* STR__start = NULL;
 char* STR__whitespace = NULL;
@@ -59,14 +53,14 @@ char* STR_Indent = NULL;
 char* STR_Dedent = NULL;
 char* STR_strip_me = NULL;
 
-//const char* op2string(int typ); 	/* defined in tokenizer.c */
+const char* op2string(int typ); 	/* defined in tokenizer.c */
 
 static inline unsigned int _srh(char*notnull) {
 	register unsigned int accum = 0;
-//	if((unsigned int)notnull<0x100) {
-//		 /* suspect an optimized tag (not-a-string) */
-//		notnull = (char*) op2string((int)notnull);
-//	}
+	if(notnull<0x100) {
+		 /* suspect an optimized tag (not-a-string) */
+		notnull = op2string((int)notnull);
+	}
 	while(*notnull) {
 		/*accum = (accum<<5)^((accum>>27) | (int)*notnull);*/
 		accum = (accum<<7) + *notnull;
@@ -80,7 +74,7 @@ unsigned int strreg_h(char*str) {
 }
 
 void init_strreg() {
-	/*init_hashtab(&str_registry, (hash_func) strreg_h, (compare_func) strcmp);*/
+	init_hashtab(&str_registry, (hash_func) strreg_h, (compare_func) strcmp);
 	/* pre-fill registry with all hardcoded strings used in the tokenizer */
 	STR__whitespace		= regstr("_whitespace");
 	STR__start		= regstr("_start");
@@ -114,9 +108,6 @@ void init_strreg() {
 	STR_strip_me		= regstr("strip.me");
 	/*atexit(deinit_strreg);*/
 }
-
-
-#if 0
 
 char* regstr(const char* str) {
 	if(!str) {
@@ -158,7 +149,4 @@ void _free_key(htab_entry_t e) {
 void deinit_strreg() {
 	clean_hashtab(&str_registry, _free_key);
 }
-
-#endif
-
 

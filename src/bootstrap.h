@@ -26,7 +26,7 @@ typedef union _ast_node_t* ast_node_t;
 #define GRAMMAR_CAMELCASING "CamelCasing"
 #define GRAMMAR_SHORT "short"
 
-ast_node_t tinyap_get_ruleset(const char*name);
+ast_node_t  tinyap_get_ruleset(const char*name);
 
 
 #endif
