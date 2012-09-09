@@ -716,10 +716,13 @@ push u onto stack
 			}
 
 
-			static bool test(int testno, const char* gram, const char* txt, const char* expected) {
+			static bool test(int testno, const char* gram, const char* txt, const char* expected, void (*post_init)()) {
 				_static_init.atom_registry.clear();
 				_static_init.pair_registry.clear();
 				tinyap_init();
+                if(post_init) {
+                    post_init();
+                }
 				std::string grammar;
 				grammar = "((TransientRule _start (NT X)) ";
 				grammar += gram;

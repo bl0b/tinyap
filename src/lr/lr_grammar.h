@@ -478,8 +478,9 @@ namespace grammar {
 					const char* tag() const { return tag_; }
 					bool keep() const { return keep_; }
 					virtual std::pair<ast_node_t, unsigned int> recognize(const char* source, unsigned int offset, unsigned int size) const {
-						/*std::clog << "POUET " << tag_ << " @" << mybow << std::endl;*/
+						/*std::clog << "BOW DUMP " << tag_ << " @" << mybow << std::endl;*/
 						/*trie_dump(mybow, 1);*/
+                        /*std::clog << "trying to match bow " << tag_ << " in text <" << (source + offset) << ">" << std::endl;*/
 						unsigned long slen = trie_match_prefix(mybow, source+offset);
 						if(slen>0) {
 							/*std::clog << "found a word in bow " << tag_ << " : " << std::string(source+offset, source+offset+slen) << std::endl;*/

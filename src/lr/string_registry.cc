@@ -19,32 +19,6 @@
 #include "string_registry.h"
 #include <cstdlib>
 #include <cstdio>
-#include <ext/hash_map>
-
-//extern "C" {
-//	const char* op2string(int typ); 	/* defined in tokenizer.c */
-//}
-
-
-static inline unsigned int _srh(const char*notnull) {
-	register unsigned int accum = 0;
-//	if((unsigned int)notnull<0x100) {
-//		 /* suspect an optimized tag (not-a-string) */
-//		notnull = op2string((int)notnull);
-//	}
-	while(*notnull) {
-		/*accum = (accum<<5)^((accum>>27) | (int)*notnull);*/
-		accum = (accum<<7) + *notnull;
-		++notnull;
-	}
-	/*return accum%HASH_SIZE;*/
-	return accum;
-}
-
-unsigned int strreg_h(char*str) {
-	return str?_srh(str):0;
-}
-
 
 struct k_h {
 	size_t operator()(const char*x) const {
@@ -58,8 +32,20 @@ struct k_cmp {
 	}
 };
 
+#include <ext/hash_map>
 typedef __gnu_cxx::hash_map<const char*, int, k_h, k_cmp> str_reg_t;
-static str_reg_t str_registry;
+
+//extern "C" {
+//	const char* op2string(int typ); 	/* defined in tokenizer.c */
+//}
+
+
+unsigned int strreg_h(char*str) {
+	return str?_srh(str):0;
+}
+
+
+/*static*/ extern str_reg_t str_registry;
 
 /*struct _hashtable str_registry;*/
 
@@ -101,6 +87,7 @@ extern "C" {
 void init_strreg() {
 	/*init_hashtab(&str_registry, (hash_func) strreg_h, (compare_func) strcmp);*/
 	/* pre-fill registry with all hardcoded strings used in the tokenizer */
+    str_registry.clear();
 	STR__whitespace		= regstr_impl("_whitespace");
 	STR__start		= regstr_impl("_start");
 	STR_Grammar		= regstr_impl("Grammar");

@@ -23,6 +23,21 @@
 #include "tinyap_alloc.h"
 
 #ifdef __cplusplus
+static inline unsigned int _srh(const char*notnull) {
+	register unsigned int accum = 0;
+//	if((unsigned int)notnull<0x100) {
+//		 /* suspect an optimized tag (not-a-string) */
+//		notnull = op2string((int)notnull);
+//	}
+	while(*notnull) {
+		/*accum = (accum<<5)^((accum>>27) | (int)*notnull);*/
+		accum = (accum<<7) + *notnull;
+		++notnull;
+	}
+	/*return accum%HASH_SIZE;*/
+	return accum;
+}
+
 extern "C" {
 #endif
 void init_strreg();

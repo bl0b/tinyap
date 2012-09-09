@@ -28,6 +28,22 @@ namespace grammar {
 	}
 }
 
+struct k_h {
+	size_t operator()(const char*x) const {
+		return x?_srh(x):0;
+	}
+};
+
+struct k_cmp {
+	bool operator()(const char*a, const char*b) const {
+		return !strcmp(a, b);
+	}
+};
+
+#include <ext/hash_map>
+typedef __gnu_cxx::hash_map<const char*, int, k_h, k_cmp> str_reg_t;
+
+/*static*/ str_reg_t str_registry;
 struct tinyap_static_init _static_init;
 
 

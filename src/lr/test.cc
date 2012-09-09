@@ -322,6 +322,16 @@ int test_grammar() {
 	return ok-done;
 }
 
+
+void automaton_post_init() {
+    trie_t test_bow = grammar::item::token::Bow::find(regstr("_test"));
+    std::clog << "init BOW _test @" << test_bow << std::endl;
+    trie_insert(test_bow, "pouet");
+    trie_insert(test_bow, "plop");
+    trie_insert(test_bow, "coin");
+}
+
+
 int test_automaton(int n=-1) {
 	typedef const char* test_case[3];
 	test_case test_cases[] = {
@@ -530,12 +540,6 @@ int test_automaton(int n=-1) {
 	std::vector<int> failures;
 	tinyap_terminate();
 	while((*tc)[0]&&n--) {
-		trie_t test_bow = grammar::item::token::Bow::find(regstr("_test"));
-		/*std::clog << "init BOW _test @" << test_bow << std::endl;*/
-		trie_insert(test_bow, "pouet");
-		trie_insert(test_bow, "plop");
-		trie_insert(test_bow, "coin");
-
 		std::cerr << "\r[automaton] #" << (done+1) << "...";
 		/*int alloc_delta0 = _node_alloc_count-_node_dealloc_count;*/
 		/*int alloc_delta2 = newPair_count + newAtom_count - delete_node_count;*/
@@ -545,7 +549,7 @@ int test_automaton(int n=-1) {
 		std::stringstream ofn;
 		ofn << "failed.test.";
 		ofn << (done+1);
-		if(lr::automaton::test(done+1, (*tc)[0], (*tc)[1], (*tc)[2])) {
+		if(lr::automaton::test(done+1, (*tc)[0], (*tc)[1], (*tc)[2], automaton_post_init)) {
 			++ok;
 			/*std::cout << "[TEST] [automaton] #" << (done+1) << " passed." << std::endl;*/
 			unlink(ofn.str().c_str());

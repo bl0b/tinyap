@@ -14,15 +14,18 @@ HEADERS=ast.h bootstrap.h config.h hashtab.h list.h parse_context.h pilot_cache.
 
 ALLOC=-DUSE_MALLOC
 
-CFLAGS=$(DBG) $(OPT) $(ALLOC) -Wall $(PROF)
-CPPFLAGS=$(DBG) $(OPT) $(ALLOC) -Wno-deprecated -Wall $(PROF)
+CFLAGS=$(DBG) $(OPT) $(ALLOC) -fPIC -Wall $(PROF)
+CPPFLAGS=$(DBG) $(OPT) $(ALLOC) -fPIC -Wno-deprecated -Wall $(PROF)
 
 TARGET=$(SUFFIX)/tinyap
 TEST=$(SUFFIX)/test
+LIB_TARGET=$(SUFFIX)/libtinyap.so
 
 CC=gcc $(CFLAGS)
 CXX=g++ -I $(SUFFIX) $(CPPFLAGS)
-LD=g++ -ldl -lpcre -rdynamic $(DBG) $(PROF)
+LD=g++ -rdynamic $(DBG) $(PROF)
+LDSHARED=$(LD) -shared
+LIBS=-ldl -lpcre
 
 all: flavours
 
@@ -34,13 +37,16 @@ test: debug
 clean:
 	rm -f *.o */*.o $(TARGET) */$(TARGET) $(TEST) */$(TEST) .depend
 
-targets: $(TARGET) $(TEST)
+targets: $(TARGET) $(TEST) $(LIB_TARGET)
 
 $(TARGET): $(SUFFIX)/lr.h.gch $(COBJ) $(CPPOBJ) $(SUFFIX)/main.o
-	$(LD) $(COBJ) $(CPPOBJ) $(SUFFIX)/main.o -o $@
+	$(LD) $(COBJ) $(CPPOBJ) $(SUFFIX)/main.o $(LIBS) -o $@
 
 $(TEST): $(SUFFIX)/lr.h.gch $(COBJ) $(CPPOBJ) $(SUFFIX)/test.o
-	$(LD) $(COBJ) $(CPPOBJ) $(SUFFIX)/test.o -o $@
+	$(LD) $(COBJ) $(CPPOBJ) $(SUFFIX)/test.o $(LIBS) -o $@
+
+$(LIB_TARGET): $(SUFFIX)/lr.h.gch $(COBJ) $(CPPOBJ)
+	$(LDSHARED) $(COBJ) $(CPPOBJ) $(LIBS) -o $@
 
 .depend: $(HEADERS) $(LR_HEADERS) $(CSRC) $(CPPSRC) main.cc test.cc Makefile
 	$(CC) --depend $(CSRC) > $@
@@ -86,3 +92,10 @@ flavours: $(FLAVOURS)
 
 FORCE:
 
+install:
+	mkdir -p /usr/local/lib/tinyap
+	mkdir -p /usr/local/include/tinyap
+	cp -v opt/libtinyap.so /usr/local/lib/tinyap
+	rm -f /usr/local/include/tinyap/*.h
+	cp -v *.h /usr/local/include/tinyap
+	cp opt/tinyap /usr/local/bin
