@@ -776,6 +776,7 @@ void tinyap_plug(tinyap_t parser, const char*plugin, const char*plug) {
 void tinyap_append_grammar(tinyap_t parser, ast_node_t supp) {
 	grammar::rule::internal::append append;
 	parser->grammar = append(Car((ast_node_t)parser->grammar), Cdr(supp));
+	init_grammar(parser);
 }
 
 } /* extern "C" */
