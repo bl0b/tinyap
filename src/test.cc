@@ -536,7 +536,14 @@ int test_automaton(int n=-1) {
         },
         { "(OperatorRule X (Seq (AddToBag (RE toto) bag !) (BOW bag !)))", "toto toto", "((X:9 toto:0 toto:5))" },
         { "(OperatorRule X (Seq (AddToBag (RE toto) bag !) (BOW bag )))", "toto toto", "((X:9 toto:0))" },
+        { "(OperatorRule X (Alt (NT a) (NT b) (NT c))) (OperatorRule a (T pouet)) (OperatorRule b (RE pouet)) (OperatorRule c (BOW _test))"
+          , "pouet", "((X:5 (a:5)))" },
+        { "(OperatorRule X (Alt (NT a) (NT b) (NT c))) (OperatorRule a (T toto)) (OperatorRule b (RE pouet)) (OperatorRule c (BOW _test))"
+          , "pouet", "((X:5 (c:5)))" },
+        { "(OperatorRule X (Alt (NT a) (NT b) (NT c))) (OperatorRule a (T pouet)) (OperatorRule b (RE toto)) (OperatorRule c (BOW _test))"
+          , "toto", "((X:4 (b:4 toto:0)))" },
         /*{ "(OperatorRule X (Seq (AddToBag (RE toto) bag ) (BOW bag !)))", "toto toto", "((X:9 toto:5))" },*/
+        { "(OperatorRule X (Seq (T toto) (STR  )))", "toto pouet ", "((X:11 pouet\\ :5))" },
 #endif
 		{ NULL, NULL, NULL }
 	};
