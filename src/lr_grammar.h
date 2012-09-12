@@ -393,7 +393,12 @@ namespace grammar {
 							/*std::cout << "[DEBUG:Str] match to EOS" << std::endl;*/
 							/*_match = ret = _stralloc(source+size-_src+1);*/
 							/*escape_ncpy(&_match, &_src, source+size-_src, delim_end);*/
-							_match = ret = match2str(source, 0, source+size-_src, delim_end);
+							/*_match = ret = match2str(_src, 0, size-offset, delim_end);*/
+                            if(ofs >= size) {
+                                std::cout << "[DEBUG:Str] discarding null token with no end delimiter" << std::endl;
+                                return std::pair<ast_node_t, unsigned int>(NULL, size);
+                            }
+                            ret = _src;
 							ofs = size;
 						} else {
 							for(_end = _src;;) {
