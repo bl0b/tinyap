@@ -12,6 +12,7 @@ extern "C" {
 #include "bootstrap.h"
 #include "tinyap.h"
 #include "walkableast.h"
+#include <unistd.h>
 }
 
 
