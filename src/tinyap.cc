@@ -338,7 +338,7 @@ void tinyap_serialize_to_file(const ast_node_t n,const char*fnam) {
 
 
 const char*tinyap_serialize_to_string(const ast_node_t n) {
-	return ast_serialize_to_string(n, 1);
+	return ast_serialize_to_string(n, 0);
 }
 
 
@@ -381,9 +381,9 @@ void init_grammar(tinyap_t t) {
 	if(t->G) { delete t->G; }
 	if(t->A) { delete t->A; t->A = NULL; }
 	t->G = new grammar::Grammar(Cdr(Car((ast_node_t)t->grammar)));
-	/*grammar::visitors::debugger d;*/
-	/*t->G->accept(&d);*/
-	/*std::cout << std::endl;*/
+	grammar::visitors::debugger d;
+	t->G->accept(&d);
+	std::cout << std::endl;
 }
 
 void tinyap_set_grammar(tinyap_t t,const char*g) {
@@ -774,9 +774,27 @@ void tinyap_plug(tinyap_t parser, const char*plugin, const char*plug) {
 
 
 void tinyap_append_grammar(tinyap_t parser, ast_node_t supp) {
-	grammar::rule::internal::append append;
-	parser->grammar = append(Car((ast_node_t)parser->grammar), Cdr(supp));
+	/*grammar::rule::internal::append append;*/
+    printf("ORIG %s\n\n", tinyap_serialize_to_string(Car(parser->grammar)));
+    printf("SUPP %s\n\n", tinyap_serialize_to_string(Cdr(Car(supp))));
+    std::vector<ast_node_t> stack;
+    ast_node_t tmp = Car(parser->grammar);
+    while(tmp) {
+        stack.push_back(Car(tmp));
+        printf("tmp-o %s\n", tinyap_serialize_to_string(stack.back()));
+        tmp = Cdr(tmp);
+    }
+    tmp = Cdr(Car(supp));
+    while(stack.size()) {
+        tmp = newPair(stack.back(), tmp);
+        printf("tmp-f %s\n", tinyap_serialize_to_string(tmp));
+        stack.pop_back();
+    }
+	/*parser->grammar = append(Car(parser->grammar), Cdr(supp), true);*/
+    parser->grammar = newPair(tmp, NULL);
+    /*parser->grammar = tmp;*/
 	init_grammar(parser);
+    printf("FINAL %s\n\n", tinyap_serialize_to_string(parser->grammar));
 }
 
 } /* extern "C" */

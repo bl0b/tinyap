@@ -513,16 +513,18 @@ push u onto stack
 						GOTO = GOTO_;
 						tr->accept(this);
 					}
-					virtual void visit(grammar::item::token::Str* x) { S->transitions.from_text_t[x] = GOTO; }
-					virtual void visit(grammar::item::token::Re* x) { S->transitions.from_text_re[x] = GOTO; }
 					virtual void visit(grammar::item::token::Epsilon* x) {}
-					virtual void visit(grammar::item::token::Eof* x) { S->transitions.from_text_t[x] = GOTO; }
-					virtual void visit(grammar::item::token::Comment* x) { S->transitions.from_text_re[x] = GOTO; }
-					virtual void visit(grammar::item::token::T* x) { S->transitions.from_text_t[x] = GOTO; }
 					virtual void visit(grammar::item::token::Nt* x) { S->transitions.from_stack[x->tag()] = GOTO; }
+
+					virtual void visit(grammar::item::token::Eof* x) { S->transitions.from_text_t[x] = GOTO; }
+					virtual void visit(grammar::item::token::T* x) { S->transitions.from_text_t[x] = GOTO; }
+
 					virtual void visit(grammar::item::token::Bow* x) { S->transitions.from_text_bow[x] = GOTO; }
 					virtual void visit(grammar::item::token::AddToBag* x) { S->transitions.from_text_bow[x] = GOTO; }
 
+					virtual void visit(grammar::item::token::Str* x) { S->transitions.from_text_re[x] = GOTO; }
+					virtual void visit(grammar::item::token::Comment* x) { S->transitions.from_text_re[x] = GOTO; }
+					virtual void visit(grammar::item::token::Re* x) { S->transitions.from_text_re[x] = GOTO; }
 					virtual void visit(grammar::item::combination::RawSeq* x) { S->transitions.from_text_re[x] = GOTO; }
 			};
 
@@ -557,6 +559,10 @@ push u onto stack
 
 			void items() {
 				grammar::rule::base* rule = (*G)["_start"];
+                if(!rule) {
+                    std::cerr << "Rule _start not found in" << std::endl;
+                    grammar::visitors::debugger().visit(G);
+                }
 				grammar::item::iterator iter = grammar::item::iterator::create(rule);
 				item_set s0, tmp;
 				do {

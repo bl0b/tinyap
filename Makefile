@@ -6,5 +6,8 @@ all: .tinyap.built
 install: .tinyap.built
 	+cd src && make install
 
+install.debug: .tinyap.built
+	+cd src && make install.debug
+
 clean:
 	+cd src && make clean

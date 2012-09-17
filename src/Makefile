@@ -23,7 +23,7 @@ HEADERS=ast.h bootstrap.h config.h hashtab.h list.h parse_context.h pilot_cache.
 ALLOC=-DUSE_MALLOC
 
 CFLAGS=$(DBG) $(OPT) $(ALLOC) -fPIC -Wall $(PROF)
-CPPFLAGS=$(DBG) $(OPT) $(ALLOC) -fPIC -Wno-deprecated -Wall $(PROF)
+CPPFLAGS=$(DBG) $(OPT) $(ALLOC) -fPIC -Wno-deprecated -Winvalid-pch -Wall $(PROF)
 
 TARGET=$(SUFFIX)/tinyap
 TEST=$(SUFFIX)/test
@@ -100,13 +100,29 @@ flavours: $(FLAVOURS)
 
 FORCE:
 
-install:
+install: install.dirs install.headers install.bin install.lib
+
+install.debug: install.dirs install.headers install.debug.bin install.debug.lib
+
+install.dirs:
 	mkdir -p $(INSTALL_LIB)
 	mkdir -p $(INSTALL_BIN)
 	mkdir -p $(INSTALL_INCLUDE)
+	../gen_pc.pl ../tinyap.pc.in $(INSTALL_PREFIX) 2.0
+
+install.lib:
 	cp -v opt/libtinyap.so $(INSTALL_LIB)
+
+install.debug.lib:
+	cp -v debug/libtinyap.so $(INSTALL_LIB)
+
+install.headers:
 	rm -f $(INSTALL_INCLUDE)/*.h
 	cp -v *.h $(INSTALL_INCLUDE)
+
+install.bin:
 	cp opt/tinyap $(INSTALL_BIN)
-	../gen_pc.pl ../tinyap.pc.in $(INSTALL_PREFIX) 2.0
+
+install.debug.bin:
+	cp debug/tinyap $(INSTALL_BIN)
 

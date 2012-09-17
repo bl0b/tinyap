@@ -396,7 +396,7 @@ namespace grammar {
 							/*_match = ret = match2str(_src, 0, size-offset, delim_end);*/
                             if(ofs >= size) {
                                 std::cout << "[DEBUG:Str] discarding null token with no end delimiter" << std::endl;
-                                return std::pair<ast_node_t, unsigned int>(NULL, size);
+                                return std::pair<ast_node_t, unsigned int>(NULL, ofs);
                             }
                             ret = _src;
 							ofs = size;
@@ -406,7 +406,7 @@ namespace grammar {
 								if(!_match) {
 									/*std::cout << "[DEBUG:Str] didn't match end." << std::endl;*/
 									if(_end==_src) {
-										/*std::cout << "[DEBUG:Str] didn't match anything at all." << std::endl;*/
+										std::cout << "[DEBUG:Str] didn't match anything at all." << std::endl;
 										return std::pair<ast_node_t, unsigned int>(NULL, ofs);
 									}
 									break;
@@ -438,6 +438,7 @@ namespace grammar {
 							ofs = _end-source+eslen;
 						}
 						/*printf(__FILE__ ":%i\n", __LINE__);*/
+                        std::cout << "[DEBUG:Str] matched " << strlen(ret) << " characters at " << offset << std::endl;
 						return std::pair<ast_node_t, unsigned int>(newPair(newAtom(ret, offset), NULL), ofs);
 					}
 			};

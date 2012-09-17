@@ -144,6 +144,8 @@ int do_args(int argc,char*argv[]) {
 				fprintf(stderr,"parse error at line %i, column %i\n%s\n",tinyap_get_error_row(parser),tinyap_get_error_col(parser),tinyap_get_error(parser));
 				/*fprintf(stderr,"parse error at line %i, column %i\n%s\n", -1, -1, "TODO");*/
 			}
+		} else if(cmp_param(0,"--append-to-grammar","-atg")) {
+            tinyap_append_grammar(parser, Car(tinyap_get_output(parser)));
 		} else if(cmp_param(0,"--print-grammar","-pg")) {
 			/*print_rules(tinyap_get_grammar_ast(parser));*/
 			/*fputc('\n',stdout);*/
@@ -190,6 +192,7 @@ int do_args(int argc,char*argv[]) {
 			fprintf(stderr, "\t\tany other string is a filename to write to\n");
 			fprintf(stderr, "\n\t--parse,-p\t\tparse input text\n");
 			fprintf(stderr, "\n\t--parse-as-grammar,-pag\tparse input text and use output AST as new grammar\n");
+			fprintf(stderr, "\n\t--append-to-grammar,-atg\tparse input text and append result to the grammar\n");
 			fprintf(stderr, "\n\t--full-parse,-fp\t\tfind all possible parse trees\n");
 			fprintf(stderr, "\n\t--parse,-p\t\tparse input text favoring shift over reduce\n");
 			fprintf(stderr, "\n\t--dump-stack,-ds [dotFile]\tdump the LR stack as a .dot file\n");

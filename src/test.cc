@@ -603,6 +603,21 @@ int test_automaton(int n=-1) {
 
 
 
+int test_tinyap_append() {
+    tinyap_t p = tinyap_new();
+    tinyap_set_grammar_ast(p, ast_unserialize("((Grammar (TransientRule _start (NT X))"
+                "(OperatorRule X (Rep1N (T toto)))"
+                "))"));
+    tinyap_append_grammar(p, ast_unserialize("((Grammar (TransientRule X (T pouet))))"));
+    tinyap_set_source_buffer(p, "pouet", 5);
+    tinyap_parse(p, true);
+    if(!tinyap_get_output(p)) {
+        std::clog << "no output" << std::endl;
+        return 1;
+    }
+    tinyap_delete(p);
+    return 0;
+}
 
 
 
@@ -643,7 +658,7 @@ int main(int argc, char**argv) {
 	/*test_nl();*/
 
 	/*return 0;*/
-	return test_nodealloc() + test_grammar() + test_automaton(n);
+	return test_nodealloc() + test_grammar() + test_automaton(n) + test_tinyap_append();
 	/*return test_nodealloc();*/
 }
 
