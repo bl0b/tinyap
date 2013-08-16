@@ -53,6 +53,8 @@ void prettyprint_node_header(wast_t father, wast_t node) {
 
 WalkDirection ape_prettyprint_default(wast_t node, void*___) {
 	prettyprint_node_header(node,NULL);
+    printf("[%i] ", strlen(wa_op(node)));
+    fflush(stdout);
 	puts(wa_op(node));
 
 	if(wa_opd_count(node)) {

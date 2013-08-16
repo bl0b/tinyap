@@ -605,13 +605,23 @@ push u onto stack
 				}
 			}
 
-			ast_node_t parse(const char* buffer, unsigned int size, bool full_parse=true) {
+            struct shift_data {
+                grammar::item::base* item;
+                state* GOTO;
+                ast_node_t result;
+                unsigned int offset;
+                shift_data(grammar::item::base* i, state* g, ast_node_t r, unsigned int o)
+                    : item(i), GOTO(g), result(r), offset(o)
+                {}
+            };
+
+			ast_node_t parse(const char* buffer, unsigned int size, bool accept_partial, bool full_parse=true) {
 				grammar::visitors::lr_item_debugger debug;
 				std::list<gss::node*> farthest_nodes;
 				unsigned int farthest=0;
 				if(stack) { delete stack; }
 				errors.clear();
-				stack = new gss(item((*G)["_start"], grammar::item::iterator::create((*G)["_start"])), size);
+				stack = new gss(item((*G)["_start"], grammar::item::iterator::create((*G)["_start"])), size, accept_partial);
 				stack->shift(NULL, NULL, S0, NULL, 0, NULL);
 				while(!stack->active.empty()) {
 					gss::node* n = stack->consume_active();
@@ -626,14 +636,17 @@ push u onto stack
 					}
 #if 0
 #define _tinyap_min(a, b) (a<b?a:b)
-					item_set ker;
-					kernel(S->items, ker);
+					/*item_set ker;*/
+					/*kernel(S->items, ker);*/
 					char* aststr = (char*)ast_serialize_to_string(n->ast, 0);
 					std::clog	<< " ===  ACTIVE STATE ===(" << S->id << ") @" << n->id.O << ':'
 								<< std::string(buffer+n->id.O, _tinyap_min(buffer+n->id.O+20, buffer+size)) << std::endl
-								<< ker << "ast : " << aststr << std::endl; free(aststr);
+								/*<< ker << "ast : " << aststr << std::endl; free(aststr);*/
+								<< S->items << "ast : " << aststr << std::endl; free(aststr);
 #undef _tinyap_min
+                    std::clog << " ===  ACTIVE STATE ===" << std::endl << S << std::endl;
 #endif
+
 					item_set::iterator i, j;
 
 					follow_set_text::iterator ti, tj;
@@ -646,7 +659,9 @@ push u onto stack
 					 * PHASE 2 : SHIFT
 					 */
 
-					for(ti=S->transitions.from_text_t.begin(), tj=S->transitions.from_text_t.end();ti!=tj && didnt_shift;++ti) {
+                    std::vector<shift_data> temp_stack;
+
+					for(ti=S->transitions.from_text_t.begin(), tj=S->transitions.from_text_t.end();ti!=tj;++ti) {
 						if(!(*ti).second) {
 							std::cerr << "null entry in transition table !" << std::endl;
 							continue;
@@ -655,42 +670,64 @@ push u onto stack
 						std::pair<ast_node_t, unsigned int> ret = token->recognize(buffer, ofs, size);
 						/*std::clog << "follow by "; ((grammar::item::base*)token)->accept(&debug); std::clog << " => " << ((int)(ret.first?ret.second:-1)) << std::endl;*/
 						if(ret.first) {
-							didnt_shift=false;
+							/*didnt_shift=false;*/
 							/*ret.first->raw.ref++;*/
-							stack->shift(n, (grammar::item::base*)(*ti).first, (*ti).second, ret.first, ret.second, NULL);
+							/*stack->shift(n, (grammar::item::base*)(*ti).first, (*ti).second, ret.first, ret.second, NULL);*/
 							/*delete_node(ret.first);*/
+                            temp_stack.push_back(shift_data((grammar::item::base*)(*ti).first, (*ti).second, ret.first, ret.second));
 						}
 					}
 
-                    for(ti=S->transitions.from_text_bow.begin(), tj=S->transitions.from_text_bow.end();ti!=tj && didnt_shift;++ti) {
-                        if(!(*ti).second) {
-                            std::cerr << "null entry in transition table !" << std::endl;
-                            continue;
-                        }
-                        const grammar::item::base* token = (*ti).first;
-                        std::pair<ast_node_t, unsigned int> ret = token->recognize(buffer, ofs, size);
-                        /*std::clog << "follow by "; ((grammar::item::base*)token)->accept(&debug); std::clog << " => " << ((int)(ret.first?ret.second:-1)) << std::endl;*/
-                        if(ret.first) {
-                            didnt_shift=false;
-                            /*ret.first->raw.ref++;*/
-                            stack->shift(n, (grammar::item::base*)(*ti).first, (*ti).second, ret.first, ret.second, NULL);
-                            /*delete_node(ret.first);*/
+                    if (didnt_shift) {
+                        for(ti=S->transitions.from_text_bow.begin(), tj=S->transitions.from_text_bow.end();ti!=tj;++ti) {
+                            if(!(*ti).second) {
+                                std::cerr << "null entry in transition table !" << std::endl;
+                                continue;
+                            }
+                            const grammar::item::base* token = (*ti).first;
+                            std::pair<ast_node_t, unsigned int> ret = token->recognize(buffer, ofs, size);
+                            /*std::clog << "follow by "; ((grammar::item::base*)token)->accept(&debug); std::clog << " => " << ((int)(ret.first?ret.second:-1)) << std::endl;*/
+                            if(ret.first) {
+                                /*didnt_shift=false;*/
+                                /*ret.first->raw.ref++;*/
+                                /*stack->shift(n, (grammar::item::base*)(*ti).first, (*ti).second, ret.first, ret.second, NULL);*/
+                                /*delete_node(ret.first);*/
+                                temp_stack.push_back(shift_data((grammar::item::base*)(*ti).first, (*ti).second, ret.first, ret.second));
+                            }
                         }
                     }
 
-                    for(ti=S->transitions.from_text_re.begin(), tj=S->transitions.from_text_re.end();ti!=tj && didnt_shift;++ti) {
-                        if(!(*ti).second) {
-                            std::cerr << "null entry in transition table !" << std::endl;
-                            continue;
+                    if (didnt_shift) {
+                        for(ti=S->transitions.from_text_re.begin(), tj=S->transitions.from_text_re.end();ti!=tj;++ti) {
+                            if(!(*ti).second) {
+                                std::cerr << "null entry in transition table !" << std::endl;
+                                continue;
+                            }
+                            const grammar::item::base* token = (*ti).first;
+                            std::pair<ast_node_t, unsigned int> ret = token->recognize(buffer, ofs, size);
+                            /*std::clog << "follow by "; ((grammar::item::base*)token)->accept(&debug); std::clog << " => " << ((int)(ret.first?ret.second:-1)) << std::endl;*/
+                            if(ret.first) {
+                                /*didnt_shift=false;*/
+                                /*ret.first->raw.ref++;*/
+                                /*stack->shift(n, (grammar::item::base*)(*ti).first, (*ti).second, ret.first, ret.second, NULL);*/
+                                temp_stack.push_back(shift_data((grammar::item::base*)(*ti).first, (*ti).second, ret.first, ret.second));
+                                /*delete_node(ret.first);*/
+                            }
                         }
-                        const grammar::item::base* token = (*ti).first;
-                        std::pair<ast_node_t, unsigned int> ret = token->recognize(buffer, ofs, size);
-                        /*std::clog << "follow by "; ((grammar::item::base*)token)->accept(&debug); std::clog << " => " << ((int)(ret.first?ret.second:-1)) << std::endl;*/
-                        if(ret.first) {
-                            didnt_shift=false;
-                            /*ret.first->raw.ref++;*/
-                            stack->shift(n, (grammar::item::base*)(*ti).first, (*ti).second, ret.first, ret.second, NULL);
-                            /*delete_node(ret.first);*/
+                    }
+
+                    didnt_shift = !temp_stack.size();
+
+                    std::vector<shift_data>::iterator si = temp_stack.begin(), sj = temp_stack.end();
+                    unsigned int max_ofs = 0;
+                    for (; si != sj; ++si) {
+                        unsigned int _o = si->offset;
+                        max_ofs = _o > max_ofs ? _o : max_ofs;
+                    }
+
+                    for (si = temp_stack.begin(); si != sj; ++si) {
+                        if (si->offset == max_ofs) {
+                            stack->shift(n, si->item, si->GOTO, si->result, si->offset, NULL);
                         }
                     }
 
@@ -735,28 +772,32 @@ push u onto stack
 				}
 				farthest = G->skip(buffer, farthest, size);
 				/* error handling */
-				if(farthest!=size) {
+				/*if(farthest!=size) {*/
+                if (!stack->accepted) {
 					errors.push_back(error());
 					unsigned int nl_before = 0, nl_after = 0, tmp = 0;
-					struct {
-						unsigned int operator()(const char*buffer, unsigned int ofs) {
-							for(;buffer[ofs];++ofs) {
-								if(buffer[ofs]=='\r') {
-									if(buffer[ofs+1]=='\n') {
-										++ofs;
-									}
-									return ofs+1;
-								} else if(buffer[ofs]=='\n') {
-									return ofs+1;
-								}
-							}
-							return ofs;
-						}
-					} find_nl;
-					unsigned int line=1, column;
-					while((tmp=find_nl(buffer, nl_before))<=farthest) { nl_before = tmp; ++line; }
+                    unsigned int line=1, column;
+                    if (size > 0) {
+                        struct {
+                            unsigned int operator()(const char*buffer, unsigned int ofs) {
+                                for(;buffer[ofs];++ofs) {
+                                    if(buffer[ofs]=='\r') {
+                                        if(buffer[ofs+1]=='\n') {
+                                            ++ofs;
+                                        }
+                                        return ofs+1;
+                                    } else if(buffer[ofs]=='\n') {
+                                        return ofs+1;
+                                    }
+                                }
+                                return ofs;
+                            }
+                        } find_nl;
+                        while((tmp=find_nl(buffer, nl_before))<farthest) { nl_before = tmp; ++line; }
+                    }
 					nl_after = tmp;
 					column = farthest - nl_before + 1;
+                    errors.back().farthest = farthest;
 					errors.back().text = buffer;
 					errors.back().A = this;
 					errors.back().nl_before = nl_before;
@@ -802,7 +843,7 @@ push u onto stack
 					automaton r2d2(&gg);
 					r2d2.dump_states();
 
-					Ast ret = r2d2.parse(txt, strlen(txt));
+					Ast ret = r2d2.parse(txt, strlen(txt), true, false);
 
 					char* tmp = (char*)(ret?ast_serialize_to_string(ret, true):strdup("nil"));
 

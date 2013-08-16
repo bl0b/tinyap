@@ -33,7 +33,7 @@ namespace lr {
 	void gss::do_reduction(node* red_end, node* tail, item i, unsigned int offset, ast_node_t accum) {
 				const grammar::rule::base* R = i.rule();
 				if(initial==i) {
-					if(offset != size) {
+					if(!(accept_partial || offset == size)) {
 						/*std::clog << "can't accept at offset " << offset << " because size is " << size << std::endl;*/
 						/*delete_node(accum);*/
 						return;

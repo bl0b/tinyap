@@ -109,7 +109,7 @@ int do_args(int argc,char*argv[]) {
 				}
 			}
 		} else if(cmp_param(0,"--parse","-p")) {
-			tinyap_parse(parser, false);
+			tinyap_parse(parser, false, false);
 			if(tinyap_parsed_ok(parser)&&tinyap_get_output(parser)) {
 				/*tinyap_serialize_to_file(tinyap_get_output(parser),argv[i]);*/
 				if(tinyap_verbose) {
@@ -123,7 +123,7 @@ int do_args(int argc,char*argv[]) {
 				/*fprintf(stderr,"parse error at line %i, column %i\n%s\n", -1, -1, "TODO");*/
 			}
 		} else if(cmp_param(0,"--full-parse","-fp")) {
-			tinyap_parse(parser, true);
+			tinyap_parse(parser, true, false);
 			if(tinyap_parsed_ok(parser)&&tinyap_get_output(parser)) {
 				/*tinyap_serialize_to_file(tinyap_get_output(parser),argv[i]);*/
 				if(tinyap_verbose) {

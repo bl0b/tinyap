@@ -43,6 +43,7 @@
  *
  */
 
+#include "trie.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -57,7 +58,6 @@ extern "C" {
 #endif
 
 #include "bootstrap.h"
-#include "trie.h"
 
 /*! \weakgroup api_parser Parser API */
 /*@{*/
@@ -96,6 +96,8 @@ extern "C" {
 	const char*	tinyap_get_source_buffer(tinyap_t);
 	/*! \brief access to length of text input source */
 	unsigned int	tinyap_get_source_buffer_length(tinyap_t);
+    /*! \brief get offset in input file/buffer */
+    size_t      tinyap_get_source_offset(tinyap_t);
 	/*! \brief access to duration of last parsing, in seconds */
 	float		tinyap_get_parse_time(tinyap_t);
 	/*! \brief dump the last parse stack as a .dot file */
@@ -108,16 +110,22 @@ extern "C" {
 	void		tinyap_set_source_file(tinyap_t,const char*);
 	/*! \brief set buffer as text input source */
 	void		tinyap_set_source_buffer(tinyap_t,const char*,const unsigned int);
+    /*! \brief set start offset in input file/buffer */
+    void        tinyap_set_source_offset(tinyap_t,size_t);
+    /*! \brief save current source to finish parsing later */
+    void        tinyap_push_source(tinyap_t);
+    /*! \brief restore previous source to finish parsing */
+    void        tinyap_pop_source(tinyap_t);
 
 	/*! \brief access a Bag of Words by tag */
 	trie_t		tinyap_get_bow(const char*);
     /*! \brief insert a word in a Bag of Words */
     void tinyap_add_bow(const char* tag, const char* word);
 
-	/*! \brief perform parsing of configured source with configured grammar. If the passed flag is true, a full parse is performed, otherwise a simple parse with preference for shifting over reducing is performed.
+	/*! \brief perform parsing of configured source with configured grammar. If the first passed flag is true, a full parse is performed, otherwise a simple parse with preference for shifting over reducing is performed. If the second flag is true, then the parse may be successful even if the end of text is not reached.
 	 * \return 1 if parsing was successful, 0 otherwise
 	 */
-	int tinyap_parse(tinyap_t, int);
+	int tinyap_parse(tinyap_t, int, int);
 	/*! \brief perform parsing of configured source with configured grammar and uses the output as the new grammar
 	 * \return 1 if parsing was successful, 0 otherwise
 	 */

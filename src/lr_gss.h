@@ -197,6 +197,7 @@ namespace lr {
 			std::list<node*> active;
 			item initial;
 			Ast accepted;
+            bool accept_partial;
 			unsigned int size;
 
 			~gss() {
@@ -239,7 +240,9 @@ namespace lr {
 
 			void free_node(node*n) { alloc.free(n); }
 
-			gss(item ini, unsigned int sz) : alloc(), root(), active(), initial(ini), accepted(0), size(sz) {}
+			gss(item ini, unsigned int sz, bool acc_part)
+                : alloc(), root(), active(), initial(ini), accepted(0), accept_partial(acc_part), size(sz)
+            {}
 
 			friend std::ostream& operator<<(std::ostream& o, gss& g) {
 				return o << g.alloc;

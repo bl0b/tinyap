@@ -21,6 +21,10 @@
 
 #include "ast.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifndef _WAST_DEFINED
 	typedef struct _walkable_ast_t* wast_t;
 	#define _WAST_DEFINED
@@ -35,6 +39,9 @@ wast_t wa_opd(wast_t,const unsigned int);
 void wa_add(wast_t,wast_t);
 
 wast_t make_wast(ast_node_t a);
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

@@ -210,6 +210,31 @@ void escape_ncpy(char**dest, char**src, int count, const char* delim) {
 
 char*match2str(const char*src,const size_t start,const size_t end, const char*long_delim) {
 	char* buf = _stralloc(end-start+1);
+    char* ptr = buf;
+    size_t ofs;
+    for (ofs = start; ofs < end; ++ofs) {
+        if (*(src + ofs) == '\\') {
+            ++ofs;
+            switch(*(src + ofs)) {
+                case 'b': *ptr++ = '\b'; break;
+                case 'r': *ptr++ = '\r'; break;
+                case 't': *ptr++ = '\t'; break;
+                case 'n': *ptr++ = '\n'; break;
+                default: *ptr++ = '\\'; *ptr++ = *(src + ofs);
+            };
+        } else {
+            *ptr++ = *(src + ofs);
+        }
+    }
+    *ptr = 0;
+    char* ret = regstr(buf);
+    _strfree(buf);
+    return ret;
+}
+
+#if 0
+char*match2str(const char*src,const size_t start,const size_t end, const char*long_delim) {
+	char* buf = _stralloc(end-start+1);
 	char* rd = (char*)src+start;
 	char* wr = buf;
 	size_t sz = end-start-1, ofs = 0;
@@ -241,7 +266,7 @@ char*match2str(const char*src,const size_t start,const size_t end, const char*lo
 	_strfree(buf);
 	return ret;
 }
-
+#endif
 
 
 

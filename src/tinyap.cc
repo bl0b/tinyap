@@ -49,7 +49,6 @@ struct tinyap_static_init _static_init;
 
 
 
-
 extern "C" {
 
 /*#define _GNU_SOURCE*/
@@ -90,9 +89,17 @@ struct _tinyap_t {
 
 	unsigned int flags;
 
-	char*source_file;
-	char*source_buffer;
-	size_t source_buffer_sz;
+    struct source_t {
+    	char*file;
+    	char*buffer;
+    	size_t buffer_sz;
+        size_t parse_offset;
+        source_t()
+            : file(NULL), buffer(NULL), buffer_sz(0), parse_offset(0)
+        {}
+    };
+
+    std::vector<source_t> source;
 
 	float parse_time;
 
@@ -172,10 +179,11 @@ struct _tinyap_t {
 		: A(0), G(0),
 		  grammar_source(0), grammar(0),
 		  /*start(0),*/ output(0), ws(0), ws_source(0),
-		  flags(0), source_file(0), source_buffer(0),
-		  source_buffer_sz(0), parse_time(0), error(0)
+		  flags(0), source(), parse_time(0), error(0)
 		  , pos_cache()
-	{}
+	{
+        source.resize(1);
+    }
 
 	~_tinyap_t() {
 	}
@@ -193,6 +201,17 @@ extern volatile int _node_alloc_count;
 extern volatile int _node_dealloc_count;
 void node_pool_init();
 void node_pool_term();
+
+
+void tinyap_set_source_offset(tinyap_t t, size_t ofs)
+{
+    t->source.back().parse_offset = ofs;
+}
+
+size_t tinyap_get_source_offset(tinyap_t t)
+{
+    return t->source.back().parse_offset;
+}
 
 
 trie_t tinyap_get_bow(const char* tag) {
@@ -302,8 +321,16 @@ void tinyap_delete(tinyap_t t) {
 	if(t->ws) free(t->ws);
 	if(t->ws_source) free(t->ws_source);
 
-	if(t->source_file) free(t->source_file);
-	if(t->source_buffer) free(t->source_buffer);
+    std::vector<_tinyap_t::source_t>::iterator i = t->source.begin(), j = t->source.end();
+
+    for (; i != j; ++i) {
+        if (i->file) {
+            free(i->file);
+        }
+        if (i->buffer) {
+            free(i->buffer);
+        }
+    }
 
 	/*free(t);*/
 	delete t;
@@ -381,9 +408,9 @@ void init_grammar(tinyap_t t) {
 	if(t->G) { delete t->G; }
 	if(t->A) { delete t->A; t->A = NULL; }
 	t->G = new grammar::Grammar(Cdr(Car((ast_node_t)t->grammar)));
-	grammar::visitors::debugger d;
-	t->G->accept(&d);
-	std::cout << std::endl;
+	/*grammar::visitors::debugger d;*/
+	/*t->G->accept(&d);*/
+	/*std::cout << std::endl;*/
 }
 
 void tinyap_set_grammar(tinyap_t t,const char*g) {
@@ -415,15 +442,15 @@ void tinyap_set_grammar_ast(tinyap_t t,ast_node_t g) {
 }
 
 const char* tinyap_get_source_file(tinyap_t t) {
-	return t->source_file;
+	return t->source.back().file;
 }
 
 const char* tinyap_get_source_buffer(tinyap_t t) {
-	return t->source_buffer;
+	return t->source.back().buffer;
 }
 
 unsigned int tinyap_get_source_buffer_length(tinyap_t t) {
-	return (unsigned int)t->source_buffer_sz;
+	return (unsigned int)t->source.back().buffer_sz;
 }
 
 float tinyap_get_parse_time(tinyap_t t) {
@@ -441,41 +468,41 @@ void tinyap_set_source_file(tinyap_t t,const char*fnam) {
 			gettimeofday(&t1, NULL);
 		}
 
-		if(t->source_file) {
-			free(t->source_file);
+		if(t->source.back().file) {
+			free(t->source.back().file);
 		}
-		t->source_file=strdup(fnam);
+		t->source.back().file=strdup(fnam);
 
 		if(strcmp(fnam,"stdin")&&strcmp(fnam,"-")) {
-			if(stat(t->source_file,&st)) {
+			if(stat(t->source.back().file,&st)) {
 				/* error */
-				fprintf(stderr,"Couldn't stat %s :\n",t->source_file);
+				fprintf(stderr,"Couldn't stat %s :\n",t->source.back().file);
 				perror("stat");
 				tinyap_set_source_buffer(t,"",0);
 				t->pos_cache.reset("");
 				return;
 			} else {
-				f=fopen(t->source_file,"r");
+				f=fopen(t->source.back().file,"r");
 			}
 		
-			if(t->source_buffer) {
-				free(t->source_buffer);
+			if(t->source.back().buffer) {
+				free(t->source.back().buffer);
 			}
-			t->source_buffer=(char*)malloc(st.st_size+1);
-			t->source_buffer_sz=st.st_size;
+			t->source.back().buffer=(char*)malloc(st.st_size+1);
+			t->source.back().buffer_sz=st.st_size;
 
-			if(fread(t->source_buffer,1,st.st_size,f)) {}
-			t->source_buffer[t->source_buffer_sz] = 0;
-			t->pos_cache.reset(t->source_buffer);
+			if(fread(t->source.back().buffer,1,st.st_size,f)) {}
+			t->source.back().buffer[t->source.back().buffer_sz] = 0;
+			t->pos_cache.reset(t->source.back().buffer);
 
 			fclose(f);
 		} else {
 			static char buf[4096];
 			FILE* mem;
 			size_t n;
-			t->source_buffer = NULL;
-			t->source_buffer_sz = 0;
-			mem = open_memstream(&t->source_buffer, &t->source_buffer_sz);
+			t->source.back().buffer = NULL;
+			t->source.back().buffer_sz = 0;
+			mem = open_memstream(&t->source.back().buffer, &t->source.back().buffer_sz);
 			f = stdin;
 			while((n=fread(buf, 1, 4096, f))>0) {
 				fwrite(buf, 1, n, mem);
@@ -483,7 +510,7 @@ void tinyap_set_source_file(tinyap_t t,const char*fnam) {
 			fflush(mem);
 			/*fprintf(stderr, "stdin input currently disabled. Sorry for the inconvenience.\n");*/
 			/*abort();*/
-			t->pos_cache.reset(t->source_buffer, t->source_buffer_sz);
+			t->pos_cache.reset(t->source.back().buffer, t->source.back().buffer_sz);
 		}
 		if(tinyap_verbose) {
 			gettimeofday(&t0, NULL);
@@ -496,25 +523,25 @@ void tinyap_set_source_file(tinyap_t t,const char*fnam) {
 }
 
 void tinyap_set_source_buffer(tinyap_t t,const char* b,const unsigned int sz) {
-	if(t->source_file) {
-		free(t->source_file);
-		t->source_file=NULL;
+	if(t->source.back().file) {
+		free(t->source.back().file);
+		t->source.back().file=NULL;
 	}
-	if(t->source_buffer) {
-		free(t->source_buffer);
+	if(t->source.back().buffer) {
+		free(t->source.back().buffer);
 	}
-	t->source_buffer=(char*)malloc(sz+1);
-	strncpy(t->source_buffer,b,sz);
-	t->source_buffer[sz]=0;
+	t->source.back().buffer=(char*)malloc(sz+1);
+	strncpy(t->source.back().buffer,b,sz);
+	t->source.back().buffer[sz]=0;
 	/*fprintf(stderr, "Tinyap is about to parse this buffer (%u characters long) :\n"*/
 		/*"================================================\n"*/
 		/*"%*.*s\n"*/
 		/*"================================================\n",*/
 		/*sz, sz, sz, t->source_buffer);*/
-	t->source_buffer_sz=sz;
+	t->source.back().buffer_sz=sz;
 }
 
-int tinyap_parse(tinyap_t t, int full) {
+int tinyap_parse(tinyap_t t, int full, int accept_partial) {
 //	fprintf(stderr, "before tinyap_parse : %li nodes (%i alloc'd so far)\n",node_pool_size(),_node_alloc_count);
 	struct timeval t0, t1;
 	unsigned long deltasec;
@@ -542,7 +569,13 @@ int tinyap_parse(tinyap_t t, int full) {
 	}
 
 	gettimeofday(&t0, NULL);
-	t->output = t->A->parse(t->source_buffer, t->source_buffer_sz, !!full);
+    if (t->source.back().parse_offset < t->source.back().buffer_sz) {
+    	t->output = t->A->parse(t->source.back().buffer + t->source.back().parse_offset,
+                                t->source.back().buffer_sz - t->source.back().parse_offset,
+                                !!full, !!accept_partial);
+    } else {
+        t->output = NULL;
+    }
 	/*t->output->raw.ref++;*/
 	/*t->output = token_produce_any(t->toktext, t->start, NULL);*/
 	/*t->output = pda_parse(t->pda, t->source_buffer, t->source_buffer_sz, t->start, t->flags);*/
@@ -550,7 +583,7 @@ int tinyap_parse(tinyap_t t, int full) {
 
 	if(tinyap_verbose) {
 		/*fprintf(stderr, "TinyaP parsed %u of %u characters.\n",t->toktext->farthest,t->toktext->size);*/
-		fprintf(stderr, "TinyaP parsed %u of %lu characters.\n",t->A->furthest,t->source_buffer_sz);
+		fprintf(stderr, "TinyaP parsed %u of %lu characters.\n",t->A->furthest,t->source.back().buffer_sz);
 	}
 //	token_context_free(t->toktext);
 //	t->toktext=NULL;
@@ -565,7 +598,7 @@ int tinyap_parse(tinyap_t t, int full) {
 
 
 int tinyap_parse_as_grammar(tinyap_t t) {
-	if(tinyap_parse(t, false)) {
+	if(tinyap_parse(t, false, false)) {
 		tinyap_set_grammar_ast(t,tinyap_get_output(t));
 		/*delete_node(t->output);*/
 		t->output=NULL;
@@ -574,21 +607,23 @@ int tinyap_parse_as_grammar(tinyap_t t) {
 }
 
 /*int tinyap_parsed_ok(const tinyap_t t) { return t->error||(t->toktext->ofs!=t->source_buffer_sz); }*/
-int tinyap_parsed_ok(const tinyap_t t) { return t->error||(t->A->furthest!=t->source_buffer_sz); }
+int tinyap_parsed_ok(const tinyap_t t) { return t->error||(t->A->furthest!=t->source.back().buffer_sz); }
 
 ast_node_t tinyap_get_output(const tinyap_t t) { return t->output; }
 void tinyap_set_output(const tinyap_t t, ast_node_t o) { t->output = o; }
 
 #if 1
 int tinyap_get_error_col(const tinyap_t t) {
-	_tinyap_t::position_t p = t->pos_cache.position_of(t->A->furthest);
+	/*_tinyap_t::position_t p = t->pos_cache.position_of(t->A->furthest);*/
+	_tinyap_t::position_t p = t->pos_cache.position_of(t->A->errors.back().farthest);
 	return p.col();
-	return -1 /*parse_error_column(t->context)*/;
+	//return -1 /*parse_error_column(t->context)*/;
 }
 int tinyap_get_error_row(const tinyap_t t) {
-	_tinyap_t::position_t p = t->pos_cache.position_of(t->A->furthest);
+	/*_tinyap_t::position_t p = t->pos_cache.position_of(t->A->furthest);*/
+	_tinyap_t::position_t p = t->pos_cache.position_of(t->A->errors.back().farthest);
 	return p.row();
-	return -1 /*parse_error_line(t->context)*/;
+	//return -1 /*parse_error_line(t->context)*/;
 }
 const char* tinyap_get_error(const tinyap_t t) { return t->A->errors.back().message().c_str(); }
 #endif
@@ -775,26 +810,26 @@ void tinyap_plug(tinyap_t parser, const char*plugin, const char*plug) {
 
 void tinyap_append_grammar(tinyap_t parser, ast_node_t supp) {
 	/*grammar::rule::internal::append append;*/
-    printf("ORIG %s\n\n", tinyap_serialize_to_string(Car(parser->grammar)));
-    printf("SUPP %s\n\n", tinyap_serialize_to_string(Cdr(Car(supp))));
+    /*printf("ORIG %s\n\n", tinyap_serialize_to_string(Car(parser->grammar)));*/
+    /*printf("SUPP %s\n\n", tinyap_serialize_to_string(Cdr(Car(supp))));*/
     std::vector<ast_node_t> stack;
     ast_node_t tmp = Car(parser->grammar);
     while(tmp) {
         stack.push_back(Car(tmp));
-        printf("tmp-o %s\n", tinyap_serialize_to_string(stack.back()));
+        /*printf("tmp-o %s\n", tinyap_serialize_to_string(stack.back()));*/
         tmp = Cdr(tmp);
     }
     tmp = Cdr(Car(supp));
     while(stack.size()) {
         tmp = newPair(stack.back(), tmp);
-        printf("tmp-f %s\n", tinyap_serialize_to_string(tmp));
+        /*printf("tmp-f %s\n", tinyap_serialize_to_string(tmp));*/
         stack.pop_back();
     }
 	/*parser->grammar = append(Car(parser->grammar), Cdr(supp), true);*/
     parser->grammar = newPair(tmp, NULL);
     /*parser->grammar = tmp;*/
 	init_grammar(parser);
-    printf("FINAL %s\n\n", tinyap_serialize_to_string(parser->grammar));
+    /*printf("FINAL %s\n\n", tinyap_serialize_to_string(parser->grammar));*/
 }
 
 } /* extern "C" */

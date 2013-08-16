@@ -537,10 +537,10 @@ int test_automaton(int n=-1) {
         },
         { "(OperatorRule X (Seq (AddToBag (RE toto) bag !) (BOW bag !)))", "toto toto", "((X:9 toto:0 toto:5))" },
         { "(OperatorRule X (Seq (AddToBag (RE toto) bag !) (BOW bag )))", "toto toto", "((X:9 toto:0))" },
-        { "(OperatorRule X (Alt (NT a) (NT b) (NT c))) (OperatorRule a (T pouet)) (OperatorRule b (RE pouet)) (OperatorRule c (BOW _test))"
-          , "pouet", "((X:5 (a:5)))" },
-        { "(OperatorRule X (Alt (NT a) (NT b) (NT c))) (OperatorRule a (T toto)) (OperatorRule b (RE pouet)) (OperatorRule c (BOW _test))"
-          , "pouet", "((X:5 (c:5)))" },
+        /*{ "(OperatorRule X (Alt (NT a) (NT b) (NT c))) (OperatorRule a (T pouet)) (OperatorRule b (RE pouet)) (OperatorRule c (BOW _test))"*/
+          /*, "pouet", "((X:5 (a:5)))" },*/
+        /*{ "(OperatorRule X (Alt (NT a) (NT b) (NT c))) (OperatorRule a (T toto)) (OperatorRule b (RE pouet)) (OperatorRule c (BOW _test))"*/
+          /*, "pouet", "((X:5 (c:5)))" },*/
         { "(OperatorRule X (Alt (NT a) (NT b) (NT c))) (OperatorRule a (T pouet)) (OperatorRule b (RE toto)) (OperatorRule c (BOW _test))"
           , "toto", "((X:4 (b:4 toto:0)))" },
         /*{ "(OperatorRule X (Seq (AddToBag (RE toto) bag ) (BOW bag !)))", "toto toto", "((X:9 toto:5))" },*/
@@ -611,7 +611,7 @@ int test_tinyap_append() {
                 "))"));
     tinyap_append_grammar(p, ast_unserialize("((Grammar (TransientRule X (T pouet))))"));
     tinyap_set_source_buffer(p, "pouet", 5);
-    tinyap_parse(p, true);
+    tinyap_parse(p, true, false);
     if(!tinyap_get_output(p)) {
         std::clog << "no output" << std::endl;
         return 1;
@@ -624,7 +624,7 @@ int test_tinyap_append() {
 
 
 void test_lr(lr::automaton& a, const char* text) {
-	char* str = (char*)tinyap_serialize_to_string(a.parse(text, strlen(text)));
+	char* str = (char*)tinyap_serialize_to_string(a.parse(text, strlen(text), true, false));
 	std::cout << '"' << text << "\" => " << str << std::endl;
 	free(str);
 }
@@ -634,7 +634,7 @@ void test_nl() {
 	lr::automaton nl(&g);
 	/*nl.dump_states();*/
 	const char* pouet = "I saw a man in the park with a telescope";
-	Ast ast = nl.parse(pouet, strlen(pouet));
+	Ast ast = nl.parse(pouet, strlen(pouet), true, false);
 	std::cout << '"' << pouet << "\" => " << ast << std::endl;
 	/*while(ast) {*/
 		/*wast_t wa = make_wast(Car(ast));*/

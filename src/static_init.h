@@ -53,7 +53,7 @@ struct tinyap_static_init {
 	pair_registry_t pair_registry;
 	ext::hash_map<const ast_node_t, grammar::item::base*, lr::hash_an, lr::ptr_eq<_ast_node_t> > grammar_registry;
 	ext::hash_map<const char*, grammar::item::token::Nt*> nt_registry;
-	ext::hash_map<const char*, trie_t>& trie_registry;
+	ext::hash_map<std::string, trie_t>& trie_registry;
 	tinyap_static_init() : trie_registry(grammar::item::token::Bow::_registry()) { tinyap_init(); }
 	~tinyap_static_init() { tinyap_terminate(); }
 };

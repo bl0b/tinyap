@@ -19,12 +19,10 @@
 
 #include "ast.h"
 
-extern "C" {
 #include "tinyap.h"
 #include "string_registry.h"
 #include "serialize.h"
 #include "stack.h"
-}
 
 #include <vector>
 

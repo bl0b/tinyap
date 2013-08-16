@@ -399,8 +399,20 @@ namespace grammar {
 				virtual void visit(item::token::Nt* x) {
 					os << x->tag();
 				}
+
+                struct trie_dumper {
+                    std::ostream& os;
+                    void operator () (const char* s) {
+                        os << ' ' << s;
+                    }
+                };
+
 				virtual void visit(item::token::Bow* x) {
-					os << '~' << x->tag() << (x->keep()?"!":"") << '~';
+					/*os << '~' << x->tag() << (x->keep()?"!":"") << '~';*/
+                    os << '[' << x->tag();
+                    trie_dumper _ = {os};
+                    trie_enumerate(*x, _);
+                    os << ']';
 				}
 
 				virtual void visit(item::token::AddToBag* x) {

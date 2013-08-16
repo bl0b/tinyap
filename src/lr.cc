@@ -39,7 +39,7 @@ namespace item {
 	void clean_registry_at_exit() {
 		typedef ext::hash_map<const ast_node_t, base*, lr::hash_an, lr::ptr_eq<_ast_node_t> >::iterator mapiter_t;
 		typedef ext::hash_map<const char*, token::Nt*>::iterator nt_reg_iter_t;
-		typedef ext::hash_map<const char*, trie_t>::iterator trie_reg_iter_t;
+		typedef ext::hash_map<std::string, trie_t>::iterator trie_reg_iter_t;
 		mapiter_t i, j=registry.end();
 		for(i=registry.begin();i!=j;++i) {
 			delete_node((ast_node_t)i->first);

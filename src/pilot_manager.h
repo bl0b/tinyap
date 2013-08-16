@@ -23,6 +23,10 @@
 #include "hashtab.h"
 #include "tinyape.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef enum {
 	Node,
 	Root,
@@ -61,6 +65,9 @@ WalkDirection do_visit(pilot_t p, wast_t node);
 void init_pilot_manager();
 void term_pilot_manager();
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

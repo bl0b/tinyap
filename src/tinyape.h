@@ -21,6 +21,10 @@
 
 #include "tinyap.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifndef _WAST_DEFINED
 	//! opaque type for walkable AST
 	typedef struct _walkable_ast_t* wast_t;
@@ -70,5 +74,8 @@ typedef enum {
 //! abstract type for apes management
 typedef struct _pilot_t* pilot_t;
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif

@@ -5,6 +5,21 @@
 
 #include "string_registry.h"
 
+namespace __gnu_cxx {
+    template <>
+    struct hash<std::string> {
+        size_t operator () (const std::string& s) const
+        {
+            size_t accum = 0;
+            std::string::const_iterator i = s.begin(), j = s.end();
+            for (; i != j; ++i) {
+                accum = ((accum >> 27) | (accum << 5)) ^ (*i);
+            }
+            return accum;
+        }
+    };
+}
+
 namespace grammar {
 	struct _h {
 		size_t operator()(const char*k) const {
@@ -395,7 +410,7 @@ namespace grammar {
 							/*escape_ncpy(&_match, &_src, source+size-_src, delim_end);*/
 							/*_match = ret = match2str(_src, 0, size-offset, delim_end);*/
                             if(ofs >= size) {
-                                std::cout << "[DEBUG:Str] discarding null token with no end delimiter" << std::endl;
+                                /*std::cout << "[DEBUG:Str] discarding null token with no end delimiter" << std::endl;*/
                                 return std::pair<ast_node_t, unsigned int>(NULL, ofs);
                             }
                             ret = _src;
@@ -406,7 +421,7 @@ namespace grammar {
 								if(!_match) {
 									/*std::cout << "[DEBUG:Str] didn't match end." << std::endl;*/
 									if(_end==_src) {
-										std::cout << "[DEBUG:Str] didn't match anything at all." << std::endl;
+										/*std::cout << "[DEBUG:Str] didn't match anything at all." << std::endl;*/
 										return std::pair<ast_node_t, unsigned int>(NULL, ofs);
 									}
 									break;
@@ -438,7 +453,7 @@ namespace grammar {
 							ofs = _end-source+eslen;
 						}
 						/*printf(__FILE__ ":%i\n", __LINE__);*/
-                        std::cout << "[DEBUG:Str] matched " << strlen(ret) << " characters at " << offset << std::endl;
+                        /*std::cout << "[DEBUG:Str] matched " << strlen(ret) << " characters at " << offset << std::endl;*/
 						return std::pair<ast_node_t, unsigned int>(newPair(newAtom(ret, offset), NULL), ofs);
 					}
 			};
@@ -483,6 +498,7 @@ namespace grammar {
 					Bow(const Bow& _) : tag_(_.tag_), keep_(_.keep_), mybow(_.mybow) {}
 					const char* tag() const { return tag_; }
 					bool keep() const { return keep_; }
+                    operator trie_t () { return mybow; }
 					virtual std::pair<ast_node_t, unsigned int> recognize(const char* source, unsigned int offset, unsigned int size) const {
 						/*std::clog << "BOW DUMP " << tag_ << " @" << mybow << std::endl;*/
 						/*trie_dump(mybow, 1);*/
@@ -506,8 +522,8 @@ namespace grammar {
 						return std::pair<ast_node_t, unsigned int>(NULL, offset);
 					}
 
-					static ext::hash_map<const char*, trie_t>& _registry() {
-                        static ext::hash_map<const char*, trie_t> all;
+					static ext::hash_map<std::string, trie_t>& _registry() {
+                        static ext::hash_map<std::string, trie_t> all;
                         return all;
                     }
 
@@ -520,10 +536,13 @@ namespace grammar {
 								}
 							}
 						} all;*/
-						trie_t ret = _registry()[tag];
+                        std::string s(tag);
+						trie_t& ret = _registry()[s];
 						if(!ret) {
-							_registry()[tag] = ret = trie_new();
+							ret = trie_new();
+                            /*std::cout << "DEBUG NEW TRIE " << tag << " @ " << ret << std::endl;*/
 						}
+                        /*std::cout << "DEBUG TRIE " << tag << " @ " << ret << std::endl;*/
 						return ret;
 					}
 			};
@@ -546,9 +565,9 @@ namespace grammar {
                         : Re_base<AddToBag>(p), keep_(k),
                           bag(Bow::find(b)),
                           tag_(b) {
-						/*std::cout << "NEW AddToBag(" << pattern() << ", " << tag()*/
-                            /*<< ", " << (keep() ? "keep" : "discard") << " "*/
-                            /*<< ((void*)bag) << std::endl;*/
+						std::cout << "NEW AddToBag(" << pattern() << ", " << tag()
+                            << ", " << (keep() ? "keep" : "discard") << " "
+                            << ((void*)bag) << std::endl;
 					}
 					bool keep() const { return keep_; }
 					const char* tag() const { return tag_; }

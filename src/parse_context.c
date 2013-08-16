@@ -4,6 +4,8 @@
 
 const char* parse_error(parse_context_t t) {
 	static char err_buf[4096];
+    static char err_cursor[2048];
+    char* cursor = err_cursor;
 	size_t last_nlofs=0;
 	size_t next_nlofs=0;
 	size_t tab_adjust=0;
@@ -15,22 +17,39 @@ const char* parse_error(parse_context_t t) {
 	
 	next_nlofs=last_nlofs;
 	while(t->source[next_nlofs]&&t->source[next_nlofs]!='\n') {
-		if(t->source[next_nlofs]=='\t') {
-			tab_adjust+=8-((next_nlofs-last_nlofs)&7);	/* snap to tabsize 8 */
-		}
+        if (t->farthest > next_nlofs) {
+    		if(t->source[next_nlofs]=='\t') {
+                /* snap to tabsize 8 */
+    			/*tab_adjust+=8-((next_nlofs-last_nlofs)&7);*/
+                *cursor = '\t';
+            } else {
+                *cursor = ' ';
+    		}
+            cursor += 1;
+        }
 		next_nlofs+=1;
 	}
+    *cursor = 0;
 
 	err_buf[0]=0;
 
-	sprintf(err_buf+strlen(err_buf),"%*.*s\n%*.*s^",
+    printf("Got cursor line <%s>\n", err_cursor);
+
+	sprintf(err_buf+strlen(err_buf),"%*.*s\n%s^",
 		(int)(next_nlofs-last_nlofs),
 		(int)(next_nlofs-last_nlofs),
 		t->source+last_nlofs,
-		(int)(t->farthest-last_nlofs+tab_adjust),
-		(int)(t->farthest-last_nlofs+tab_adjust),
-		""
+        err_cursor
 	);
+
+	/*sprintf(err_buf+strlen(err_buf),"%*.*s\n%*.*s^",*/
+		/*(int)(next_nlofs-last_nlofs),*/
+		/*(int)(next_nlofs-last_nlofs),*/
+		/*t->source+last_nlofs,*/
+		/*(int)(t->farthest-last_nlofs+tab_adjust),*/
+		/*(int)(t->farthest-last_nlofs+tab_adjust),*/
+		/*""*/
+	/*);*/
 
 	/*free((char*)expected);*/
 

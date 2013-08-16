@@ -28,6 +28,9 @@ typedef struct _stack_t {
 	void** stack;
 }* tinyap_stack_t;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 tinyap_stack_t new_stack();
 tinyap_stack_t stack_dup(tinyap_stack_t);
 tinyap_stack_t stack_clone(tinyap_stack_t, void*(*clone_entry)(void*));
@@ -67,6 +70,10 @@ static inline void* _peek(tinyap_stack_t s) {
 		return NULL;
 	return s->stack[s->sp];
 }
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

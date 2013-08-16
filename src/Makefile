@@ -6,8 +6,8 @@ INSTALL_INCLUDE=$(INSTALL_PREFIX)/include/tinyap
 INSTALL_LIB=$(INSTALL_PREFIX)/lib
 
 
-CSRC=ape_prettyprint.c bootstrap.c parse_context.c pilot_manager.c serialize.c stack.c token_utils.c walkableast.c walker.c
-CPPSRC=lr.cc ast.cc tinyap.cc unparser.cc trie.cc tinyap_alloc.cc string_registry.cc
+CSRC=ape_prettyprint.c bootstrap.c parse_context.c serialize.c stack.c token_utils.c walkableast.c walker.c
+CPPSRC=lr.cc ast.cc tinyap.cc unparser.cc trie.cc tinyap_alloc.cc string_registry.cc pilot_manager.cc
 
 COMMON_SRC = $(CSRC) $(CPPSRC)
 
