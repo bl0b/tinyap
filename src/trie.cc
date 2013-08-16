@@ -16,19 +16,15 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
 
-extern "C" {
-
 #include "trie.h"
+
 
 unsigned long int trie_stats_allocs;
 unsigned long int trie_stats_words;
 
-struct _trie_node_t {
-	char* radix;
-	trie_t next;
-	trie_t follow;
-	int is_leaf;
-};
+void trie_enumerate(trie_t t, void(*callback)(const char*)) {
+    rec_trie_enumerate(t, callback, 0);
+}
 
 
 void trie_dump(trie_t t, int indent) {
@@ -291,6 +287,4 @@ int main(int argc, char**argv) {
 }
 
 #endif
-
-} /* extern "C" */
 

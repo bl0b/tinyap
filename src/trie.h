@@ -22,7 +22,18 @@
 #include "tinyap_alloc.h"
 #include "string_registry.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct _trie_node_t* trie_t;
+
+struct _trie_node_t {
+	char* radix;
+	trie_t next;
+	trie_t follow;
+	int is_leaf;
+};
 
 trie_t trie_new();
 void trie_dump(trie_t t, int indent);
@@ -30,8 +41,36 @@ void trie_free(trie_t t);
 unsigned long trie_match(trie_t t, const char*s);
 unsigned long trie_match_prefix(trie_t t, const char*s);
 void trie_insert(trie_t t, const char*s);
+void trie_enumerate(trie_t, void (*callback) (const char*));
+#ifdef __cplusplus
+}
+#endif
 
+#ifdef __cplusplus
+template <typename Func>
+void rec_trie_enumerate(trie_t t, Func& f, int i) {
+    static char buf[4096] = "";
+    int backup = i;
+    if (t->radix) {
+        strcpy(buf + i, t->radix);
+        i += strlen(t->radix);
+    }
+    if (t->is_leaf) {
+        f(buf);
+    }
+    if (t->follow) {
+        rec_trie_enumerate(t->follow, f, i);
+    }
+    if (t->next) {
+        rec_trie_enumerate(t->next, f, backup);
+    }
+}
 
+template <typename Func>
+void trie_enumerate(trie_t t, Func& f) {
+    rec_trie_enumerate(t, f, 0);
+}
+#endif
 
 #endif
 
