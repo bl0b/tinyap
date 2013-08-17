@@ -213,6 +213,15 @@ size_t tinyap_get_source_offset(tinyap_t t)
     return t->source.back().parse_offset;
 }
 
+void tinyap_push_source(tinyap_t t)
+{
+    t->source.push_back(_tinyap_t::source_t());
+}
+
+void tinyap_pop_source(tinyap_t t)
+{
+    t->source.pop_back();
+}
 
 trie_t tinyap_get_bow(const char* tag) {
 	return grammar::item::token::Bow::find(tag);
@@ -472,6 +481,7 @@ void tinyap_set_source_file(tinyap_t t,const char*fnam) {
 			free(t->source.back().file);
 		}
 		t->source.back().file=strdup(fnam);
+        t->source.back().parse_offset = 0;
 
 		if(strcmp(fnam,"stdin")&&strcmp(fnam,"-")) {
 			if(stat(t->source.back().file,&st)) {
@@ -539,6 +549,7 @@ void tinyap_set_source_buffer(tinyap_t t,const char* b,const unsigned int sz) {
 		/*"================================================\n",*/
 		/*sz, sz, sz, t->source_buffer);*/
 	t->source.back().buffer_sz=sz;
+    t->source.back().parse_offset = 0;
 }
 
 int tinyap_parse(tinyap_t t, int full, int accept_partial) {
@@ -570,9 +581,13 @@ int tinyap_parse(tinyap_t t, int full, int accept_partial) {
 
 	gettimeofday(&t0, NULL);
     if (t->source.back().parse_offset < t->source.back().buffer_sz) {
-    	t->output = t->A->parse(t->source.back().buffer + t->source.back().parse_offset,
-                                t->source.back().buffer_sz - t->source.back().parse_offset,
-                                !!full, !!accept_partial);
+    	t->output = t->A->parse(t->source.back().buffer,
+                                t->source.back().buffer_sz,
+                                t->source.back().parse_offset,
+                                !!accept_partial, !!full);
+        if (t->output && accept_partial) {
+            tinyap_set_source_offset(t, t->A->furthest);
+        }
     } else {
         t->output = NULL;
     }
@@ -606,8 +621,8 @@ int tinyap_parse_as_grammar(tinyap_t t) {
 	return t->error;
 }
 
-/*int tinyap_parsed_ok(const tinyap_t t) { return t->error||(t->toktext->ofs!=t->source_buffer_sz); }*/
-int tinyap_parsed_ok(const tinyap_t t) { return t->error||(t->A->furthest!=t->source.back().buffer_sz); }
+int tinyap_parsed_ok(const tinyap_t t) { return t->error; }
+/*int tinyap_parsed_ok(const tinyap_t t) { return t->error||(t->A->furthest!=t->source.back().buffer_sz); }*/
 
 ast_node_t tinyap_get_output(const tinyap_t t) { return t->output; }
 void tinyap_set_output(const tinyap_t t, ast_node_t o) { t->output = o; }

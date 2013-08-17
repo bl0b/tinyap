@@ -565,9 +565,9 @@ namespace grammar {
                         : Re_base<AddToBag>(p), keep_(k),
                           bag(Bow::find(b)),
                           tag_(b) {
-						std::cout << "NEW AddToBag(" << pattern() << ", " << tag()
-                            << ", " << (keep() ? "keep" : "discard") << " "
-                            << ((void*)bag) << std::endl;
+						/*std::cout << "NEW AddToBag(" << pattern() << ", " << tag()*/
+                            /*<< ", " << (keep() ? "keep" : "discard") << " "*/
+                            /*<< ((void*)bag) << std::endl;*/
 					}
 					bool keep() const { return keep_; }
 					const char* tag() const { return tag_; }

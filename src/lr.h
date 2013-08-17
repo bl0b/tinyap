@@ -615,14 +615,14 @@ push u onto stack
                 {}
             };
 
-			ast_node_t parse(const char* buffer, unsigned int size, bool accept_partial, bool full_parse=true) {
+			ast_node_t parse(const char* buffer, unsigned int size, unsigned int parse_offset, bool accept_partial, bool full_parse=true) {
 				grammar::visitors::lr_item_debugger debug;
 				std::list<gss::node*> farthest_nodes;
 				unsigned int farthest=0;
 				if(stack) { delete stack; }
 				errors.clear();
 				stack = new gss(item((*G)["_start"], grammar::item::iterator::create((*G)["_start"])), size, accept_partial);
-				stack->shift(NULL, NULL, S0, NULL, 0, NULL);
+				stack->shift(NULL, NULL, S0, NULL, parse_offset, NULL);
 				while(!stack->active.empty()) {
 					gss::node* n = stack->consume_active();
 					if(n->id.O>=farthest) {
@@ -644,8 +644,8 @@ push u onto stack
 								/*<< ker << "ast : " << aststr << std::endl; free(aststr);*/
 								<< S->items << "ast : " << aststr << std::endl; free(aststr);
 #undef _tinyap_min
-                    std::clog << " ===  ACTIVE STATE ===" << std::endl << S << std::endl;
 #endif
+                    /*std::clog << " ===  ACTIVE STATE ===" << std::endl << S << std::endl;*/
 
 					item_set::iterator i, j;
 
@@ -770,10 +770,11 @@ push u onto stack
 						<< TAB << "buffers:" << tinyap_allocs << '+' << tinyap_reallocs << '/' << tinyap_frees << '|' << tinyap_ram_size
 						<< std::endl;
 				}
-				farthest = G->skip(buffer, farthest, size);
+				/*farthest = G->skip(buffer, farthest, size);*/
 				/* error handling */
 				/*if(farthest!=size) {*/
                 if (!stack->accepted) {
+                    /*std::cout << "accept_partial=" << accept_partial << ", didn't accept" << std::endl;*/
 					errors.push_back(error());
 					unsigned int nl_before = 0, nl_after = 0, tmp = 0;
                     unsigned int line=1, column;
@@ -843,15 +844,17 @@ push u onto stack
 					automaton r2d2(&gg);
 					r2d2.dump_states();
 
-					Ast ret = r2d2.parse(txt, strlen(txt), true, false);
+					Ast ret = r2d2.parse(txt, strlen(txt), 0, false, true);
 
 					char* tmp = (char*)(ret?ast_serialize_to_string(ret, true):strdup("nil"));
 
 					if(!ret) {
 						ok = !expected;
-					} else {
+					} else if (expected) {
 						ok = !strcmp(tmp, expected);
-					}
+					} else {
+                        ok = !ret;
+                    }
 
 					if(!ok) {
 						std::clog << "[TEST] [automaton] #" << testno << ":" << std::endl;

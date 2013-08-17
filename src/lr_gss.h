@@ -242,7 +242,9 @@ namespace lr {
 
 			gss(item ini, unsigned int sz, bool acc_part)
                 : alloc(), root(), active(), initial(ini), accepted(0), accept_partial(acc_part), size(sz)
-            {}
+            {
+                /*std::cout << "gss::accept_partial=" << accept_partial << std::endl;*/
+            }
 
 			friend std::ostream& operator<<(std::ostream& o, gss& g) {
 				return o << g.alloc;
@@ -372,7 +374,7 @@ namespace lr {
 			void do_reduction(node* red_end, node* tail, item i, unsigned int offset, ast_node_t accum) {
 				const grammar::rule::base* R = i.rule();
 				if(initial==i) {
-					if(offset != size) {
+					if(!(accept_partial || offset == size)) {
 						/*std::clog << "can't accept at offset " << offset << " because size is " << size << std::endl;*/
 						/*delete_node(accum);*/
 						return;
@@ -385,7 +387,26 @@ namespace lr {
 						grammar::visitors::reducer red(accum, offset);
 						ast_node_t output = red.process((grammar::rule::base*)R);
 						/*ast_node_t old = accepted;*/
-						accepted = grammar::rule::internal::append()(output, accepted);
+						/*accepted = grammar::rule::internal::append()(output, accepted);*/
+                        if (accepted) {
+                            if (output) {
+                                size_t aofs = accepted->pair._car->atom.offset;
+                                size_t oofs = output->pair._car->atom.offset;
+                                if (aofs == oofs) {
+            						accepted = grammar::rule::internal::append()(output, accepted);
+                                    std::cout << "appended accepted: " << accepted << std::endl;
+                                } else if (aofs < oofs) {
+                                    /*delete_node(accepted);*/
+                                    accepted = output;
+                                    std::cout << "new accepted: " << accepted << std::endl;
+                                }
+                            } else {
+                                std::cout << "accepted didn't change" << std::endl;
+                            }
+                        } else {
+                            accepted = output;
+                            std::cout << "accepted: " << accepted << std::endl;
+                        }
 						/*accepted->raw.ref++;*/
 						/*delete_node(old);*/
 						/*delete_node(accum);*/

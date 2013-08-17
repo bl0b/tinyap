@@ -621,6 +621,30 @@ int test_tinyap_append() {
 }
 
 
+int test_tinyap_resume() {
+    tinyap_t p = tinyap_new();
+    tinyap_set_grammar_ast(p, ast_unserialize(
+      "((Grammar (TransientRule _start (NT X))"
+                "(OperatorRule X (Alt (RE toto) (RE pouet) (RE coin)))"
+                "))"));
+    tinyap_set_source_buffer(p, "pouettotocoinpouet", 18);
+    tinyap_parse(p, true, true);
+    if(!tinyap_get_output(p)) { std::clog << "no output" << std::endl; return 1; }
+    if (tinyap_get_source_offset(p) != 5) { std::clog << "offset expected to be 5, got " << tinyap_get_source_offset(p) << std::endl; return 1; }
+    tinyap_parse(p, true, true);
+    if(!tinyap_get_output(p)) { std::clog << "no output" << std::endl; return 1; }
+    if (tinyap_get_source_offset(p) != 9) { std::clog << "offset expected to be 9, got " << tinyap_get_source_offset(p) << std::endl; return 1; }
+    tinyap_parse(p, true, true);
+    if(!tinyap_get_output(p)) { std::clog << "no output" << std::endl; return 1; }
+    if (tinyap_get_source_offset(p) != 13) { std::clog << "offset expected to be 13, got " << tinyap_get_source_offset(p) << std::endl; return 1; }
+    tinyap_parse(p, true, true);
+    if(!tinyap_get_output(p)) { std::clog << "no output" << std::endl; return 1; }
+    if (tinyap_get_source_offset(p) != 18) { std::clog << "offset expected to be 18, got " << tinyap_get_source_offset(p) << std::endl; return 1; }
+    tinyap_delete(p);
+    return 0;
+}
+
+
 
 
 void test_lr(lr::automaton& a, const char* text) {
@@ -659,7 +683,7 @@ int main(int argc, char**argv) {
 	/*test_nl();*/
 
 	/*return 0;*/
-	return test_nodealloc() + test_grammar() + test_automaton(n) + test_tinyap_append();
+	return test_nodealloc() + test_grammar() + test_automaton(n) + test_tinyap_append() + test_tinyap_resume();
 	/*return test_nodealloc();*/
 }
 

@@ -34,7 +34,7 @@ namespace lr {
 				const grammar::rule::base* R = i.rule();
 				if(initial==i) {
 					if(!(accept_partial || offset == size)) {
-						/*std::clog << "can't accept at offset " << offset << " because size is " << size << std::endl;*/
+						std::clog << "can't accept at offset " << offset << " because size is " << size << std::endl;
 						/*delete_node(accum);*/
 						return;
 					}
