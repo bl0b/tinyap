@@ -66,7 +66,9 @@ namespace lr {
 				Ast ast;					/* production */
 				std::list<node*> preds;
 				node* reduction_end;
-				node() : id(0, 0, 0), active(0), ast(0), preds(), reduction_end(0) {}
+                grammar::item::base* shifting_token;
+                size_t shifting_token_end_offset;
+				node() : id(0, 0, 0), active(0), ast(0), preds(), reduction_end(0), shifting_token(0) {}
 				void add_pred(node*p) {
 					preds.push_back(p);
 					/*p->link = pred;*/
@@ -199,6 +201,11 @@ namespace lr {
 			Ast accepted;
             bool accept_partial;
 			unsigned int size;
+            unsigned int farthest;
+
+            const char* buffer;
+            size_t offset;
+            grammar::Grammar* G;
 
 			~gss() {
 				/*delete_node(accepted);*/
@@ -240,10 +247,18 @@ namespace lr {
 
 			void free_node(node*n) { alloc.free(n); }
 
-			gss(item ini, unsigned int sz, bool acc_part)
-                : alloc(), root(), active(), initial(ini), accepted(0), accept_partial(acc_part), size(sz)
+			gss(grammar::Grammar* g, unsigned int sz, bool acc_part, const char* buf, size_t pof)
+                : alloc(), root(), active()
+                , initial((*G)["_start"], grammar::item::iterator::create((*G)["_start"]))
+                , accepted(0), accept_partial(acc_part), size(sz), farthest(0)
+                , buffer(buf), offset(pof), G(g)
+/*
+ * TODO on shift, check if any token can be recognized. Then update some global shifting token/states register if token is >= than the currently selected token(s).
+ * This should define instantly which states are shifting.
+ * Deport ALL token recognition from lr.h to here (including the mandatory G->skip() I guess).
+ */
             {
-                /*std::cout << "gss::accept_partial=" << accept_partial << std::endl;*/
+                /*std::clog << "gss::accept_partial=" << accept_partial << std::endl;*/
             }
 
 			friend std::ostream& operator<<(std::ostream& o, gss& g) {
@@ -253,6 +268,12 @@ namespace lr {
 			/* TODO : merge only when shifting a non-terminal ? */
 
 			node* shift(node* p, grammar::item::base* producer, state* s, ast_node_t ast, unsigned int offset, node* red_end) {
+                /*if (offset < farthest) {*/
+                    /*return NULL;*/
+                /*}*/
+                /*if (offset > farthest) {*/
+                    /*farthest = offset;*/
+                /*}*/
 				if(!p) {
 					p=&root;
 				}
@@ -276,6 +297,7 @@ namespace lr {
 				n->ast = NULL;
 				n->add_pred(p);
 				/*std::clog << "pushed state node with #" << s->id << std::endl;*/
+                /*std::clog << s << std::endl;*/
 				activate(n);
 				return n;
 			}
@@ -305,8 +327,9 @@ namespace lr {
 							//std::clog << "on state node " << i << " accum = " << accum << std::endl/* << tail->id.S << std::endl*/;
 							/* on state node */
 							if(i.at_start()) {
-								//std::clog << "found reductible path ! " << accum << std::endl;
-								stack->commit_reduction(red_end, tail, i, offset, accum);
+								/*std::clog << "found reductible path ! " << accum << std::endl;*/
+								/*stack->commit_reduction(red_end, tail, i, offset, accum);*/
+								stack->do_reduction(red_end, tail, i, offset, accum);
 								/*delete_node(accum);*/
 								return;
 							} else {
@@ -326,11 +349,11 @@ namespace lr {
 					}
 
 					unsigned int operator()(node* tail, lr::item i) {
-						//std::clog << "trying to reduce " << i << std::endl;
+						/*std::clog << "trying to reduce " << i << std::endl;*/
 						drop_empty = !i.rule()->keep_empty();
 						red_end = tail;
 						rec_path(tail, NULL, i);
-						//std::clog << "done trying to reduce " << i << std::endl;
+						/*std::clog << "done trying to reduce " << i << std::endl;*/
 						return count;
 					}
 
@@ -375,38 +398,51 @@ namespace lr {
 				const grammar::rule::base* R = i.rule();
 				if(initial==i) {
 					if(!(accept_partial || offset == size)) {
-						/*std::clog << "can't accept at offset " << offset << " because size is " << size << std::endl;*/
+						std::clog << "can't accept at offset " << offset << " because size is " << size << std::endl;
 						/*delete_node(accum);*/
 						return;
 					}
 					/* accept */
-#if 0
-					std::clog << "ACCEPT ! " << accum << " @" << ((void*)accum) << std::endl;
-#endif
 					if(accum) {
+#if 1
+                        /*std::clog << "ACCEPT ! " << accum << " @" << ((void*)accum) << std::endl;*/
+#endif
 						grammar::visitors::reducer red(accum, offset);
 						ast_node_t output = red.process((grammar::rule::base*)R);
+#if 1
+                        /*std::clog << " => output is " << output << " @" << ((void*)output) << std::endl;*/
+#endif
 						/*ast_node_t old = accepted;*/
 						/*accepted = grammar::rule::internal::append()(output, accepted);*/
                         if (accepted) {
                             if (output) {
-                                size_t aofs = accepted->pair._car->atom.offset;
-                                size_t oofs = output->pair._car->atom.offset;
-                                if (aofs == oofs) {
-            						accepted = grammar::rule::internal::append()(output, accepted);
-                                    std::cout << "appended accepted: " << accepted << std::endl;
-                                } else if (aofs < oofs) {
+                                size_t aofs = accepted->pair._car->pair._car->atom.offset;
+                                /*std::clog << "OFFSET CHECK aofs=" << aofs << " and offset=" << offset << std::endl;*/
+                                if (aofs == offset) {
+                                    ast_node_t check_uniq = accepted;
+                                    while (check_uniq && check_uniq->pair._car != output->pair._car) {
+                                        check_uniq = check_uniq->pair._cdr;
+                                    }
+                                    if (check_uniq) {
+                                        /*std::clog << "AST already accepted! " << output << std::endl;*/
+                                        return;
+                                    }
+                                    accepted = grammar::rule::internal::append()(output, accepted);
+                                    /*std::clog << "appended accepted: " << accepted << std::endl;*/
+                                } else if (aofs < offset) {
+                                    std::clog << __FILE__ << ':' << __LINE__ << std::endl;
                                     /*delete_node(accepted);*/
                                     accepted = output;
-                                    std::cout << "new accepted: " << accepted << std::endl;
+                                    /*std::clog << "new accepted: " << accepted << std::endl;*/
                                 }
-                            } else {
-                                std::cout << "accepted didn't change" << std::endl;
+                            /*} else {*/
+                                /*std::clog << "accepted didn't change" << std::endl;*/
                             }
                         } else {
                             accepted = output;
-                            std::cout << "accepted: " << accepted << std::endl;
+                            /*std::clog << "accepted: " << accepted << std::endl;*/
                         }
+                            /*std::clog << __FILE__ << ':' << __LINE__ << std::endl;*/
 						/*accepted->raw.ref++;*/
 						/*delete_node(old);*/
 						/*delete_node(accum);*/
@@ -429,7 +465,7 @@ namespace lr {
 					ast_node_t redast = red((grammar::rule::base*)R);
 					/*redast->raw.ref++;*/
 					grammar::item::base* nt = grammar::item::token::Nt::instance(R->tag());
-					/*std::cerr << "Reducing " << accum << " into " << redast << std::endl;*/
+					/*std::cerr << "Reducing " << i << " (" << accum << ") into " << redast << std::endl;*/
 					shift(tail, nt, Sprime, redast, offset, red_end);
 					/*if(redast!=accum) {*/
 						/*delete_node(redast);*/
@@ -493,6 +529,60 @@ namespace lr {
 				active.pop_front();
 				return ret;
 			}
+
+            void inactivate(int n) {
+                while (--n >= 0) {
+                    active.front()->active = false;
+                    active.pop_front();
+                }
+            }
+
+            struct following_tokens {
+                typedef std::set<const grammar::item::base*> token_set;
+                token_set text;
+                token_set bow;
+                token_set re;
+                std::multimap<const grammar::item::base*, state*> tok2state;
+                typedef std::pair<const grammar::item::base*, state*> t2s_value;
+                typedef std::multimap<const grammar::item::base*, state*>::iterator t2s_iterator;
+                typedef std::pair<t2s_iterator, t2s_iterator> t2s_range;
+            };
+
+            void update_active_transitions(following_tokens& ret, state* S) {
+                follow_set_text::iterator ti, tj;
+                ti = S->transitions.from_text_t.begin();
+                tj = S->transitions.from_text_t.end();
+                for (; ti != tj; ++ti) {
+                    ret.text.insert(ti->first);
+                    ret.tok2state.insert(following_tokens::t2s_value(ti->first, S));
+                }
+                ti = S->transitions.from_text_bow.begin();
+                tj = S->transitions.from_text_bow.end();
+                for (; ti != tj; ++ti) {
+                    ret.bow.insert(ti->first);
+                    ret.tok2state.insert(following_tokens::t2s_value(ti->first, S));
+                }
+                ti = S->transitions.from_text_re.begin();
+                tj = S->transitions.from_text_re.end();
+                for (; ti != tj; ++ti) {
+                    ret.re.insert(ti->first);
+                    ret.tok2state.insert(following_tokens::t2s_value(ti->first, S));
+                }
+            }
+
+            void update_active_transitions(following_tokens& ft) {
+                update_active_transitions(ft, active.back()->id.S);
+            }
+
+            following_tokens active_transitions() {
+                following_tokens ret;
+                std::list<node*>::iterator ai = active.begin(), aj = active.end();
+                for (; ai != aj; ++ai) {
+                    update_active_transitions(ret, (*ai)->id.S);
+                }
+
+                return ret;
+            }
 	};
 }
 

@@ -2,7 +2,8 @@
 #define _TINYAP_LR_BASE_H_
 
 
-#include <ext/hash_map>
+/*#include <ext/hash_map>*/
+#include <unordered_map>
 #include <set>
 #include <map>
 #include "hashtab.h"
@@ -14,7 +15,11 @@
 
 #include <iostream>
 
-namespace ext = __gnu_cxx;
+/*namespace ext = __gnu_cxx;*/
+namespace ext {
+    template <typename... X>
+    using hash_map = std::unordered_map<X...>;
+}
 
 extern "C" {
 #include "tinyap_alloc.h"

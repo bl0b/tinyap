@@ -30,7 +30,7 @@ TEST=$(SUFFIX)/test
 LIB_TARGET=$(SUFFIX)/libtinyap.so
 
 CC=gcc $(CFLAGS)
-CXX=g++ -I $(SUFFIX) $(CPPFLAGS)
+CXX=g++-4.9 --std=c++0x -I $(SUFFIX) $(CPPFLAGS)
 LD=g++ -rdynamic $(DBG) $(PROF)
 LDSHARED=$(LD) -shared
 LIBS=-ldl -lpcre

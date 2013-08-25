@@ -5,6 +5,7 @@
 
 #include "string_registry.h"
 
+#if 0
 namespace __gnu_cxx {
     template <>
     struct hash<std::string> {
@@ -19,6 +20,7 @@ namespace __gnu_cxx {
         }
     };
 }
+#endif
 
 namespace grammar {
 	struct _h {

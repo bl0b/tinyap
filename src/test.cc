@@ -537,10 +537,10 @@ int test_automaton(int n=-1) {
         },
         { "(OperatorRule X (Seq (AddToBag (RE toto) bag !) (BOW bag !)))", "toto toto", "((X:9 toto:0 toto:5))" },
         { "(OperatorRule X (Seq (AddToBag (RE toto) bag !) (BOW bag )))", "toto toto", "((X:9 toto:0))" },
-        /*{ "(OperatorRule X (Alt (NT a) (NT b) (NT c))) (OperatorRule a (T pouet)) (OperatorRule b (RE pouet)) (OperatorRule c (BOW _test))"*/
-          /*, "pouet", "((X:5 (a:5)))" },*/
-        /*{ "(OperatorRule X (Alt (NT a) (NT b) (NT c))) (OperatorRule a (T toto)) (OperatorRule b (RE pouet)) (OperatorRule c (BOW _test))"*/
-          /*, "pouet", "((X:5 (c:5)))" },*/
+        { "(OperatorRule X (Alt (NT a) (NT b) (NT c))) (OperatorRule a (T pouet)) (OperatorRule b (RE pouet)) (OperatorRule c (BOW _test))"
+          , "pouet", "((X:5 (a:5)))" },
+        { "(OperatorRule X (Alt (NT a) (NT b) (NT c))) (OperatorRule a (T toto)) (OperatorRule b (RE pouet)) (OperatorRule c (BOW _test))"
+          , "pouet", "((X:5 (c:5)))" },
         { "(OperatorRule X (Alt (NT a) (NT b) (NT c))) (OperatorRule a (T pouet)) (OperatorRule b (RE toto)) (OperatorRule c (BOW _test))"
           , "toto", "((X:4 (b:4 toto:0)))" },
         /*{ "(OperatorRule X (Seq (AddToBag (RE toto) bag ) (BOW bag !)))", "toto toto", "((X:9 toto:5))" },*/
@@ -571,7 +571,7 @@ int test_automaton(int n=-1) {
 		std::stringstream ofn;
 		ofn << "failed.test.";
 		ofn << (done+1);
-		if(lr::automaton::test(done+1, (*tc)[0], (*tc)[1], (*tc)[2], automaton_post_init)) {
+		if(lr::automaton::test(done+1, (*tc)[0], (*tc)[1], (*tc)[2], automaton_post_init, true, false)) {
 			++ok;
 			/*std::cout << "[TEST] [automaton] #" << (done+1) << " passed." << std::endl;*/
 			unlink(ofn.str().c_str());
@@ -644,6 +644,33 @@ int test_tinyap_resume() {
     return 0;
 }
 
+int test_tinyap_full_parse() {
+    int check = 0;
+    static const char* grammar =
+                "(OperatorRule X (Alt (NT Y) (RE qqch)))"
+                "(OperatorRule Y (Seq (T i) (RE c) (NT X) (Rep01 (Seq (T e) (NT X)))))"
+                "))";
+    static const char* full_parse =
+        "((X:19 (Y:19 c:2 (X:19 (Y:19 c:6 (X:13 qqch:8) (X:19 qqch:15))))) (X:19 (Y:19 c:2 (X:13 (Y:13 c:6 (X:13 qqch:8))) (X:19 qqch:15))))";
+    static const char* not_full_parse =
+        "((X:19 (Y:19 c:2 (X:19 (Y:19 c:6 (X:13 qqch:8) (X:19 qqch:15))))))";
+    if(lr::automaton::test(100,
+                grammar,
+                "i c i c qqch e qqch",
+                full_parse,
+                NULL, true, false)) {
+        ++check;
+    }
+    if(lr::automaton::test(101,
+                grammar,
+                "i c i c qqch e qqch",
+                not_full_parse,
+                NULL, false, false)) {
+        ++check;
+    }
+    return check - 2;
+}
+
 
 
 
@@ -683,7 +710,12 @@ int main(int argc, char**argv) {
 	/*test_nl();*/
 
 	/*return 0;*/
-	return test_nodealloc() + test_grammar() + test_automaton(n) + test_tinyap_append() + test_tinyap_resume();
+	return test_nodealloc()
+         + test_grammar()
+         + test_automaton(n)
+         + test_tinyap_append()
+         + test_tinyap_resume()
+         + test_tinyap_full_parse();
 	/*return test_nodealloc();*/
 }
 

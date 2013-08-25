@@ -216,7 +216,7 @@ char*match2str(const char*src,const size_t start,const size_t end, const char*lo
         if (*(src + ofs) == '\\') {
             ++ofs;
             switch(*(src + ofs)) {
-                case 'b': *ptr++ = '\b'; break;
+                /*case 'b': *ptr++ = '\b'; break;*/
                 case 'r': *ptr++ = '\r'; break;
                 case 't': *ptr++ = '\t'; break;
                 case 'n': *ptr++ = '\n'; break;
