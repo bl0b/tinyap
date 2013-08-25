@@ -2,7 +2,7 @@
 #define _TINYAML_REGEX_H_
 
 #include "lr_base.h"
-#include "lr_grammar.h"
+/*#include "lr_grammar.h"*/
 
 #include <memory>
 #include <deque>
@@ -35,16 +35,18 @@ static inline std::ostream& operator << (std::ostream& os, const std::set<re_cha
     return os << ']';
 }
 
+template <typename TokenType>
 struct re_ast_node {
+    typedef std::vector<re_ast_node<TokenType>*> vector;
     int leaf_num;
     bool grouping;
-    grammar::item::base* accept_token;
+    TokenType accept_token;
     std::set<re_char_t> character_class;
     std::set<int> followpos;
     std::set<int> m_firstpos;
     std::set<int> m_lastpos;
-    re_ast_node* child1;
-    re_ast_node* child2;
+    re_ast_node<TokenType>* child1;
+    re_ast_node<TokenType>* child2;
 
     virtual std::ostream& output(std::ostream& os)
     {
@@ -84,13 +86,13 @@ struct re_ast_node {
     re_ast_node()
         : leaf_num(0), grouping(false), accept_token(0), character_class(), child1(0), child2(0)
     {}
-    re_ast_node(re_ast_node* a)
+    re_ast_node(re_ast_node<TokenType>* a)
         : leaf_num(0), grouping(false), accept_token(0), character_class(), child1(a), child2(0)
     {}
-    re_ast_node(re_ast_node* a, re_ast_node* b)
+    re_ast_node(re_ast_node<TokenType>* a, re_ast_node<TokenType>* b)
         : leaf_num(0), grouping(false), accept_token(0), character_class(), child1(a), child2(b)
     {}
-    ~re_ast_node()
+    virtual ~re_ast_node()
     {
         if (child1) {
             delete child1;
@@ -100,7 +102,7 @@ struct re_ast_node {
         }
     }
 
-    int reorder(std::vector<re_ast_node*>& table, int num=1)
+    int reorder(vector& table, int num=1)
     {
         if (!(child1 || child2)) {
             leaf_num = num;
@@ -118,9 +120,9 @@ struct re_ast_node {
         return num;
     }
 
-    virtual void followpos_rule(std::vector<re_ast_node*>& fp_table) {}
+    virtual void followpos_rule(vector& fp_table) {}
 
-    void compute_followpos(std::vector<re_ast_node*>& table)
+    void compute_followpos(vector& table)
     {
         if (child2) {
             child2->compute_followpos(table);
@@ -135,11 +137,9 @@ struct re_ast_node {
 
     virtual void propagate_followpos()
     {
-        std::set<int> fp;
         if (child2) {
             child2->propagate_followpos();
-            fp = child2->followpos;
-            followpos.insert(fp.begin(), fp.end());
+            followpos.insert(child2->followpos.begin(), child2->followpos.end());
         }
         if (child1) {
             child1->propagate_followpos();
@@ -158,56 +158,66 @@ struct re_ast_node {
         return character_class.empty();
     }
 
-    virtual std::set<int> firstpos_()
+    virtual std::set<int>& firstpos_()
     {
-        std::set<int> ret;
         if (!leaf_num) {
-            return ret;
+            return m_firstpos;
         }
         if (!nullable()) {
-            ret.insert(leaf_num);
+            m_firstpos.insert(leaf_num);
         }
-        return ret;
+        return m_firstpos;
+        /*return ret;*/
     }
 
-    virtual std::set<int> lastpos_()
+    virtual std::set<int>& lastpos_()
     {
-        std::set<int> ret;
-        if (!leaf_num) {
-            return ret;
+        if (leaf_num) {
+            /*m_lastpos = firstpos();*/
+            m_lastpos.insert(leaf_num);
         }
-        ret = firstpos();
-        ret.insert(leaf_num);
-        return ret;
+        return m_lastpos;
     }
 
-    std::set<int> firstpos()
+    std::set<int>& firstpos()
     {
         if (m_firstpos.size()) {
             return m_firstpos;
         }
-        return m_firstpos = firstpos_();
+        return firstpos_();
     }
 
-    std::set<int> lastpos()
+    std::set<int>& lastpos()
     {
         if (m_lastpos.size()) {
             return m_lastpos;
         }
-        return m_lastpos = lastpos_();
+        return lastpos_();
     }
 };
 
+template <typename TokenType>
+using re_ast_node_vector = typename re_ast_node<TokenType>::vector;
 
-struct final_node : re_ast_node {
-    final_node(grammar::item::base* tok)
-        : re_ast_node()
+template <typename TokenType>
+struct final_node : re_ast_node<TokenType> {
+    using re_ast_node<TokenType>::m_firstpos;
+    using re_ast_node<TokenType>::m_lastpos;
+    using re_ast_node<TokenType>::child1;
+    using re_ast_node<TokenType>::child2;
+    using re_ast_node<TokenType>::_output;
+    using re_ast_node<TokenType>::accept_token;
+    using re_ast_node<TokenType>::leaf_num;
+    final_node(TokenType tok)
+        : re_ast_node<TokenType>()
     { accept_token = tok; }
-    std::set<int> firstpos_() {
-        return {leaf_num};
+    std::set<int>& firstpos_() {
+        m_firstpos = {leaf_num};
+        return m_firstpos;
     }
-    std::set<int> lastpos_() {
-        return {leaf_num};
+    std::set<int>& lastpos_() {
+        m_lastpos = {leaf_num};
+        return m_lastpos;
     }
     bool nullable() { return false; }
 
@@ -217,13 +227,20 @@ struct final_node : re_ast_node {
     }
 };
 
-struct initial_node : re_ast_node {
-    initial_node() : re_ast_node() {}
-    std::set<int> firstpos_() {
-        return {leaf_num};
+template <typename TokenType>
+struct initial_node : re_ast_node<TokenType> {
+    using re_ast_node<TokenType>::m_firstpos;
+    using re_ast_node<TokenType>::m_lastpos;
+    using re_ast_node<TokenType>::_output;
+    using re_ast_node<TokenType>::leaf_num;
+    initial_node() : re_ast_node<TokenType>() {}
+    std::set<int>& firstpos_() {
+        m_firstpos = {leaf_num};
+        return m_firstpos;
     }
-    std::set<int> lastpos_() {
-        return {leaf_num};
+    std::set<int>& lastpos_() {
+        m_lastpos = {leaf_num};
+        return m_lastpos;
     }
     bool nullable() { return false; }
 
@@ -233,18 +250,23 @@ struct initial_node : re_ast_node {
     }
 };
 
-
-struct cat_node : re_ast_node {
-    cat_node(re_ast_node* a, re_ast_node* b)
-        : re_ast_node(a, b)
+template <typename TokenType>
+struct cat_node : re_ast_node<TokenType> {
+    using re_ast_node<TokenType>::child1;
+    using re_ast_node<TokenType>::child2;
+    using re_ast_node<TokenType>::_output;
+    using re_ast_node<TokenType>::m_firstpos;
+    using re_ast_node<TokenType>::m_lastpos;
+    cat_node(re_ast_node<TokenType>* a, re_ast_node<TokenType>* b)
+        : re_ast_node<TokenType>(a, b)
     {}
 
-    virtual void followpos_rule(std::vector<re_ast_node*>& table)
+    virtual void followpos_rule(re_ast_node_vector<TokenType>& table)
     {
-        std::cout << "cat_node::followpos_rule" << std::endl;
-        std::set<int> fp2 = child2->firstpos();
+        /*std::cout << "cat_node::followpos_rule" << std::endl;*/
+        std::set<int>& fp2 = child2->firstpos();
         for (auto lp: child1->lastpos()) {
-            std::cout << lp << "<->" << table[lp]->leaf_num << std::endl;
+            /*std::cout << lp << "<->" << table[lp]->leaf_num << std::endl;*/
             table[lp]->followpos.insert(fp2.begin(), fp2.end());
         }
     }
@@ -254,25 +276,28 @@ struct cat_node : re_ast_node {
         return child1->nullable() && child2->nullable();
     }
 
-    virtual std::set<int> firstpos_()
+    virtual std::set<int>& firstpos_()
     {
-        std::set<int> ret = child1->firstpos();
+        m_firstpos = child1->firstpos();
         if (child1->nullable()) {
-            std::set<int> tmp = child2->firstpos();
-            ret.insert(tmp.begin(), tmp.end());
+            m_firstpos.insert(child2->firstpos().begin(), child2->firstpos().end());
+            /*std::set<int> tmp = child2->firstpos();*/
+            /*ret.insert(tmp.begin(), tmp.end());*/
         }
-        return ret;
+        return m_firstpos;
+        /*return ret;*/
     }
 
-    virtual std::set<int> lastpos_()
+    virtual std::set<int>& lastpos_()
     {
-        std::set<int> ret = child2->lastpos();
+        m_lastpos = child2->lastpos();
         if (child2->nullable()) {
-            std::set<int> tmp = child2->firstpos();
-            tmp.insert(ret.begin(), ret.end());
-            return tmp;
+            m_lastpos.insert(child2->firstpos().begin(), child2->firstpos().end());
+            /*std::set<int> tmp = child2->firstpos();*/
+            /*tmp.insert(ret.begin(), ret.end());*/
+            /*return tmp;*/
         }
-        return ret;
+        return m_lastpos;
     }
 
     virtual std::ostream& output(std::ostream& os)
@@ -281,9 +306,15 @@ struct cat_node : re_ast_node {
     }
 };
 
-struct or_node : re_ast_node {
-    or_node(re_ast_node* a, re_ast_node* b)
-        : re_ast_node(a, b)
+template <typename TokenType>
+struct or_node : re_ast_node<TokenType> {
+    using re_ast_node<TokenType>::m_firstpos;
+    using re_ast_node<TokenType>::m_lastpos;
+    using re_ast_node<TokenType>::child1;
+    using re_ast_node<TokenType>::child2;
+    using re_ast_node<TokenType>::_output;
+    or_node(re_ast_node<TokenType>* a, re_ast_node<TokenType>* b)
+        : re_ast_node<TokenType>(a, b)
     {}
 
     virtual bool nullable()
@@ -291,20 +322,26 @@ struct or_node : re_ast_node {
         return child1->nullable() || child2->nullable();
     }
 
-    virtual std::set<int> firstpos_()
+    virtual std::set<int>& firstpos_()
     {
-        std::set<int> ret = child1->firstpos();
-        std::set<int> tmp = child2->firstpos();
-        ret.insert(tmp.begin(), tmp.end());
-        return ret;
+        m_firstpos = child1->firstpos();
+        m_firstpos.insert(child2->firstpos().begin(), child2->firstpos().end());
+        return m_firstpos;
+        /*std::set<int> ret = child1->firstpos();*/
+        /*std::set<int> tmp = child2->firstpos();*/
+        /*ret.insert(tmp.begin(), tmp.end());*/
+        /*return ret;*/
     }
 
-    virtual std::set<int> lastpos_()
+    virtual std::set<int>& lastpos_()
     {
-        std::set<int> ret = child1->lastpos();
-        std::set<int> tmp = child2->lastpos();
-        ret.insert(tmp.begin(), tmp.end());
-        return ret;
+        m_lastpos = child1->lastpos();
+        m_lastpos.insert(child2->lastpos().begin(), child2->lastpos().end());
+        return m_firstpos;
+        /*std::set<int> ret = child1->lastpos();*/
+        /*std::set<int> tmp = child2->lastpos();*/
+        /*ret.insert(tmp.begin(), tmp.end());*/
+        /*return ret;*/
     }
 
     virtual std::ostream& output(std::ostream& os)
@@ -313,15 +350,20 @@ struct or_node : re_ast_node {
     }
 };
 
-struct star_node : re_ast_node {
-    star_node(re_ast_node* a)
-        : re_ast_node(a)
+template <typename TokenType>
+struct star_node : re_ast_node<TokenType> {
+    using re_ast_node<TokenType>::m_firstpos;
+    using re_ast_node<TokenType>::m_lastpos;
+    using re_ast_node<TokenType>::child1;
+    using re_ast_node<TokenType>::_output;
+    star_node(re_ast_node<TokenType>* a)
+        : re_ast_node<TokenType>(a)
     {}
 
-    virtual void followpos_rule(std::vector<re_ast_node*>& table)
+    virtual void followpos_rule(re_ast_node_vector<TokenType>& table)
     {
-        std::set<int> lp1 = child1->lastpos();
-        std::set<int> fp1 = child1->firstpos();
+        std::set<int>& lp1 = child1->lastpos();
+        std::set<int>& fp1 = child1->firstpos();
         /*std::set<int>::iterator i, j;*/
         /*i = lp1.begin();*/
         /*j = lp1.end();*/
@@ -346,17 +388,21 @@ struct star_node : re_ast_node {
         return true;
     }
 
-    virtual std::set<int> firstpos_()
+    virtual std::set<int>& firstpos_()
     {
-        return child1->firstpos();
+        m_firstpos = child1->firstpos();
+        return m_firstpos;
     }
 
-    virtual std::set<int> lastpos_()
+    virtual std::set<int>& lastpos_()
     {
-        std::set<int> ret = child1->firstpos();
-        std::set<int> tmp = child1->lastpos();
-        ret.insert(tmp.begin(), tmp.end());
-        return ret;
+        m_lastpos = child1->firstpos();
+        m_lastpos.insert(child1->lastpos().begin(), child1->lastpos().end());
+        return m_lastpos;
+        /*std::set<int> ret = child1->firstpos();*/
+        /*std::set<int> tmp = child1->lastpos();*/
+        /*ret.insert(tmp.begin(), tmp.end());*/
+        /*return ret;*/
     }
 
     virtual std::ostream& output(std::ostream& os)
@@ -366,23 +412,25 @@ struct star_node : re_ast_node {
 };
 
 
-static inline std::ostream& operator << (std::ostream& os, re_ast_node* a)
+template <typename TokenType>
+static inline std::ostream& operator << (std::ostream& os, re_ast_node<TokenType>* a)
 {
     return a->output(os);
 }
 
 
 
+template <typename TokenType>
 struct DFA {
     struct state {
         int next[256];
-        std::vector<grammar::item::base*> tokens;
-        std::set<int> name;
+        std::vector<TokenType> tokens;
+        /*std::set<int> name;*/
 
         static const int no_transition = -1;
 
-        state() : tokens(), name() { ::memset(next, 0xFF, sizeof(int) * 256); }
-        state(const std::set<int>& n) : tokens(), name(n) { ::memset(next, 0xFF, sizeof(int) * 256); }
+        state() : tokens()/*, name()*/ { ::memset(next, 0xFF, sizeof(int) * 256); }
+        state(const std::set<int>& n) : tokens()/*, name(n)*/ { ::memset(next, 0xFF, sizeof(int) * 256); }
 
     };
 
@@ -396,14 +444,15 @@ struct DFA {
             || (c == '_');
     }
 
-    std::unordered_map<grammar::item::base*, size_t>
-        operator () (const char* buf, size_t offset, size_t size)
+    std::unordered_map<TokenType, size_t>
+        operator () (const char* _buf, size_t offset, size_t size)
         {
-            const char* end = buf + size;
-            const char* cur = buf + offset;
-            std::unordered_map<grammar::item::base*, size_t> ret;
+            const unsigned char* buf = reinterpret_cast<const unsigned char*>(_buf);
+            const unsigned char* end = buf + size;
+            const unsigned char* cur = buf + offset;
+            std::unordered_map<TokenType, size_t> ret;
             int state = 0;
-            while (cur <= end && states[state].next[*cur] != -1) {
+            while (cur <= end && states[state].next[(size_t)*cur] != -1) {
 #if 0
                 if (states[state].next['\b']) {
                     /* perl-ish hack : assert word boundary */
@@ -418,14 +467,14 @@ struct DFA {
                 }
 #endif
                 auto& S = states[state];
-                std::cout << "state=" << state << " char=" << (*cur) << " tokens=" << S.tokens.size() << std::endl;
+                /*std::cout << "state=" << state << " char=" << (*cur) << " tokens=" << S.tokens.size() << std::endl;*/
                 if (S.tokens.size()) {
                     size_t ofs = cur - buf;
                     for (auto tok: S.tokens) {
                         ret[tok] = ofs;
                     }
                 }
-                state = S.next[*cur++];
+                state = S.next[(size_t)*cur++];
             }
             if (states[state].tokens.size()) {
                 size_t ofs = cur - buf;
@@ -439,8 +488,8 @@ struct DFA {
 
 
 #define MAX_DISPLAY 127
-static inline
-std::ostream& operator << (std::ostream& os, const DFA& dfa)
+template <typename TokenType>
+std::ostream& operator << (std::ostream& os, const DFA<TokenType>& dfa)
 {
     size_t n = dfa.states.size();
     size_t w = 1;
@@ -463,7 +512,7 @@ std::ostream& operator << (std::ostream& os, const DFA& dfa)
                 os << std::setw(w + 1) << '|';
             }
         }
-        os << st.name;
+        /*os << st.name;*/
         if (st.tokens.size()) {
             os << " ACCEPT";
         }
@@ -473,10 +522,11 @@ std::ostream& operator << (std::ostream& os, const DFA& dfa)
 }
 
 
+template <typename TokenType>
 struct builder {
-    DFA output;
+    DFA<TokenType> output;
     std::map<std::set<int>, int> state_map;
-    std::vector<re_ast_node*> table;
+    re_ast_node_vector<TokenType> table;
     std::deque<std::set<int>> unmarked;
 
     std::set<int> firstpos(const std::set<int>& nodes)
@@ -529,21 +579,22 @@ struct builder {
         if (num == 0) {
             num = output.states.size();
             /*std::cout << "  created! " << num << std::endl;*/
-            output.states.emplace_back(name);
+            output.states.emplace_back();
+            /*output.states.emplace_back(name);*/
             unmarked.push_back(name);
             /*for (int i: name) {*/
                 /*if (table[i]->accept_token) {*/
                     /*output.states.back().tokens.push_back(table[i]->accept_token);*/
                 /*}*/
             /*}*/
-            std::set<int> follow = followpos(name);
+            /*std::set<int> follow = followpos(name);*/
             /*std::cout << "accepting tokens :" << std::endl;*/
-            for (int i: follow) {
-                if (table[i]->accept_token) {
-                    output.states.back().tokens.push_back(table[i]->accept_token);
-                    std::cout << ((void*)table[i]->accept_token) << std::endl;
-                }
-            }
+            /*for (int i: follow) {*/
+                /*if (table[i]->accept_token) {*/
+                    /*output.states.back().tokens.push_back(table[i]->accept_token);*/
+                    /*std::cout << table[i]->accept_token << std::endl;*/
+                /*}*/
+            /*}*/
         }
         return num;
     }
@@ -570,7 +621,7 @@ struct builder {
         return ret;
     }
 
-    builder(re_ast_node* ast)
+    builder(re_ast_node<TokenType>* ast)
         : output()
         , state_map()
         , table()
@@ -578,7 +629,8 @@ struct builder {
         if (!ast) {
             return;
         }
-        table.push_back(new initial_node());
+        /*std::cout << "AST@" << ((void*)ast) << std::endl;*/
+        table.push_back(new initial_node<TokenType>());
         ast->reorder(table);
         /*ast->firstpos();*/
         /*ast->lastpos();*/
@@ -593,7 +645,7 @@ struct builder {
             ptr->followpos.insert(tmp.begin(), tmp.end());
         }
         ast->propagate_followpos();
-        std::cout << "AST = " << std::endl << ast << std::endl;
+        /*std::cout << "AST = " << std::endl << ast << std::endl;*/
 
         table.front()->followpos = ast->firstpos();
 
@@ -608,6 +660,12 @@ struct builder {
             /*std::cout << "=============== state #" << num << std::endl;*/
             /*std::cout << "transitioning symbols " << all_symbols(name) << std::endl;*/
             std::set<int> follow = followpos(name);
+            for (int i: follow) {
+                if (table[i]->accept_token) {
+                    output.states[num].tokens.push_back(table[i]->accept_token);
+                    /*std::cout << table[i]->accept_token << std::endl;*/
+                }
+            }
             for (re_char_t symbol: all_symbols(follow)) {
                 /*std::cout << "* on symbol " << symbol << std::endl;*/
                 /*std::set<int> next_p = followpos(name, symbol);*/
@@ -620,80 +678,97 @@ struct builder {
     }
 };
 
-
 namespace re_parser {
-    re_ast_node* _cat(re_ast_node* a, re_ast_node* b)
+template <typename TokenType>
+    re_ast_node<TokenType>* _cat(re_ast_node<TokenType>* a, re_ast_node<TokenType>* b)
     {
         if (a) {
-            return new cat_node(a, b);
+            return new cat_node<TokenType>(a, b);
         } else {
             return b;
         }
     }
 
-    re_ast_node* _or(re_ast_node* a, re_ast_node* b)
+template <typename TokenType>
+    re_ast_node<TokenType>* _or(re_ast_node<TokenType>* a, re_ast_node<TokenType>* b)
     {
         if (!(a && b)) {
             /* error! */
         }
-        return new or_node(a, b);
+        return new or_node<TokenType>(a, b);
     }
 
-    re_ast_node* _star(re_ast_node* a)
+template <typename TokenType>
+    re_ast_node<TokenType>* _star(re_ast_node<TokenType>* a)
     {
         if (!a) {
             /* error! */
         }
-        return new star_node(a);
+        return new star_node<TokenType>(a);
     }
 
-    re_ast_node* pop(std::vector<re_ast_node*>& stack)
+template <typename TokenType>
+    re_ast_node<TokenType>* pop(re_ast_node_vector<TokenType>& stack)
     {
-        re_ast_node* ret = stack.back();
+        re_ast_node<TokenType>* ret = stack.back();
         stack.pop_back();
         return ret;
     }
 
-    void _cat(std::vector<re_ast_node*>& stack)
+template <typename TokenType>
+    void _cat(re_ast_node_vector<TokenType>& stack)
     {
-        re_ast_node* b = pop(stack);
-        re_ast_node* a = pop(stack);
+        re_ast_node<TokenType>* b = pop<TokenType>(stack);
+        re_ast_node<TokenType>* a = pop<TokenType>(stack);
         stack.push_back(_cat(a, b));
     }
 
-    void _cat_reduce(std::vector<re_ast_node*>& stack)
+template <typename TokenType>
+    void _cat_reduce(re_ast_node_vector<TokenType>& stack)
     {
         while (stack.size() >= 2) {
-            _cat(stack);
+            _cat<TokenType>(stack);
         }
     }
 
-    void _or(std::vector<re_ast_node*>& stack)
+template <typename TokenType>
+    void _or(re_ast_node_vector<TokenType>& stack)
     {
-        re_ast_node* b = pop(stack);
-        re_ast_node* a = pop(stack);
+        re_ast_node<TokenType>* b = pop<TokenType>(stack);
+        re_ast_node<TokenType>* a = pop<TokenType>(stack);
         stack.push_back(_or(a, b));
     }
 
-    void _star(std::vector<re_ast_node*>& stack)
+template <typename TokenType>
+    void _or_reduce(re_ast_node_vector<TokenType>& stack)
     {
-        re_ast_node* a = _star(pop(stack));
+        while (stack.size() >= 2) {
+            _or<TokenType>(stack);
+        }
+    }
+
+template <typename TokenType>
+    void _star(re_ast_node_vector<TokenType>& stack)
+    {
+        re_ast_node<TokenType>* a = _star<TokenType>(pop<TokenType>(stack));
         stack.push_back(a);
     }
 
-    std::pair<re_ast_node*, const char*> parse_rec(const char* ptr, char delim, re_ast_node* start = NULL)
+template <typename TokenType>
+    std::pair<re_ast_node<TokenType>*, const char*>
+    parse_rec(const char* ptr, char delim, re_ast_node<TokenType>* start = NULL)
     {
-        std::vector<re_ast_node*> stack;
-        std::pair<re_ast_node*, const char*> ret;
+        re_ast_node_vector<TokenType> stack;
+        std::pair<re_ast_node<TokenType>*, const char*> ret;
         /*re_ast_node* ast = start;*/
         stack.push_back(start);
-        re_ast_node* tmp;
+        re_ast_node<TokenType>* tmp;
         bool neg;
         while (*ptr != delim) {
             switch (*ptr) {
                 case '\\':
                     ++ptr;
-                    tmp = new re_ast_node();
+                    tmp = new re_ast_node<TokenType>();
                     switch(*ptr) {
                         case '*':
                         case '?':
@@ -727,30 +802,30 @@ namespace re_parser {
                     ++ptr;
                     break;
                 case '*':
-                    _star(stack);
+                    _star<TokenType>(stack);
                     ++ptr;
                     break;
                 case '?':
-                    stack.push_back(new re_ast_node());
-                    _or(stack);
+                    stack.push_back(new re_ast_node<TokenType>());
+                    _or<TokenType>(stack);
                     ++ptr;
                     break;
                 case '+':
                     stack.push_back(stack.back());
-                    _star(stack);
-                    _cat(stack);
+                    _star<TokenType>(stack);
+                    _cat<TokenType>(stack);
                     ++ptr;
                     break;
                 case '|':
                     ++ptr;
-                    ret = parse_rec(ptr, delim);
+                    ret = parse_rec<TokenType>(ptr, delim);
                     ptr = ret.second;
-                    _cat_reduce(stack);
+                    _cat_reduce<TokenType>(stack);
                     stack.push_back(ret.first);
-                    _or(stack);
+                    _or<TokenType>(stack);
                     break;
                 case '[':
-                    tmp = new re_ast_node();
+                    tmp = new re_ast_node<TokenType>();
                     ++ptr;
                     if (*ptr == '^') {
                         neg = true;
@@ -810,7 +885,7 @@ namespace re_parser {
                     ++ptr;
                     break;
                 case '(':
-                    ret = parse_rec(ptr + 1, ')');
+                    ret = parse_rec<TokenType>(ptr + 1, ')');
                     ptr = ret.second;
                     ret.first->grouping = true;
                     /*ast = _cat(ast, ret.first);*/
@@ -818,7 +893,7 @@ namespace re_parser {
                     ++ptr;
                     break;
                 case '.':
-                    tmp = new re_ast_node();
+                    tmp = new re_ast_node<TokenType>();
                     for (re_char_t i = 0; i <= 255; ++i) {
                         tmp->character_class.insert(i);
                     }
@@ -826,7 +901,7 @@ namespace re_parser {
                     ++ptr;
                     break;
                 default:
-                    tmp = new re_ast_node();
+                    tmp = new re_ast_node<TokenType>();
                     tmp->character_class.insert(*ptr);
                     /*ast = _cat(ast, tmp);*/
                     stack.push_back(tmp);
@@ -834,25 +909,26 @@ namespace re_parser {
             };
         }
         while (stack.size() >= 2) {
-            re_ast_node* c2 = stack.back();
+            re_ast_node<TokenType>* c2 = stack.back();
             stack.pop_back();
-            re_ast_node* c1 = stack.back();
+            re_ast_node<TokenType>* c1 = stack.back();
             stack.pop_back();
-            stack.push_back(_cat(c1, c2));
+            stack.push_back(_cat<TokenType>(c1, c2));
         }
-        return std::pair<re_ast_node*, const char*>(stack.size() ? stack.front() : NULL, ptr);
+        return std::pair<re_ast_node<TokenType>*, const char*>(stack.size() ? stack.front() : NULL, ptr);
     }
 
-    re_ast_node* parse(const char* pattern, grammar::item::base* token)
+template <typename TokenType>
+    re_ast_node<TokenType>* parse(const char* pattern, TokenType token)
     {
         const char* ptr = pattern;
         /*std::pair<re_ast_node*, const char*> ret = parse_rec(ptr, 0, new initial_node());*/
-        std::pair<re_ast_node*, const char*> ret = parse_rec(ptr, 0);
+        std::pair<re_ast_node<TokenType>*, const char*> ret = parse_rec<TokenType>(ptr, 0);
         if (*ret.second) {
             /* error! didn't parse everything */
         }
-        re_ast_node* final = new final_node(token);
-        return _cat(ret.first, final);
+        re_ast_node<TokenType>* final = new final_node<TokenType>(token);
+        return _cat<TokenType>(ret.first, final);
     }
 }
 
@@ -939,6 +1015,7 @@ struct translation {
 };
 
 
+#if 0
 struct token_to_re_ast : grammar::visitors::dummy_filter<re_ast_node*> {
     virtual re_ast_node* eval(item::token::Str* x)
     {
@@ -970,16 +1047,48 @@ struct token_to_re_ast : grammar::visitors::dummy_filter<re_ast_node*> {
         /*return 0;*/
     }
 };
+#endif
 
 
+template <typename TokenType>
 struct lexer {
-    std::unordered_map<grammar::item::base*, size_t> match(const char* buffer, size_t size)
+    std::unordered_map<TokenType, re_ast_node<TokenType>*> tokens;
+    DFA<TokenType> dfa;
+
+    std::unordered_map<TokenType, size_t> match(const char* buffer, size_t size)
     {
     }
 
     void compile()
     {
+        auto i = tokens.begin(), j = tokens.end();
+        re_ast_node<TokenType>* ast = i->second;
+        for (++i; i != j; ++i) {
+            ast = new or_node<TokenType>(ast, i->second);
+        }
+        dfa = builder<TokenType>(ast).output;
+#if 0
+        re_ast_node_vector<TokenType> stack(tokens.size());
+        for (auto& kv: tokens) {
+            stack.push_back(kv.second);
+            std::cout << ((void*)stack.back()) << std::endl;
+        }
+        re_parser::_or_reduce<TokenType>(stack);
+        std::cout << ((void*)stack.back()) << std::endl;
+        dfa = builder<TokenType>(stack.front()).output;
+#endif
     }
+
+    void add_token(TokenType t, re_ast_node<TokenType>* ast)
+    {
+        tokens[t] = ast;
+    }
+
+    std::unordered_map<TokenType, size_t>
+        operator () (const char* buf, size_t offset, size_t size)
+        {
+            return dfa(buf, offset, size);
+        }
 };
 
 
