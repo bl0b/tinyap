@@ -14,6 +14,7 @@ namespace lr {
 				/* push ast node */
 				node* n = alloc_node(noid);
 				n->ast = ast;
+                ref(n->ast);
 				/*if(ast) {*/
 					/*ast->raw.ref++;*/
 				/*}*/
@@ -47,6 +48,9 @@ namespace lr {
 						Ast output = red.process((grammar::rule::base*)R);
 						Ast old = accepted;
 						accepted = grammar::rule::internal::append()(output, accepted);
+                        ref(accepted);
+                        unref(old);
+
 						/*accepted->raw.ref++;*/
 						/*delete_node(old);*/
 						/*delete_node(accum);*/

@@ -1,3 +1,4 @@
+#include <unordered_map>
 #include "lr.h"
 #include "static_init.h"
 
@@ -32,14 +33,14 @@ namespace item {
 		}
 	}
 
-	static ext::hash_map<const ast_node_t, base*, lr::hash_an, lr::ptr_eq<_ast_node_t> >& registry = _static_init.grammar_registry;
+	static std::unordered_map<const ast_node_t, base*, lr::hash_an, lr::ptr_eq<_ast_node_t> >& registry = _static_init.grammar_registry;
 
-	ext::hash_map<const char*, token::Nt*>& token::Nt::registry = _static_init.nt_registry;
+	std::unordered_map<const char*, token::Nt*>& token::Nt::registry = _static_init.nt_registry;
 
 	void clean_registry_at_exit() {
-		typedef ext::hash_map<const ast_node_t, base*, lr::hash_an, lr::ptr_eq<_ast_node_t> >::iterator mapiter_t;
-		typedef ext::hash_map<const char*, token::Nt*>::iterator nt_reg_iter_t;
-		typedef ext::hash_map<const char*, trie_t>::iterator trie_reg_iter_t;
+		typedef std::unordered_map<const ast_node_t, base*, lr::hash_an, lr::ptr_eq<_ast_node_t> >::iterator mapiter_t;
+		typedef std::unordered_map<const char*, token::Nt*>::iterator nt_reg_iter_t;
+		typedef std::unordered_map<const char*, trie_t>::iterator trie_reg_iter_t;
 		mapiter_t i, j=registry.end();
 		for(i=registry.begin();i!=j;++i) {
 			delete_node((ast_node_t)i->first);
@@ -207,7 +208,8 @@ namespace item {
 		if(cached) {
 			registry[n] = cached;
 			/*std::cerr << "registry[" << n << "] = " << cached << std::endl;*/
-			n->raw.ref++;
+			/*n->raw.ref++;*/
+            ref(n);
 		} else {
 			registry.erase(n);
 		}
@@ -232,21 +234,23 @@ namespace combination {
 	}
 
 	std::pair<ast_node_t, unsigned int> rec_recog(const char* source, unsigned int offset, unsigned int size, RawSeq::const_iterator i, RawSeq::const_iterator j) {
-		if(i==j) {
+		if(i == j) {
 			return std::pair<ast_node_t, unsigned int>(0, offset);
 		}
 		/*typedef std::list<Ast> recog_stack_t;*/
 		typedef std::list<ast_node_t> recog_stack_t;
 		recog_stack_t stack;
-		while(offset<size&&i!=j) {
+		while(offset<size && i!=j) {
 			std::pair<ast_node_t, unsigned int> cur = (*i)->recognize(source, offset, size);
 			if(!cur.first) {
 				return std::pair<ast_node_t, unsigned int>(0, offset);
 			}
 			offset = cur.second;
-			if(cur.first!=PRODUCTION_OK_BUT_EMPTY) {
+			if(cur.first != PRODUCTION_OK_BUT_EMPTY) {
 				stack.push_back(Car(cur.first));
-				Car(cur.first)->raw.ref++;
+				/*Car(cur.first)->raw.ref++;*/
+                ref(Car(cur.first));
+                std::cout << cur.first << std::endl;
 				delete_node(cur.first);
 			}
 			++i;
@@ -411,19 +415,17 @@ namespace rule {
 
 
 Grammar::Grammar(ast_node_t rules) {
-	if(rules) {
-		/*std::cout << "DEBUG GRAMMAR " << rules << std::endl;*/
-		/*std::cout << "pouet" << std::endl;*/
-		while(rules) {
-			ast_node_t rule = Car(rules);
-			/*std::cout << "         RULE " << rule << std::endl;*/
-			if(regstr(Value(Car(rule)))!=STR_Comment) {
-				const char* tag = Value(Car(Cdr(rule)));
-				add_rule(tag, dynamic_cast<rule::base*>(item::base::from_ast(rule, this)));
-			}
-			rules = Cdr(rules);
-		}
-	}
+    /*std::cout << "DEBUG GRAMMAR " << rules << std::endl;*/
+    /*std::cout << "pouet" << std::endl;*/
+    while(rules) {
+        ast_node_t rule = Car(rules);
+        /*std::cout << "         RULE " << rule << std::endl;*/
+        if(regstr(Value(Car(rule)))!=STR_Comment) {
+            const char* tag = regstr(Value(Car(Cdr(rule))));
+            add_rule(tag, dynamic_cast<rule::base*>(item::base::from_ast(rule, this)));
+        }
+        rules = Cdr(rules);
+    }
 	/* initialize whitespace-skipping subsystem */
 	rule::base* WS = (*this)["_whitespace"];
 	ws = NULL;

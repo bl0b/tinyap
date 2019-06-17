@@ -211,14 +211,5 @@ namespace grammar {
 }
 
 
-#if 0
-namespace lr0 {
-	struct transition;
-	class state;
-	class gss;
-	class automaton;
-}
-#endif
-
 #endif
 

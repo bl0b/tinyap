@@ -48,33 +48,36 @@ typedef enum { ast_Nil=0, ast_Pool=42, ast_Atom=0x6106, ast_Pair=0x8108 } ast_ty
 union _ast_node_t {
 	/* first union member is used for static initializations */
 	struct _ant_sz {
-		ast_type_t _;
-		void*_p1;
-		void*_p2;
-		int ref;
+		ast_type_t type;
+        int offset;
+		void* p1;
+		void* p2;
+        void* _;
 	} raw;
 	void*__align[4];
+	/* direct access to type field */
+	ast_type_t type;
 	/* position in source text */
 	struct {
 		ast_type_t _res_type;
-		void*__res_at_str;
-		unsigned int offset;
+		int offset;
 	} pos;
-	/* direct access to type field */
-	ast_type_t type;
 	/* an atom : type_Atom + token */
 	struct {
 		ast_type_t _res_type;
+		int offset;
 		char*_str;
-		unsigned int offset;
 	} atom;
 	/* a pair : type_Pair + car_ptr + cdr_ptr */
 	struct {
-		ast_type_t _;
+		ast_type_t _res_type;
+		int _res_offset;
 		union _ast_node_t* _car;
 		union _ast_node_t* _cdr;
 	} pair;
 };
+
+
 
 #if 0
 // OLD IMPL
@@ -217,9 +220,13 @@ static inline ast_node_t ast_type_check(const ast_node_t n,const ast_type_t expe
 #	define ast_type_check(_n, _e, _f, _l) (_n)
 #endif
 
-ast_node_t newAtom_debug(const char*data, size_t offset, const char*F, size_t L);
+ast_node_t ref(ast_node_t);
+void unref(ast_node_t);
+size_t ref_count(ast_node_t);
+
+ast_node_t newAtom_debug(const char*data, int offset, const char*F, size_t L);
 ast_node_t newPair_debug(const ast_node_t a,const ast_node_t d, const char*F, size_t L);
-ast_node_t newAtom_impl(const char*data, size_t offset);
+ast_node_t newAtom_impl(const char*data, int offset);
 ast_node_t newPair_impl(const ast_node_t a,const ast_node_t d);
 #ifdef DEBUG_ALLOCS
 #define newAtom(_d, _o) newAtom_debug(_d, _o, __FILE__, __LINE__)
@@ -237,6 +244,7 @@ extern ast_node_t PRODUCTION_OK_BUT_EMPTY;
 
 const char* ast_serialize_to_string(const ast_node_t ast, int show_offset);
 
+void dump_ast_reg();
 #ifdef __cplusplus
 }
 
@@ -249,23 +257,17 @@ static inline std::ostream& operator<<(std::ostream&os, const ast_node_t n) {
 
 struct Ast {
 	Ast(const ast_node_t _)
-		: n(_)
-	{
-		if(n) { n->raw.ref++; } 
-	}
+		: n(ref(_))
+	{}
 	Ast(const Ast& a)
-		: n(a)
-	{
-		if(n) { n->raw.ref++; }
-	}
+		: n(ref(a))
+	{}
 	Ast() : n(0) {}
-	~Ast() { delete_node(n); }
+	~Ast() { unref(n); }
 	Ast& operator=(const ast_node_t x) {
-		if(x) {
-			x->raw.ref++;
-		}
-		delete_node(n);
+		unref(n);
 		n=x;
+        ref(n);
 		return *this;
 	}
 	operator ast_node_t() const { return n; }

@@ -24,7 +24,7 @@
 
 #ifdef __cplusplus
 static inline unsigned int _srh(const char*notnull) {
-	register unsigned int accum = 0;
+	unsigned int accum = 0;
 //	if((unsigned int)notnull<0x100) {
 //		 /* suspect an optimized tag (not-a-string) */
 //		notnull = op2string((int)notnull);

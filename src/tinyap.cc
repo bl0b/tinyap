@@ -40,8 +40,8 @@ struct k_cmp {
 	}
 };
 
-#include <ext/hash_map>
-typedef __gnu_cxx::hash_map<const char*, int, k_h, k_cmp> str_reg_t;
+#include <unordered_map>
+typedef std::unordered_map<const char*, int, k_h, k_cmp> str_reg_t;
 
 /*static*/ str_reg_t str_registry;
 struct tinyap_static_init _static_init;
@@ -243,7 +243,7 @@ void tinyap_terminate() {
 	is_init=0;
 	grammar::item::clean_registry_at_exit();
 	flush_nodes();
-	deinit_strreg();
+	/*deinit_strreg();*/
 	term_tinyap_alloc();
 	node_pool_term();
 	term_pilot_manager();

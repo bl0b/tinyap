@@ -17,8 +17,11 @@
  */
 /*#include "hashtab.h"*/
 #include "string_registry.h"
+#include "registry.h"
 #include <cstdlib>
 #include <cstdio>
+#include <unordered_map>
+#include <memory>
 
 struct k_h {
 	size_t operator()(const char*x) const {
@@ -32,8 +35,12 @@ struct k_cmp {
 	}
 };
 
-#include <ext/hash_map>
-typedef __gnu_cxx::hash_map<const char*, int, k_h, k_cmp> str_reg_t;
+struct str_registry_alloc {
+    std::string own(std::string s) { return s; }
+    void disown(std::string s) {}
+};
+
+typedef registry<std::string, str_registry_alloc> str_reg_t;
 
 //extern "C" {
 //	const char* op2string(int typ); 	/* defined in tokenizer.c */
@@ -44,8 +51,7 @@ unsigned int strreg_h(char*str) {
 	return str?_srh(str):0;
 }
 
-
-/*static*/ extern str_reg_t str_registry;
+std::unique_ptr<str_reg_t> str_registry = std::make_unique<str_reg_t>();
 
 /*struct _hashtable str_registry;*/
 
@@ -87,136 +93,63 @@ extern "C" {
 void init_strreg() {
 	/*init_hashtab(&str_registry, (hash_func) strreg_h, (compare_func) strcmp);*/
 	/* pre-fill registry with all hardcoded strings used in the tokenizer */
-    str_registry.clear();
+    if (!str_registry) {
+        str_registry = std::make_unique<str_reg_t>();
+    }
+    str_registry->clear();
 	STR__whitespace		= regstr_impl("_whitespace");
-	STR__start		= regstr_impl("_start");
-	STR_Grammar		= regstr_impl("Grammar");
-	STR_Comment		= regstr_impl("Comment");
-	STR_eos			= regstr_impl("eos");
-	STR_Alt			= regstr_impl("Alt");
-	STR_RawSeq		= regstr_impl("RawSeq");
-	STR_Seq			= regstr_impl("Seq");
-	STR_NT			= regstr_impl("NT");
-	STR_Epsilon		= regstr_impl("Epsilon");
-	STR_EOF			= regstr_impl("EOF");
-	STR_Rep0N		= regstr_impl("Rep0N");
-	STR_Rep01		= regstr_impl("Rep01");
-	STR_Rep1N		= regstr_impl("Rep1N");
-	STR_RE			= regstr_impl("RE");
-	STR_RPL			= regstr_impl("RPL");
-	STR_STR			= regstr_impl("STR");
-	STR_BOW			= regstr_impl("BOW");
+	STR__start	        = regstr_impl("_start");
+	STR_Grammar	        = regstr_impl("Grammar");
+	STR_Comment	        = regstr_impl("Comment");
+	STR_eos		        = regstr_impl("eos");
+	STR_Alt		        = regstr_impl("Alt");
+	STR_RawSeq	        = regstr_impl("RawSeq");
+	STR_Seq		        = regstr_impl("Seq");
+	STR_NT		        = regstr_impl("NT");
+	STR_Epsilon	        = regstr_impl("Epsilon");
+	STR_EOF		        = regstr_impl("EOF");
+	STR_Rep0N	        = regstr_impl("Rep0N");
+	STR_Rep01	        = regstr_impl("Rep01");
+	STR_Rep1N	        = regstr_impl("Rep1N");
+	STR_RE		        = regstr_impl("RE");
+	STR_RPL		        = regstr_impl("RPL");
+	STR_STR		        = regstr_impl("STR");
+	STR_BOW		        = regstr_impl("BOW");
 	STR_AddToBag		= regstr_impl("AddToBag");
-	STR_BKeep		= regstr_impl("BKeep");
-	STR_T			= regstr_impl("T");
-	STR_Prefix		= regstr_impl("Prefix");
-	STR_Postfix		= regstr_impl("Postfix");
+	STR_BKeep	        = regstr_impl("BKeep");
+	STR_T		        = regstr_impl("T");
+	STR_Prefix	        = regstr_impl("Prefix");
+	STR_Postfix	        = regstr_impl("Postfix");
 	STR_TransientRule	= regstr_impl("TransientRule");
 	STR_OperatorRule	= regstr_impl("OperatorRule");
-	STR_Space		= regstr_impl("Space");
-	STR_NewLine		= regstr_impl("NewLine");
-	STR_Indent		= regstr_impl("Indent");
-	STR_Dedent		= regstr_impl("Dedent");
+	STR_Space	        = regstr_impl("Space");
+	STR_NewLine	        = regstr_impl("NewLine");
+	STR_Indent	        = regstr_impl("Indent");
+	STR_Dedent	        = regstr_impl("Dedent");
 	STR_strip_me		= regstr_impl("strip.me");
 	/*atexit(deinit_strreg);*/
 }
 
 char* regstr_impl(const char* str) {
-	str_reg_t::iterator i = str_registry.find(str);
-	const char* ret;
-	if(i==str_registry.end()) {
-		ret = _strdup(str);
-		str_registry[ret] = 1;
-	} else {
-		ret = (*i).first;
-		(*i).second+=1;
-	}
-	return (char*)ret;
+    if (!str) {
+        return NULL;
+    }
+    char* ret = const_cast<char*>(str_registry->ref(str).c_str());
+    /*std::cout << '"' << str << "\" => " << ((void*) ret) << std::endl;*/
+    return ret;
 }
 
 void unregstr(const char*str) {
-	str_reg_t::iterator i = str_registry.find(str);
-	if(!str) { return; }
-	if(i!=str_registry.end()) {
-		--(*i).second;
-		if((*i).second<=0) {
-			char* x = (char*) (*i).first;
-			str_registry.erase(i);
-			_strfree(x);
-		}
-		return;
-	}
-	_strfree((char*)str);
+    str_registry->unref(str);
 }
 
 
 
 void deinit_strreg() {
-	/*clean_hashtab(&str_registry, _free_key);*/
-#if 1
-	str_reg_t::iterator i, j=str_registry.end();
-	std::vector<char*> stack;
-	stack.reserve(str_registry.size());
-	for(i=str_registry.begin();i!=j;++i) {
-		if((*i).first) {
-			stack.push_back((char*)(*i).first);
-		}
-	}
-	std::vector<char*>::iterator vi, vj = stack.end();
-	for(vi=stack.begin();vi!=vj;++vi) {
-		_strfree(*vi);
-	}
-#endif
-	str_registry.clear();
+	str_registry->clear();
 }
 
 
 
 }
-
-#if 0
-
-char* regstr(const char* str) {
-	if(!str) {
-		return "{null}";
-	} else {
-		htab_entry_t e = hash_find_e(&str_registry, (hash_key) (str<(char*)0x100?op2string((int)str):str));
-		char* ret;
-		if(!e) {
-			ret = _strdup(str);
-			hash_addelem(&str_registry, (hash_key) ret, (hash_elem) 1);
-			/*printf("register string \"%s\" (1)\n", ret);*/
-		} else {
-			e->e = (hash_elem) (((unsigned int)e->e)+1);
-			ret = (char*) e->key;
-			/*printf("register string \"%s\" (%u)\n", ret, (unsigned int)e->e);*/
-		}
-		return ret;
-	}
-}
-
-void unregstr(const char* str) {
-	htab_entry_t e = hash_find_e(&str_registry, (hash_key) (str<(char*)0x100?op2string((int)str):str));
-	if(!e) {
-		/* whine ? */
-		return;
-	}
-	e->e = (hash_elem) (((unsigned int)e->e)-1);
-	if(!e->e) {
-		char*k = e->key;
-		hash_delelem(&str_registry, (hash_key) str);
-		_strfree(k);
-	}
-}
-
-void _free_key(htab_entry_t e) {
-	_strfree(e->key);
-}
-
-void deinit_strreg() {
-	clean_hashtab(&str_registry, _free_key);
-}
-
-#endif
-
 

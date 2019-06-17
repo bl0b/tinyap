@@ -4,6 +4,7 @@
 #include "lr_base.h"
 #include "lr_grammar.h"
 #include "trie.h"
+#include <unordered_map>
 
 extern "C" {
 
@@ -43,17 +44,17 @@ struct hash_pair {
 		return ((size_t)a.first)+((((size_t)a.first)<<16)^((size_t)a.second));
 	}
 };
-typedef ext::hash_map<atom_key, ast_node_t, hash_atom, comp_atom> atom_registry_t;
-typedef ext::hash_map<pair_key, ast_node_t, hash_pair, comp_pair> pair_registry_t;
+typedef std::unordered_map<atom_key, ast_node_t, hash_atom, comp_atom> atom_registry_t;
+typedef std::unordered_map<pair_key, ast_node_t, hash_pair, comp_pair> pair_registry_t;
 
 
 struct tinyap_static_init {
 	std::set<ast_node_t> still_has_refs;
 	atom_registry_t atom_registry;
 	pair_registry_t pair_registry;
-	ext::hash_map<const ast_node_t, grammar::item::base*, lr::hash_an, lr::ptr_eq<_ast_node_t> > grammar_registry;
-	ext::hash_map<const char*, grammar::item::token::Nt*> nt_registry;
-	ext::hash_map<const char*, trie_t>& trie_registry;
+	std::unordered_map<const ast_node_t, grammar::item::base*, lr::hash_an, lr::ptr_eq<_ast_node_t> > grammar_registry;
+	std::unordered_map<const char*, grammar::item::token::Nt*> nt_registry;
+	std::unordered_map<const char*, trie_t>& trie_registry;
 	tinyap_static_init() : trie_registry(grammar::item::token::Bow::_registry()) { tinyap_init(); }
 	~tinyap_static_init() { tinyap_terminate(); }
 };

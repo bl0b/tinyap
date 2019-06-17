@@ -285,10 +285,14 @@ void ast_serialize(const ast_node_t ast,int(*func)(int,void*),void*param, int sh
 #		endif
 	/* if ast is atom, output atom */
 	} else if(isAtom(ast)) {
-		srcptr=regstr(getAtom(ast));
+		srcptr=getAtom(ast);
+        /*func('"', param);*/
 		while(*srcptr!=0) {
 			escape_chr(&srcptr,func,param, _LISP);
 		}
+        /*func('"', param);*/
+        /*func('@', param);*/
+        /*serialize_int(((void*) getAtom(ast)) - NULL, func, param);*/
 		if(show_offset) {
 #if 0
 			char buf[32];

@@ -23,7 +23,7 @@ HEADERS=ast.h bootstrap.h config.h hashtab.h list.h parse_context.h pilot_cache.
 ALLOC=-DUSE_MALLOC
 
 CFLAGS=$(DBG) $(OPT) $(ALLOC) -fPIC -Wall $(PROF)
-CPPFLAGS=$(DBG) $(OPT) $(ALLOC) -fPIC -Wno-deprecated -Wall $(PROF)
+CPPFLAGS=$(DBG) $(OPT) $(ALLOC) -std=c++17 -fPIC -Wno-deprecated -Wall $(PROF) -Wno-nonnull-compare
 
 TARGET=$(SUFFIX)/tinyap
 TEST=$(SUFFIX)/test

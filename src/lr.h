@@ -12,6 +12,7 @@
 #include <queue>
 #include <iomanip>
 #include <fstream>
+#include <unordered_map>
 
 
 extern "C" {
@@ -181,21 +182,19 @@ namespace lr {
 		virtual size_t eval(grammar::item::token::AddToBag* x) {
 			return ext::hash<const char*>()(x->pattern())+ext::hash<const char*>()(x->tag())+x->keep();
 		}
-
-
 	};
 	
-	typedef ext::hash_map<
+	typedef std::unordered_map<
 			const grammar::item::base*,
 			state*,
 			hash_gitb,
 			ptr_eq<grammar::item::base> > follow_set_text;
 
-	typedef ext::hash_map<
+	typedef std::unordered_map<
 			const char*,
 			state*> follow_set_stack;
 
-	typedef ext::hash_map<
+	typedef std::unordered_map<
 			const grammar::item::base*,
 			item_set,
 			hash_gitb,
@@ -280,6 +279,7 @@ namespace lr {
 }
 
 #include "lr_gss.h"
+#include "tokenizer.h"
 
 namespace lr {
 	/*
@@ -599,6 +599,29 @@ push u onto stack
 				}
 			}
 
+            bool process_shift_transitions(gss::node* n, const tokenizer& tkzr, const follow_set_text& transitions)
+            {
+				grammar::visitors::lr_item_debugger debug;
+                bool didnt_shift = true;
+                for(auto ti=transitions.begin(), tj=transitions.end(); ti!=tj;++ti) {
+                    if(!(*ti).second) {
+                        std::cerr << "null entry in transition table !" << std::endl;
+                        continue;
+                    }
+                    const grammar::item::base* token = (*ti).first;
+                    std::pair<ast_node_t, unsigned int> ret = tkzr.get_production_of(token);
+                    /*std::pair<ast_node_t, unsigned int> ret = token->recognize(buffer, ofs, size);*/
+                    std::clog << "follow by "; ((grammar::item::base*)token)->accept(&debug); std::clog << " => " << ((int)(ret.first?ret.second:-1)) << std::endl;
+                    if(ret.first) {
+                        didnt_shift=false;
+                        /*ret.first->raw.ref++;*/
+                        stack->shift(n, (grammar::item::base*)(*ti).first, (*ti).second, ret.first, ret.second, NULL);
+                        /*delete_node(ret.first);*/
+                    }
+                }
+                return didnt_shift;
+            }
+
 			ast_node_t parse(const char* buffer, unsigned int size, bool full_parse=true) {
 				grammar::visitors::lr_item_debugger debug;
 				std::list<gss::node*> farthest_nodes;
@@ -607,127 +630,97 @@ push u onto stack
 				errors.clear();
 				stack = new gss(item((*G)["_start"], grammar::item::iterator::create((*G)["_start"])), size);
 				stack->shift(NULL, NULL, S0, NULL, 0, NULL);
-				while(!stack->active.empty()) {
-					gss::node* n = stack->consume_active();
-					if(n->id.O>=farthest) {
-						farthest = n->id.O;
-						farthest_nodes.clear();
-						farthest_nodes.push_front(n);
-					}
-					state* S = n->id.S;
-					if(!S) {
-						throw "COIN";
-					}
-#if 0
+
+                tokenizer tkzr;
+                
+                size_t offset = G->skip(buffer, 0, size);
+
+				while(offset <= size && !stack->active.empty()) {
+                    stack->accepted = NULL;
+                    tkzr.init(stack->active.begin(), stack->active.end());
+                    offset = G->skip(buffer, tkzr.consume(buffer, offset, size), size);
+                    size_t n_states = stack->active.size();
+
+                    std::clog << "========================= STARTING PASS WITH " << n_states << " STATES ==================" << std::endl;
+
+                    while (n_states--) {
+    					gss::node* n = stack->consume_active();
+    					/*if(n->id.O>=farthest) {*/
+    						/*farthest = n->id.O;*/
+    						/*farthest_nodes.clear();*/
+    						/*farthest_nodes.push_front(n);*/
+    					/*}*/
+    					state* S = n->id.S;
+    					if(!S) {
+    						throw "COIN";
+    					}
+#if 1
 #define _tinyap_min(a, b) (a<b?a:b)
-					item_set ker;
-					kernel(S->items, ker);
-					char* aststr = (char*)ast_serialize_to_string(n->ast, 0);
-					std::clog	<< " ===  ACTIVE STATE ===(" << S->id << ") @" << n->id.O << ':'
-								<< std::string(buffer+n->id.O, _tinyap_min(buffer+n->id.O+20, buffer+size)) << std::endl
-								<< ker << "ast : " << aststr << std::endl; free(aststr);
+                        item_set ker;
+                        kernel(S->items, ker);
+                        char* aststr = (char*)ast_serialize_to_string(n->ast, 0);
+                        std::clog	<< " ===  ACTIVE STATE ===(" << S->id << ") @" << n->id.O << ':'
+                                    << std::string(buffer+n->id.O, _tinyap_min(buffer+n->id.O+20, buffer+size)) << std::endl
+                                    << ker << "ast : " << aststr << std::endl; free(aststr);
 #undef _tinyap_min
 #endif
-					item_set::iterator i, j;
 
-					follow_set_text::iterator ti, tj;
-					unsigned int ofs = n->id.O;
-					ofs = G->skip(buffer, n->id.O, size);
+                        /*follow_set_text::iterator ti, tj;*/
+                        /*unsigned int ofs = n->id.O;*/
+                        /*ofs = G->skip(buffer, n->id.O, size);*/
 
-					bool didnt_shift = true;
+                        bool didnt_shift;
 
-					/*
-					 * PHASE 2 : SHIFT
-					 */
+                        /*
+                         * PHASE 2 : SHIFT
+                         */
+                        didnt_shift = process_shift_transitions(n, tkzr, S->transitions.from_text_t);
+                        didnt_shift = (didnt_shift || full_parse) && process_shift_transitions(n, tkzr, S->transitions.from_text_bow);
+                        didnt_shift = (didnt_shift || full_parse) && process_shift_transitions(n, tkzr, S->transitions.from_text_re);
 
-					for(ti=S->transitions.from_text_t.begin(), tj=S->transitions.from_text_t.end();ti!=tj && didnt_shift;++ti) {
-						if(!(*ti).second) {
-							std::cerr << "null entry in transition table !" << std::endl;
-							continue;
-						}
-						const grammar::item::base* token = (*ti).first;
-						std::pair<ast_node_t, unsigned int> ret = token->recognize(buffer, ofs, size);
-						/*std::clog << "follow by "; ((grammar::item::base*)token)->accept(&debug); std::clog << " => " << ((int)(ret.first?ret.second:-1)) << std::endl;*/
-						if(ret.first) {
-							didnt_shift=false;
-							/*ret.first->raw.ref++;*/
-							stack->shift(n, (grammar::item::base*)(*ti).first, (*ti).second, ret.first, ret.second, NULL);
-							/*delete_node(ret.first);*/
-						}
-					}
+                        /*
+                         * PHASE 1 : REDUCE
+                         */
 
-                    for(ti=S->transitions.from_text_bow.begin(), tj=S->transitions.from_text_bow.end();ti!=tj && didnt_shift;++ti) {
-                        if(!(*ti).second) {
-                            std::cerr << "null entry in transition table !" << std::endl;
-                            continue;
+                        if(didnt_shift || full_parse) {
+                            item_set::iterator i, j;
+                            stack->init_reductions();
+                            for(i=S->reductions.begin(), j=S->reductions.end();i!=j;++i) {
+                                stack->reduce_all(n, *i, offset);
+                            }
+                            stack->flush_reductions();
                         }
-                        const grammar::item::base* token = (*ti).first;
-                        std::pair<ast_node_t, unsigned int> ret = token->recognize(buffer, ofs, size);
-                        /*std::clog << "follow by "; ((grammar::item::base*)token)->accept(&debug); std::clog << " => " << ((int)(ret.first?ret.second:-1)) << std::endl;*/
-                        if(ret.first) {
-                            didnt_shift=false;
-                            /*ret.first->raw.ref++;*/
-                            stack->shift(n, (grammar::item::base*)(*ti).first, (*ti).second, ret.first, ret.second, NULL);
-                            /*delete_node(ret.first);*/
-                        }
+
+                        /*
+                         * PHASE 3 : MERGE
+                         */
+
+                        stack->merge_active();
                     }
 
-                    for(ti=S->transitions.from_text_re.begin(), tj=S->transitions.from_text_re.end();ti!=tj && didnt_shift;++ti) {
-                        if(!(*ti).second) {
-                            std::cerr << "null entry in transition table !" << std::endl;
-                            continue;
-                        }
-                        const grammar::item::base* token = (*ti).first;
-                        std::pair<ast_node_t, unsigned int> ret = token->recognize(buffer, ofs, size);
-                        /*std::clog << "follow by "; ((grammar::item::base*)token)->accept(&debug); std::clog << " => " << ((int)(ret.first?ret.second:-1)) << std::endl;*/
-                        if(ret.first) {
-                            didnt_shift=false;
-                            /*ret.first->raw.ref++;*/
-                            stack->shift(n, (grammar::item::base*)(*ti).first, (*ti).second, ret.first, ret.second, NULL);
-                            /*delete_node(ret.first);*/
-                        }
-                    }
-
-					/*
-					 * PHASE 1 : REDUCE
-					 */
-
-					if(didnt_shift || full_parse) {
-						stack->init_reductions();
-						for(i=S->reductions.begin(), j=S->reductions.end();i!=j;++i) {
-							stack->reduce_all(n, *i, ofs);
-						}
-						stack->flush_reductions();
-					}
-
-					/*
-					 * PHASE 3 : MERGE
-					 */
-
-					stack->merge_active();
-
-					/*
-					 * verbose output
-					 */
+                    /*
+                     * verbose output
+                     */
 #define TAB "    "
-					if(tinyap_verbose) {
-						if((++states_count)%100==0) {
-							std::cout << "s:" << states_count << TAB << '@' << farthest << '/' << size
-								<< TAB << "gss:" << gss_allocs << '+' << gss_reallocs << '/' << gss_frees << '|' << gss_ram_size
-								<< TAB << gss_shifts << '\\' << gss_reduces
-								<< TAB << "buffers:" << tinyap_allocs << '+' << tinyap_reallocs << '/' << tinyap_frees << '|' << tinyap_ram_size
-								<< '\r' << std::flush;
-						}
-					}
+                    if(tinyap_verbose) {
+                        /*if((++states_count)%100==0) {*/
+                        if (true) {
+                            std::clog << "s:" << states_count << TAB << '@' << farthest << '/' << size
+                                << TAB << "gss:" << gss_allocs << '+' << gss_reallocs << '/' << gss_frees << '|' << gss_ram_size
+                                << TAB << gss_shifts << '\\' << gss_reduces
+                                << TAB << "buffers:" << tinyap_allocs << '+' << tinyap_reallocs << '/' << tinyap_frees << '|' << tinyap_ram_size
+                                << '\r' << std::flush;
+                        }
+                    }
 				}
 				if(tinyap_verbose) {
-					std::cout << "s:" << states_count << TAB << '@' << farthest << '/' << size
+					std::clog << "s:" << states_count << TAB << '@' << farthest << '/' << size
 						<< TAB << "gss:" << gss_allocs << '+' << gss_reallocs << '/' << gss_frees << '|' << gss_ram_size
 						<< TAB << gss_shifts << '\\' << gss_reduces
 						<< TAB << "buffers:" << tinyap_allocs << '+' << tinyap_reallocs << '/' << tinyap_frees << '|' << tinyap_ram_size
 						<< std::endl;
 				}
-				farthest = G->skip(buffer, farthest, size);
+				farthest = G->skip(buffer, offset, size);
 				/* error handling */
 				if(farthest!=size) {
 					errors.push_back(error());
@@ -777,10 +770,13 @@ push u onto stack
 				grammar += gram;
 				grammar += ")";
 
+                tinyap_verbose = true;
+
 				int alloc_delta0 = _node_alloc_count-_node_dealloc_count;
 				bool ok = false;
 				{
 					Ast g = gram?ast_unserialize(grammar.c_str()):NULL;
+                    std::clog << "g ref_count = " << ref_count(g) << std::endl;
 					/*ast_node_t g = gram?Car(ast_unserialize(grammar.c_str())):NULL;*/
 					std::clog << "===========================================================" << std::endl;
 					std::clog << "===========================================================" << std::endl;
@@ -796,7 +792,9 @@ push u onto stack
 					automaton r2d2(&gg);
 					r2d2.dump_states();
 
+                    std::clog << "[invoking parse]" << std::endl;
 					Ast ret = r2d2.parse(txt, strlen(txt));
+                    std::clog << "[returned from parse]" << std::endl;
 
 					char* tmp = (char*)(ret?ast_serialize_to_string(ret, true):strdup("nil"));
 
@@ -828,11 +826,12 @@ push u onto stack
 				tinyap_terminate();
 				int alloc_delta1 = _node_alloc_count-_node_dealloc_count;
 				if(alloc_delta1 != alloc_delta0) {
-					std::cout << "[TEST] [automaton] #" << testno << " leak detected (" << (alloc_delta1-alloc_delta0) << ')' << std::endl;
-					std::cout << "[TEST] [automaton] #" << testno << " grammar " << gram << std::endl;
-					std::cout << "[TEST] [automaton] #" << testno << " text " << txt << std::endl;
-					std::cout << "[TEST] [automaton] #" << testno << " expected " << expected << std::endl;
-					std::cout << "[TEST] [automaton] #" << testno << " ==================================" << std::endl;
+					std::clog << "[TEST] [automaton] #" << testno << " leak detected (" << (alloc_delta1-alloc_delta0) << ')' << std::endl;
+                    dump_ast_reg();
+					std::clog << "[TEST] [automaton] #" << testno << " grammar " << gram << std::endl;
+					std::clog << "[TEST] [automaton] #" << testno << " text " << txt << std::endl;
+					std::clog << "[TEST] [automaton] #" << testno << " expected " << expected << std::endl;
+					std::clog << "[TEST] [automaton] #" << testno << " ==================================" << std::endl;
 				}
 
 				return ok;

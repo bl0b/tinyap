@@ -4,6 +4,7 @@
 #include <cxxabi.h>		/* for demangling */
 
 #include "string_registry.h"
+#include <unordered_map>
 
 namespace grammar {
 	struct _h {
@@ -18,7 +19,7 @@ namespace grammar {
 		}
 	};
 
-	typedef ext::hash_map<const char*, rule::base*, _h, _c> map_type;
+	typedef std::unordered_map<const char*, rule::base*, _h, _c> map_type;
 
 	namespace item {
 		class base {
@@ -473,7 +474,7 @@ namespace grammar {
 					const char* tag_;
 					bool keep_;
 					trie_t mybow;
-					/*static ext::hash_map<const char*, trie_t>& all;*/
+					/*static std::unordered_map<const char*, trie_t>& all;*/
 				public:
 					Bow(const char*_, bool k) : tag_(_), keep_(k) {
 						mybow = find(_);
@@ -505,13 +506,13 @@ namespace grammar {
 						return std::pair<ast_node_t, unsigned int>(NULL, offset);
 					}
 
-					static ext::hash_map<const char*, trie_t>& _registry() {
-                        static ext::hash_map<const char*, trie_t> all;
+					static std::unordered_map<const char*, trie_t>& _registry() {
+                        static std::unordered_map<const char*, trie_t> all;
                         return all;
                     }
 
 					static trie_t find(const char*tag) {
-						/*static struct tries : ext::hash_map<const char*, trie_t> {
+						/*static struct tries : std::unordered_map<const char*, trie_t> {
 							~tries() {
 								iterator i, j;
 								for(i=begin(), j=end(); i!=j; ++i) {
@@ -794,7 +795,7 @@ namespace grammar {
 		namespace token {
 			class Nt : public impl<Nt> {
 				private:
-					static ext::hash_map<const char*, Nt*>& registry;
+					static std::unordered_map<const char*, Nt*>& registry;
 					const char* tag_;
 				public:
 					Nt(const char*_) : tag_(_) {}
@@ -822,7 +823,7 @@ namespace grammar {
 					}
 #endif
 					static Nt* instance(const char*tag) {
-						/*static struct internal_registry : public ext::hash_map<const char*, Nt*> {
+						/*static struct internal_registry : public std::unordered_map<const char*, Nt*> {
 							~internal_registry() {
 								internal_registry::iterator i, j=end();
 								for(i=begin();i!=j;++i) {

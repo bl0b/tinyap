@@ -90,7 +90,7 @@ struct node_alloc_register {
 		return ret;
 	}
 	bool assert_node_ref_(ast_node_t node, int ref, const char* f, size_t l) {
-		return assert_one(node->raw.ref, ref, "Wrong reference counter", f, l);
+		return assert_one(ref_count(node), ref, "Wrong reference counter", f, l);
 	}
 	node_alloc_register operator -(const node_alloc_register& t) const {
 		return node_alloc_register(nac-t.nac, ndc-t.ndc, dnc-t.dnc, ac-t.ac, pc-t.pc);
@@ -133,7 +133,8 @@ int test_append() {
 	alloc0.ok += (c==a); alloc0.done++;
 
 	a = newPair(newAtom("tata", 0), NULL);
-	a->raw.ref++;
+	/*a->raw.ref++;*/
+    ref(a);
 	alloc0.assert_delta(2, 0, 0, 1, 1);
 
 	c = append(a, a);
@@ -144,7 +145,8 @@ int test_append() {
 	
 
 	b = newPair(newAtom("toto", 0), newPair(newAtom("titi", 0), NULL));
-	b->raw.ref++;
+    ref(b);
+	/*b->raw.ref++;*/
 	alloc0.assert_delta(4, 0, 0, 2, 2);
 	c = append(a, b);
 	alloc0.assert_delta(1, 0, 0, 0, 1);
@@ -159,16 +161,16 @@ int test_nodealloc() {
 	node_alloc_register alloc0("nodealloc");
 	ast_node_t x, y, z;
 	x = newAtom("omaeifnlkfubvljrbv", -5);
-	x->raw.ref++;
+    ref(x);
 	alloc0.assert_node_ref(x, 1);
 	alloc0.test_ONE_ATOM_ALLOC();
 	delete_node(x);
 	alloc0.test_ONE_DEALLOC();
 	y = newAtom("omaeiufnvalkfubvlzakejrbv", -1);
-	y->raw.ref++;
+    ref(y);
 	alloc0.test_ONE_ATOM_ALLOC();
 	y = newAtom("omaeiufnvalkfubvlzakejrbv", -1);
-	y->raw.ref++;
+    ref(y);
 	alloc0.assert_node_ref(y, 2);
 	alloc0.test_ONE_ATOM_REUSE();
 	delete_node(y);
@@ -176,8 +178,27 @@ int test_nodealloc() {
 	delete_node(y);
 	alloc0.test_ONE_DEALLOC();
 	z = newPair(newAtom("aemlhg", -1), newAtom("aemfuhvn", -12));
-	z->raw.ref++;
-	alloc0.assert_delta(3, 0, 0, 2, 1);
+	y = newPair(newAtom("aemlhg", -1), newAtom("aemfuhvn", -12));
+    if (Car(z) != Car(y)) {
+        alloc0.done++;
+        std::cout << "[TEST] [node_alloc] Atom registry is broken" << std::endl;
+        return -1;
+    } else {
+        /*std::cout << "[***] Atom registry seems fine" << std::endl;*/
+        alloc0.done++;
+        alloc0.ok++;
+    }
+    if (z != y) {
+        alloc0.done++;
+        std::cout << "[TEST] [node_alloc] Pair registry is broken" << std::endl;
+        return -1;
+    } else {
+        alloc0.done++;
+        alloc0.ok++;
+        /*std::cout << "[***] Pair registry seems fine" << std::endl;*/
+    }
+    ref(z);
+	alloc0.assert_delta(3, 0, 0, 4, 2);
 	alloc0.assert_node_ref(z, 1);
 	alloc0.assert_node_ref(z->pair._car, 1);
 	alloc0.assert_node_ref(z->pair._cdr, 1);
@@ -205,8 +226,10 @@ int test_grammar() {
 	ast_node_t tmp_ast;
 
 	TEST_EQ((tmp_ast=newAtom("toto", 0)), newAtom("toto", 0));
+    ref(tmp_ast);
 	delete_node(tmp_ast);
 	TEST_EQ((tmp_ast=newPair(newAtom("toto", 0), NULL)), newPair(newAtom("toto", 0), NULL));
+    ref(tmp_ast);
 	delete_node(tmp_ast);
 
 	seq->push_back(re);
@@ -311,7 +334,7 @@ int test_grammar() {
 	grammar::item::token::Bow b("test", true);
 	std::pair<ast_node_t, size_t> tmp_rec;
 	TEST((tmp_rec = b.recognize("pouet", 0, 5)).second==5 ||!"Bow didn't recognize properly with a singleton !");
-	delete_node(tmp_rec.first);
+	/*delete_node(tmp_rec.first);*/
 	
 	trie_insert(mybow, "plop");
 	TEST((tmp_rec=b.recognize("pouet", 0, 5)).second==5 ||!"Bow didn't recognize properly with 2 items !");
@@ -337,7 +360,8 @@ int test_automaton(int n=-1) {
 	typedef const char* test_case[3];
 	test_case test_cases[] = {
 		// start rule is X
-/*#if 1*/
+        /*{ "", "", "" },*/
+#if 1
 /*1*/
 		{ "(OperatorRule X (EOF))", "", "((X:0))" },
 		{ "(OperatorRule X (EOF))", "   ", "((X:3))" },
@@ -538,9 +562,9 @@ int test_automaton(int n=-1) {
         { "(OperatorRule X (Seq (AddToBag (RE toto) bag !) (BOW bag !)))", "toto toto", "((X:9 toto:0 toto:5))" },
         { "(OperatorRule X (Seq (AddToBag (RE toto) bag !) (BOW bag )))", "toto toto", "((X:9 toto:0))" },
         { "(OperatorRule X (Alt (NT a) (NT b) (NT c))) (OperatorRule a (T pouet)) (OperatorRule b (RE pouet)) (OperatorRule c (BOW _test))"
-          , "pouet", "((X:5 (a:5)))" },
+          , "pouet", "((X:5 (a:5)) (X:5 (c:5)) (X:5 (b:5 pouet:0)))" },
         { "(OperatorRule X (Alt (NT a) (NT b) (NT c))) (OperatorRule a (T toto)) (OperatorRule b (RE pouet)) (OperatorRule c (BOW _test))"
-          , "pouet", "((X:5 (c:5)))" },
+          , "pouet", "((X:5 (c:5)) (X:5 (b:5 pouet:0)))" },
         { "(OperatorRule X (Alt (NT a) (NT b) (NT c))) (OperatorRule a (T pouet)) (OperatorRule b (RE toto)) (OperatorRule c (BOW _test))"
           , "toto", "((X:4 (b:4 toto:0)))" },
         /*{ "(OperatorRule X (Seq (AddToBag (RE toto) bag ) (BOW bag !)))", "toto toto", "((X:9 toto:5))" },*/
@@ -551,6 +575,7 @@ int test_automaton(int n=-1) {
           "(OperatorRule a (Seq (STR  ) (EOF)))", "toto pouet",
           "((X:10 (a:10 pouet:5)))"
         },
+#endif
 #endif
 		{ NULL, NULL, NULL }
 	};
@@ -582,7 +607,7 @@ int test_automaton(int n=-1) {
 		}
 		++done;
 		++tc;
-		/*int alloc_delta1 = _node_alloc_count-_node_dealloc_count;*/
+		int alloc_delta1 = _node_alloc_count-_node_dealloc_count;
 		/*int alloc_delta3 = newPair_count + newAtom_count - delete_node_count;*/
 		/*if(alloc_delta1 != alloc_delta0) {*/
 			/*std::cout << "[TEST] [automaton] #" << done << " leak detected (" << (alloc_delta1-alloc_delta0) << ')' << std::endl;*/
@@ -633,7 +658,42 @@ void test_nl() {
 	df << '}' << std::endl;
 	/*grammar::visitors::debugger debug;*/
 	/*g.accept(&debug);*/
+}
 
+#undef TEST
+#define TEST(_expr_) do { if(!(_expr_)) { TEST_FAIL(); std::cout << "[TEST] [registry] Test " __(_expr_) " failed" << std::endl; } else { TEST_OK(); } } while(0)
+
+bool test_registry() {
+    int done = 0, ok = 0;
+    const char* ptr0 = "toto pouet coin";
+    const char* ptr1 = regstr(ptr0);
+    const char* ptr2 = regstr(ptr0);
+
+    TEST(ptr0 != ptr1);
+    TEST(ptr1 == ptr2);
+
+    TEST(strcmp(ptr0, ptr1) == 0);
+    std::cout << "ptr0=" << ptr0 << " ptr1=" << ptr1 << std::endl;
+
+    auto a1 = newAtom(ptr0, 0);
+    ref(a1);
+    auto a2 = newAtom(ptr0, 0);
+    ref(a2);
+
+    TEST(a1->atom._str != ptr0);
+    TEST(a2->atom._str == a1->atom._str);
+    TEST(a2 == a1);
+    TEST(ref_count(a1) == 2);
+
+    delete_node(a1);
+    TEST(ref_count(a2) == 1);
+    std::cout << "ref_count(a2) = " << ref_count(a2) << std::endl;
+
+    delete_node(a2);
+    /*TEST(ref_count(a2) == 0);*/
+
+    std::cout << "[TEST] [registry] " << done << " done, " << (done - ok) << " failed." << std::endl;
+    return done - ok;
 }
 
 int main(int argc, char**argv) {
@@ -644,7 +704,7 @@ int main(int argc, char**argv) {
 	/*test_nl();*/
 
 	/*return 0;*/
-	return test_nodealloc() + test_grammar() + test_automaton(n);
+	return test_registry() + test_nodealloc() + test_grammar() + test_automaton(n);
 	/*return test_nodealloc();*/
 }
 

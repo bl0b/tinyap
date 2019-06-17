@@ -15,7 +15,6 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
-#include <ext/hash_map>
 #include <iostream>
 #include <iomanip>
 #include <set>
@@ -27,31 +26,212 @@ namespace ext = __gnu_cxx;
 
 #include "static_init.h"
 
+#include "registry.h"
+
+extern "C" {
+    /*ast_node_t PRODUCTION_OK_BUT_EMPTY = (union _ast_node_t[]){{ {ast_Nil, 0, 0, 0} }};*/
+
+    volatile int depth=0;
+
+    volatile int _node_alloc_count=0;
+    volatile int _node_dealloc_count=0;
+    volatile int delete_node_count=0;
+    volatile int newAtom_count=0;
+    volatile int newPair_count=0;
+
+    volatile ast_node_t node_pool = NULL;
+}
+
+/*namespace std {*/
+    /*template <>*/
+    /*struct hash<ast_node_t> {*/
+        /*std::hash<unsigned int> hui;*/
+        /*std::hash<void*> hp;*/
+        /*size_t operator () (const ast_node_t& a) const*/
+        /*{*/
+            /*return a ? (1 + a->type + (ptrdiff_t)a->raw.p1) * ((ptrdiff_t)a->raw.p2 + a->pos.offset + 1) : 0;*/
+        /*}*/
+    /*};*/
+/**/
+    /*template <>*/
+    /*struct equal_to<ast_node_t> {*/
+        /*bool operator() (const ast_node_t& a, const ast_node_t& b) const*/
+        /*{*/
+            /*return !(a->type != b->type || a->pos.offset != b->pos.offset || a->raw.p1 != b->raw.p1 || (a->type == ast_Pair && b->type == ast_Pair && a->raw.p2 != b->raw.p2));*/
+        /*}*/
+    /*};*/
+/*}*/
+
+extern "C" ast_node_t node_alloca();
+extern "C" void node_dealloc(ast_node_t);
+
+
+struct ast_node_registry_type {
+    std::unordered_map<const char*, std::unordered_map<int, ast_node_t>> m_atoms;
+    std::unordered_map<ast_node_t, std::unordered_map<ast_node_t, ast_node_t>> m_pairs;
+    std::unordered_map<ast_node_t, size_t> m_refs;
+
+    static inline
+    ast_node_t make_nil()
+    {
+        ast_node_t _ = node_alloca();
+        _->type = ast_Nil;
+        return _;
+    }
+
+    inline
+    ast_node_t make_atom(char* str, int ofs)
+    {
+        ++newAtom_count;
+        str = regstr(str);
+        ast_node_t& ret = m_atoms[str][ofs];
+        if (!ret) {
+            ret = node_alloca();
+            ret->type = ast_Atom;
+            ret->atom._str = str;
+            ret->pos.offset = ofs;
+            m_refs[ret] = 0;
+        }
+        return ret;
+    }
+
+    inline
+    ast_node_t make_pair(ast_node_t car, ast_node_t cdr)
+    {
+        ++newPair_count;
+        ast_node_t& ret = m_pairs[car][cdr];
+        if (!ret) {
+            ret = node_alloca();
+            ret->type = ast_Pair;
+            ret->pair._car = car;
+            ref(car);
+            ret->pair._cdr = cdr;
+            ref(cdr);
+            m_refs[ret] = 0;
+        }
+        return ret;
+    }
+
+    inline
+    ast_node_t ref(ast_node_t a) { if (a && a != PRODUCTION_OK_BUT_EMPTY) { m_refs[a]++; } return a; }
+
+    inline
+    void unref(ast_node_t a)
+    {
+        if (!a || a == PRODUCTION_OK_BUT_EMPTY) { return; }
+        auto it = m_refs.find(a);
+        if (it == m_refs.end() || it->second == 0) {
+            return;
+            std::cout << "WARNING trying to unref a node that has no ref: " << a << std::endl;
+        }
+        ++delete_node_count;
+        if (it->second <= 1) {
+            if (a->type == ast_Atom) {
+                m_atoms[a->atom._str].erase(a->pos.offset);
+                if (!m_atoms[a->atom._str].size()) {
+                    m_atoms.erase(a->atom._str);
+                }
+                unregstr(a->atom._str);
+            } else if (a->type == ast_Pair) {
+                m_pairs[a->pair._car].erase(a->pair._cdr);
+                if (!m_pairs[a->pair._car].size()) {
+                    m_pairs.erase(a->pair._car);
+                }
+                unref(Car(a));
+                unref(Cdr(a));
+            }
+            node_dealloc(a);
+            m_refs.erase(it);
+        } else {
+            m_refs[a]--;
+        }
+    }
+
+    void clear()
+    {
+        m_atoms.clear();
+        m_pairs.clear();
+        for (const auto& kv: m_refs) {
+            node_dealloc(kv.first);
+        }
+        m_refs.clear();
+    }
+
+    size_t ref_count(ast_node_t a) const
+    {
+        if (!a) { return 0; }
+        auto i = m_refs.find(a);
+        return i == m_refs.end() ? 0 : i->second;
+    }
+
+    void dump(std::ostream& os) const
+    {
+        os << "Registry:" << std::endl;
+        for (const auto& kv: m_refs) { os << " * " << kv.first << "   #" << kv.second << std::endl; }
+    }
+
+    size_t size() const { return m_refs.size(); }
+};
+
+
+struct node_registry_alloc {
+    ast_node_t own(ast_node_t a)
+    {
+        std::cout << "alloc one ast node" << std::endl;
+        ast_node_t ret = node_alloca();
+        memcpy(ret, a, sizeof(_ast_node_t));
+        return ret;
+    }
+
+    void disown(ast_node_t n)
+    {
+        std::cout << "dealloc one ast node" << std::endl;
+        node_dealloc(n);
+    }
+};
+
+
+/*typedef registry<ast_node_t, node_registry_alloc> ast_node_registry_type;*/
+
+static ast_node_registry_type ast_node_registry;
+
+ast_node_t ref(ast_node_t a)
+{
+    return ast_node_registry.ref(a);
+    /*if (!a) { return NULL; }*/
+    /*ast_node_registry.ref(a);*/
+    /*return a;*/
+}
+
+void unref(ast_node_t a)
+{
+    return ast_node_registry.unref(a);
+    /*if (a) {*/
+        /*ast_node_registry.unref(a);*/
+    /*}*/
+}
+
+size_t ref_count(ast_node_t a)
+{
+    return ast_node_registry.ref_count(a);
+    /*return a ? ast_node_registry.ref_count(a) : 0;*/
+}
+
+
 extern "C" {
 #include "config.h"
 #include <regex.h>
 #include "stack.h"
 
-ast_node_t PRODUCTION_OK_BUT_EMPTY = (union _ast_node_t[]){{ {ast_Nil, 0, 0, 0} }};
-
-volatile int depth=0;
-
-volatile int _node_alloc_count=0;
-volatile int _node_dealloc_count=0;
-volatile int delete_node_count=0;
-volatile int newAtom_count=0;
-volatile int newPair_count=0;
-
-volatile ast_node_t node_pool = NULL;
 
 #define _node(_tag,_contents) Cons(Atom(_tag),(_contents))
 
 /*static tinyap_stack_t node_stack;*/
 
 
-
 void node_pool_init() {
 	/*node_stack = new_stack();*/
+    ast_node_registry.clear();
 }
 
 
@@ -65,7 +245,7 @@ size_t node_pool_size() {
 	}
 	return ret;
 #endif
-	return 0;
+	return ast_node_registry.size();
 }
 
 ast_node_t node_alloca() {
@@ -150,152 +330,64 @@ static atom_registry_t& atom_registry = _static_init.atom_registry;
 
 static pair_registry_t& pair_registry = _static_init.pair_registry;
 
-#ifdef DEBUG_ALLOCS
-ast_node_t newAtom_debug(const char*data,size_t offset, const char* f, size_t l) {
-	char* reg = regstr(data);
-	ast_node_t& ret = atom_registry[atom_key(reg, offset)];
-	if(!ret) {
-		ret = (ast_node_t)_alloc_debug(_select_alloca(sizeof(union _ast_node_t)), f, l, "newAtom");
-		/*std::cout << "new atom " << ret << " \"" << data << '"';*/
-		ret->atom._str=reg;
-		atom_registry[atom_key(ret->atom._str, offset)] = ret;
-		ret->type=ast_Atom;
-		ret->raw._p2=NULL;	/* useful for regexp cache hack */
-		ret->pos.offset = offset;
-		ret->raw.ref = 0;
-	/*} else {*/
-		/*std::cout << "reuse alloc'd atom " << ret;*/
-	}
-	/*std::cout << "  => " << ret->atom._str << std::endl;*/
-	ret->raw.ref++;
 
-	return ret;
-}
-
-ast_node_t newPair_debug(const ast_node_t a,const ast_node_t d, const char* f, size_t l) {
-	pair_key k(a, d);
-	ast_node_t& ret = pair_registry[k];
-	if(!ret) {
-		ret = (ast_node_t)_alloc_debug(_select_alloca(sizeof(union _ast_node_t)), f, l, "newPair");
-		/*std::cout << "new pair " << ret << " : " << a << ", " << d << std::endl;*/
-		/*pair_registry[pair_key(a, d)] = ret;*/
-		ret->type=ast_Pair;
-		ret->pair._car=(ast_node_t )a;
-		ret->pair._cdr=(ast_node_t )d;
-		if(a) { ((ast_node_t)a)->raw.ref++; }
-		if(d) { ((ast_node_t)d)->raw.ref++; }
-		ret->raw.ref=0;
-	/*} else {*/
-		/*std::cout << "reuse alloc'd pair " << ret << std::endl;*/
-	}
-	/*ret->raw.ref++;*/
-	return ret;
-}
-#endif
-
-ast_node_t newAtom_impl(const char*data,size_t offset) {
-	++newAtom_count;
-	char* reg = regstr(data);
-	ast_node_t& ret = atom_registry[atom_key(reg, offset)];
-	if(!ret) {
-		ret = node_alloca();
-		/*std::cout << "new atom " << ret << " \"" << data << '"';*/
-		ret->atom._str=reg;
-		/*atom_registry[atom_key(ret->atom._str, offset)] = ret;*/
-		ret->type=ast_Atom;
-		ret->raw._p2=NULL;	/* useful for regexp cache hack */
-		ret->pos.offset = offset;
-		ret->raw.ref = 0;
-	/*} else {*/
-		/*std::cout << "reuse alloc'd atom " << ret;*/
-		/*ret->raw.ref++;*/
-	}
-	/*std::cerr << "newAtom: " << ret << std::endl;*/
-
-	return ret;
+ast_node_t newAtom_impl(const char*data, int offset) {
+    return ast_node_registry.make_atom(const_cast<char*>(data), offset);
+    /*std::cout << "calling newAtom " << data << ' ' << offset << std::endl;*/
+	/*char* reg = regstr(data);*/
+    /*newAtom_count++;*/
+    /*union _ast_node_t n {ast_Atom, (int) offset, reg, NULL, NULL};*/
+    /*ast_node_t ret = const_cast<ast_node_t>(ast_node_registry.find(&n));*/
+    /*std::cout << "new atom @str=\"" << data << "\"/\"" << reg << "\" " << ((void*) ret) << ' ' << ret << std::endl;*/
+    /*return ret;*/
 }
 
 
 ast_node_t newPair_impl(const ast_node_t a,const ast_node_t d) {
-	++newPair_count;
-	pair_key k(a, d);
-	ast_node_t& ret = pair_registry[k];
-	if(!ret) {
-		ret = node_alloca();
-		/*std::cout << "new pair " << ret << " : " << a << ", " << d << std::endl;*/
-		/*pair_registry[pair_key(a, d)] = ret;*/
-		ret->type=ast_Pair;
-		ret->pair._car=(ast_node_t )a;
-		ret->pair._cdr=(ast_node_t )d;
-		if(a) { ((ast_node_t)a)->raw.ref++; }
-		if(d) { ((ast_node_t)d)->raw.ref++; }
-		ret->raw.ref=0;
-	/*} else {*/
-		/*std::cout << "reuse alloc'd pair " << ret << std::endl;*/
-		/*ret->raw.ref++;*/
-	}
-	/*std::cerr << "newPair: " << ret << std::endl;*/
-	return ret;
+    return ast_node_registry.make_pair(const_cast<ast_node_t>(a), const_cast<ast_node_t>(d));
+    /*std::cout << "calling newPair " << a << ' ' << d << std::endl;*/
+    /*newPair_count++;*/
+    /*if (a) {*/
+        /*std::cout << "[newPair] ref car" << std::endl;*/
+        /*ref(a);*/
+        /*std::cout << "--" << std::endl;*/
+    /*}*/
+    /*if (d) {*/
+        /*std::cout << "[newPair] ref cdr" << std::endl;*/
+        /*ref(d);*/
+        /*std::cout << "--" << std::endl;*/
+    /*}*/
+    /*union _ast_node_t n {ast_Pair, 0, a, d, NULL};*/
+    /*std::cout << "[newPair] create/find" << std::endl;*/
+    /*ast_node_t ret = const_cast<ast_node_t>(ast_node_registry.find(&n));*/
+    /*std::cout << "--" << std::endl;*/
+    /*std::cout << "new pair " << ret << " : " << a << ", " << d << std::endl;*/
+    /*return ret;*/
 }
+
 
 
 #include "static_init.h"
 static std::set<ast_node_t>& still_has_refs = _static_init.still_has_refs;
 
 void delete_node(ast_node_t n) {
-	static int rec_lvl=0;
-	++delete_node_count;
-//	static int prout=0;
-	if(!(n && n!=PRODUCTION_OK_BUT_EMPTY)) return;
-	n->raw.ref--;
-	if(n->raw.ref>0) {
-		/*std::cout << std::setw(rec_lvl) << "Node " << n << " still has " << n->raw.ref << " references." << std::endl;*/
-		/*if(still_has_refs.find(n)==still_has_refs.end()) {*/
-			/*still_has_refs.insert(n);*/
-		/*}*/
-		return;
-	}
-	/*else {*/
-		/*still_has_refs.erase(still_has_refs.lower_bound(n), still_has_refs.upper_bound(n));*/
-	/*}*/
-	++rec_lvl;
-	switch(n->type) {
-	case ast_Atom:
-		/*std::cout << std::setw(rec_lvl) << "deleting an atom \"" << n->atom._str << '"' << std::endl;*/
-		assert(n->atom._str);
-		/*free(n->atom._str);*/
-		atom_registry.erase(atom_key(n->atom._str, n->pos.offset));
-		/*if(!(n->node_flags&ATOM_IS_NOT_STRING)) {*/
-		unregstr(n->atom._str);
-		/*}*/
-		/*if(n->raw._p2) {*/
-			/* regex cache hack */
-//			printf("prout %i\n",prout+=1);
-			/*regfree(n->raw._p2);*/
-			/*tinyap_free(regex_t, n->raw._p2);*/
-//			n->raw._p2=NULL;
-
-			/* FIXME ! */
-			/*pcre_free(n->raw._p2);*/
-		/*}*/
-		break;
-	case ast_Pair:
-		/*std::cout << std::setw(rec_lvl) << "deleting a pair (" << n->pair._car << ", " << n->pair._cdr << ')' << std::endl;*/
-		delete_node(n->pair._car);
-		delete_node(n->pair._cdr);
-		pair_registry.erase(pair_key(n->pair._car, n->pair._cdr));
-		break;
-	case ast_Nil:;	/* so that -Wall won't complain */
-	case ast_Pool:;
-		--rec_lvl;
-		return;
-	};
-	/*node_dealloc(n);*/
-//	free(n);
-	++_node_dealloc_count;
-	tinyap_free(union _ast_node_t, n);
-	--rec_lvl;
+    ast_node_registry.unref(n);
+	/*static int rec_lvl=0;*/
+	/*++delete_node_count;*/
+	/*if(!(n && n != PRODUCTION_OK_BUT_EMPTY)) return;*/
+    /*if (n->type == ast_Pair) {*/
+        /*if (Car(n)) {*/
+            /*delete_node(Car(n));*/
+        /*}*/
+        /*if (Cdr(n)) {*/
+            /*delete_node(Cdr(n));*/
+        /*}*/
+    /*}*/
+    /*unref(n);*/
 }
 
+void dump_ast_reg() { ast_node_registry.dump(std::cout); }
+
+ast_node_t PRODUCTION_OK_BUT_EMPTY = ast_node_registry.make_nil();
 }/* extern "C" */
 

@@ -180,7 +180,7 @@ namespace lr {
 				void free(node* n) {
 					++gss_frees;
 					n->preds.push_back(free_);
-					/*delete_node(n->ast);*/
+					delete_node(n->ast);
 					free_ = n;
 					--alloc_count;
 				}
@@ -213,13 +213,17 @@ namespace lr {
 				reduction_data(node* re, node* t, item& i_, unsigned int o, ast_node_t a)
 					: red_end(re), tail(t), i(i_), offset(o), accum(a)
 				{
+                    ref(a);
 					/*debug();*/
 				}
 				reduction_data(const reduction_data& rd)
 					: red_end(rd.red_end), tail(rd.tail), i(rd.i), offset(rd.offset), accum(rd.accum)
 				{
 					/*debug();*/
+                    ref(rd.accum);
 				}
+
+                ~reduction_data() { unref(accum); }
 
 				void debug() const {
 					std::clog << "red_dat(" << red_end << ", " << tail << ", " << i << ", " << offset << ", " << accum << ')' << std::endl;
@@ -367,27 +371,37 @@ namespace lr {
 			}
 
 			void do_reduction(node* red_end, node* tail, item i, unsigned int offset, ast_node_t accum) {
+                std::clog << "DO REDUCTION " << red_end << ' ' << tail << ' ' << i << ' ' << offset << ' ' << accum << std::endl;
 				const grammar::rule::base* R = i.rule();
 				if(initial==i) {
 					if(offset != size) {
-						/*std::clog << "can't accept at offset " << offset << " because size is " << size << std::endl;*/
+						std::clog << "can't accept at offset " << offset << " because size is " << size << std::endl;
 						/*delete_node(accum);*/
+                        unref(accum);
 						return;
 					}
 					/* accept */
-#if 0
+#if 1
 					std::clog << "ACCEPT ! " << accum << " @" << ((void*)accum) << std::endl;
 #endif
 					if(accum) {
 						grammar::visitors::reducer red(accum, offset);
 						ast_node_t output = red.process((grammar::rule::base*)R);
-						/*ast_node_t old = accepted;*/
-						accepted = grammar::rule::internal::append()(output, accepted);
+                        std::clog << "accepted=" << accepted << " output=" << output << std::endl;
+                        ast_node_t tmp = accepted;
+                        while (tmp && Car(tmp) != Car(output)) { tmp = Cdr(tmp); }
+                        if (!tmp) {
+    						/*ast_node_t old = accepted;*/
+                            unref(accepted);
+    						accepted = grammar::rule::internal::append()(accepted, output);
+                            ref(accepted);
+                        }
 						/*accepted->raw.ref++;*/
 						/*delete_node(old);*/
 						/*delete_node(accum);*/
 						/*delete_node(output);*/
 					}
+					std::clog << "ACCEPTED " << accepted << std::endl;
 					return;
 				} else {
 					state* Sprime = tail->id.S->transitions.from_stack[R->tag()];
@@ -405,7 +419,7 @@ namespace lr {
 					ast_node_t redast = red((grammar::rule::base*)R);
 					/*redast->raw.ref++;*/
 					grammar::item::base* nt = grammar::item::token::Nt::instance(R->tag());
-					/*std::cerr << "Reducing " << accum << " into " << redast << std::endl;*/
+					std::cerr << "Reducing " << accum << " into " << redast << std::endl;
 					shift(tail, nt, Sprime, redast, offset, red_end);
 					/*if(redast!=accum) {*/
 						/*delete_node(redast);*/
@@ -444,22 +458,31 @@ namespace lr {
 				i=active.begin();
 				j=active.end();
 				while(i!=j) {
+                    std::clog << "STATE " << (*i) << std::endl;
 					std::pair<std::set<node*, node_less>::iterator, bool> isun = uniq.insert(*i);
-					if(!isun.second) {
-						/*std::cerr << "MERGING STATE !" << std::endl;*/
-						k=i;
-						++i;
-						(*isun.first)->preds.insert((*isun.first)->preds.end(),
-								(*k)->preds.begin(), (*k)->preds.end());
+					/*if(!isun.second) {*/
+                    if (*isun.first != *i) {
+						std::cerr << "MERGING STATE " << (*i) << " INTO " << (*isun.first) << std::endl;
+						k=i++;
+                        auto& current = (*isun.first)->preds;
+                        for (const auto& p: (*k)->preds) {
+                            if (std::find(current.begin(), current.end(), p) == current.end()) {
+                                current.insert(current.end(), p);
+                            }
+                        }
+						/*(*isun.first)->preds.insert((*isun.first)->preds.end(),*/
+								/*(*k)->preds.begin(), (*k)->preds.end());*/
 						/*if((*k)->ast) {*/
 							/*delete_node((*k)->ast);*/
 						/*}*/
+                        unref((*k)->ast);
 						(*k)->ast = NULL;
 						(*k)->id.S = NULL;
 						active.erase(k);
 					} else {
-						++i;
-					}
+                        ++i;
+                    }
+
 				}
 			}
 
