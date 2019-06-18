@@ -265,6 +265,7 @@ struct Ast {
 	Ast() : n(0) {}
 	~Ast() { unref(n); }
 	Ast& operator=(const ast_node_t x) {
+        if (x == n) { return *this; }
 		unref(n);
 		n=x;
         ref(n);

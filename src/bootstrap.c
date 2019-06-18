@@ -231,6 +231,6 @@ ast_node_t  tinyap_get_ruleset(const char*name) {
 		free(buf);
 	}
 //	printf("after  tinyap_get_ruleset : %li nodes (%i alloc'd so far)\n",node_pool_size(),_node_alloc_count);
-	//dump_node(ret);
+	/*dump_node(ret);*/
 	return ret;
 }

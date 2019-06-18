@@ -19,9 +19,10 @@
 
 #include "ast.h"
 
-extern "C" {
 #include "tinyap.h"
 #include "string_registry.h"
+
+extern "C" {
 #include "serialize.h"
 #include "stack.h"
 }

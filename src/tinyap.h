@@ -44,6 +44,8 @@
  */
 
 
+#include "trie.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -57,7 +59,6 @@ extern "C" {
 #endif
 
 #include "bootstrap.h"
-#include "trie.h"
 
 /*! \weakgroup api_parser Parser API */
 /*@{*/

@@ -701,7 +701,7 @@ int main(int argc, char**argv) {
 	if(argc>1) {
 		std::stringstream(argv[1]) >> n;
 	}
-	/*test_nl();*/
+	test_nl();
 
 	/*return 0;*/
 	return test_registry() + test_nodealloc() + test_grammar() + test_automaton(n);

@@ -396,7 +396,7 @@ namespace grammar {
 							/*escape_ncpy(&_match, &_src, source+size-_src, delim_end);*/
 							/*_match = ret = match2str(_src, 0, size-offset, delim_end);*/
                             if(ofs >= size) {
-                                std::cout << "[DEBUG:Str] discarding null token with no end delimiter" << std::endl;
+                                /*std::cout << "[DEBUG:Str] discarding null token with no end delimiter" << std::endl;*/
                                 return std::pair<ast_node_t, unsigned int>(NULL, size);
                             }
                             ret = _src;
@@ -889,13 +889,20 @@ namespace grammar {
 
 			Grammar(ast_node_t rules);
 			~Grammar();
+
+            rule::base* find_rule(const char* tag) {
+                auto it = find(tag);
+                return it == end() ? NULL : it->second;
+            }
+
 			void add_rule(const char* tag, rule::base* rule) {
 				if(!rule) {
+                    /*std::clog << "Grammar{"<<this<<"}->add_rule(NULL)"<<std::endl;*/
 					return;
 				}
 				/*visitors::debugger debug;*/
 				/*std::clog << "Grammar{"<<this<<"}->add_rule("<<rule->tag()<<")"<<std::endl;*/
-				Grammar::iterator exist = find((char*)tag);
+				Grammar::iterator exist = find((const char*)tag);
 				if(exist!=end()) {
 					/* merge contents */
 					exist->second->insert(rule->begin(), rule->end());

@@ -40,7 +40,7 @@ namespace lr {
 						return;
 					}
 					/* accept */
-#if 1
+#if 0
 					std::clog << "ACCEPT ! " << accum << " @" << ((void*)accum) << std::endl;
 #endif
 					if(accum) {

@@ -34,7 +34,7 @@ struct tokenizer {
         for (const auto* i: rec_set) {
             m_recognizers.emplace_back(i);
         }
-        std::cout << "[tokenizer] have " << m_recognizers.size() << " recognizers" << std::endl;
+        /*std::cout << "[tokenizer] have " << m_recognizers.size() << " recognizers" << std::endl;*/
     }
 
     size_t consume(const char* source, unsigned int offset, unsigned int size)
@@ -43,13 +43,13 @@ struct tokenizer {
 
         unsigned int max_ofs = offset;
 
-        std::clog << "[tokenizer] " << m_recognizers.size() << " recognizers on <<<" << std::string(source + offset, std::min(source + size, source + offset + 32)) << (size - offset > 32 ? "...>>>@" : ">>>@") << offset << '/' << size << std::endl;
-        grammar::visitors::debugger debug(std::clog);
+        /*std::clog << "[tokenizer] " << m_recognizers.size() << " recognizers on <<<" << std::string(source + offset, std::min(source + size, source + offset + 32)) << (size - offset > 32 ? "...>>>@" : ">>>@") << offset << '/' << size << std::endl;*/
+        /*grammar::visitors::debugger debug(std::clog);*/
         for (const auto* i: m_recognizers) {
-            std::clog << "[tokenizer] * " << i << std::endl;
+            /*std::clog << "[tokenizer] * " << i << std::endl;*/
             auto& ao = tmp[i] = i->recognize(source, offset, size);
             if (ao.first) {
-                std::clog << "[tokenizer]    MATCH! " << ao.first << std::endl;
+                /*std::clog << "[tokenizer]    MATCH! " << ao.first << std::endl;*/
                 ref(ao.first);
                 if (ao.second > max_ofs) {
                     max_ofs = ao.second;
@@ -64,7 +64,7 @@ struct tokenizer {
                 unref(kv.second.first);
             }
         }
-        std::clog << "[tokenizer] " << m_results.size() << " recognizer(s) consumed " << max_ofs << " characters" << std::endl;
+        /*std::clog << "[tokenizer] " << m_results.size() << " recognizer(s) consumed " << max_ofs << " characters" << std::endl;*/
 
         return max_ofs;
     }

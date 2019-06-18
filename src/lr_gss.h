@@ -371,23 +371,23 @@ namespace lr {
 			}
 
 			void do_reduction(node* red_end, node* tail, item i, unsigned int offset, ast_node_t accum) {
-                std::clog << "DO REDUCTION " << red_end << ' ' << tail << ' ' << i << ' ' << offset << ' ' << accum << std::endl;
+                /*std::clog << "DO REDUCTION " << red_end << ' ' << tail << ' ' << i << ' ' << offset << ' ' << accum << std::endl;*/
 				const grammar::rule::base* R = i.rule();
 				if(initial==i) {
 					if(offset != size) {
-						std::clog << "can't accept at offset " << offset << " because size is " << size << std::endl;
+						/*std::clog << "can't accept at offset " << offset << " because size is " << size << std::endl;*/
 						/*delete_node(accum);*/
                         unref(accum);
 						return;
 					}
 					/* accept */
-#if 1
+#if 0
 					std::clog << "ACCEPT ! " << accum << " @" << ((void*)accum) << std::endl;
 #endif
 					if(accum) {
 						grammar::visitors::reducer red(accum, offset);
 						ast_node_t output = red.process((grammar::rule::base*)R);
-                        std::clog << "accepted=" << accepted << " output=" << output << std::endl;
+                        /*std::clog << "accepted=" << accepted << " output=" << output << std::endl;*/
                         ast_node_t tmp = accepted;
                         while (tmp && Car(tmp) != Car(output)) { tmp = Cdr(tmp); }
                         if (!tmp) {
@@ -401,15 +401,15 @@ namespace lr {
 						/*delete_node(accum);*/
 						/*delete_node(output);*/
 					}
-					std::clog << "ACCEPTED " << accepted << std::endl;
+					/*std::clog << "ACCEPTED " << accepted << std::endl;*/
 					return;
 				} else {
 					state* Sprime = tail->id.S->transitions.from_stack[R->tag()];
 					if(!Sprime) {
-						std::clog << std::endl << "I don't know where to go with a ";
-						grammar::visitors::lr_item_debugger d;
-						((grammar::rule::base*)R)->accept(&d);
-						std::clog << " on top of stack from state : " << std::endl << tail->id.S << std::endl;
+						/*std::clog << std::endl << "I don't know where to go with a ";*/
+						/*grammar::visitors::lr_item_debugger d;*/
+						/*((grammar::rule::base*)R)->accept(&d);*/
+						/*std::clog << " on top of stack from state : " << std::endl << tail->id.S << std::endl;*/
 						/*throw "coin";*/
 						/*delete_node(accum);*/
 						return;
@@ -419,7 +419,7 @@ namespace lr {
 					ast_node_t redast = red((grammar::rule::base*)R);
 					/*redast->raw.ref++;*/
 					grammar::item::base* nt = grammar::item::token::Nt::instance(R->tag());
-					std::cerr << "Reducing " << accum << " into " << redast << std::endl;
+					/*std::cerr << "Reducing " << accum << " into " << redast << std::endl;*/
 					shift(tail, nt, Sprime, redast, offset, red_end);
 					/*if(redast!=accum) {*/
 						/*delete_node(redast);*/
@@ -458,11 +458,11 @@ namespace lr {
 				i=active.begin();
 				j=active.end();
 				while(i!=j) {
-                    std::clog << "STATE " << (*i) << std::endl;
+                    /*std::clog << "STATE " << (*i) << std::endl;*/
 					std::pair<std::set<node*, node_less>::iterator, bool> isun = uniq.insert(*i);
 					/*if(!isun.second) {*/
                     if (*isun.first != *i) {
-						std::cerr << "MERGING STATE " << (*i) << " INTO " << (*isun.first) << std::endl;
+						/*std::cerr << "MERGING STATE " << (*i) << " INTO " << (*isun.first) << std::endl;*/
 						k=i++;
                         auto& current = (*isun.first)->preds;
                         for (const auto& p: (*k)->preds) {

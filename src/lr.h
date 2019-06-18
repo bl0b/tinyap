@@ -358,6 +358,10 @@ push u onto stack
 			automaton(grammar::Grammar* _)
 				: G(_), S(), S0(0), states(), furthest(0), stack(0)
 			{
+                /*std::cerr << "G=" << G << std::endl;*/
+                /*grammar::visitors::debugger d;*/
+                /*G->accept(&d);*/
+                /*std::clog << std::endl;*/
 				items();
 				/*grammar::visitors::nt_remover nr(G);*/
 				/*nr.process(G);*/
@@ -556,7 +560,7 @@ push u onto stack
 
 
 			void items() {
-				grammar::rule::base* rule = (*G)["_start"];
+				grammar::rule::base* rule = (*G).find_rule("_start");
 				grammar::item::iterator iter = grammar::item::iterator::create(rule);
 				item_set s0, tmp;
 				do {
@@ -611,7 +615,7 @@ push u onto stack
                     const grammar::item::base* token = (*ti).first;
                     std::pair<ast_node_t, unsigned int> ret = tkzr.get_production_of(token);
                     /*std::pair<ast_node_t, unsigned int> ret = token->recognize(buffer, ofs, size);*/
-                    std::clog << "follow by "; ((grammar::item::base*)token)->accept(&debug); std::clog << " => " << ((int)(ret.first?ret.second:-1)) << std::endl;
+                    /*std::clog << "follow by "; ((grammar::item::base*)token)->accept(&debug); std::clog << " => " << ((int)(ret.first?ret.second:-1)) << std::endl;*/
                     if(ret.first) {
                         didnt_shift=false;
                         /*ret.first->raw.ref++;*/
@@ -628,7 +632,7 @@ push u onto stack
 				unsigned int farthest=0;
 				if(stack) { delete stack; }
 				errors.clear();
-				stack = new gss(item((*G)["_start"], grammar::item::iterator::create((*G)["_start"])), size);
+				stack = new gss(item((*G).find_rule("_start"), grammar::item::iterator::create((*G).find_rule("_start"))), size);
 				stack->shift(NULL, NULL, S0, NULL, 0, NULL);
 
                 tokenizer tkzr;
@@ -641,7 +645,7 @@ push u onto stack
                     offset = G->skip(buffer, tkzr.consume(buffer, offset, size), size);
                     size_t n_states = stack->active.size();
 
-                    std::clog << "========================= STARTING PASS WITH " << n_states << " STATES ==================" << std::endl;
+                    /*std::clog << "========================= STARTING PASS WITH " << n_states << " STATES ==================" << std::endl;*/
 
                     while (n_states--) {
     					gss::node* n = stack->consume_active();
@@ -654,7 +658,7 @@ push u onto stack
     					if(!S) {
     						throw "COIN";
     					}
-#if 1
+#if 0
 #define _tinyap_min(a, b) (a<b?a:b)
                         item_set ker;
                         kernel(S->items, ker);
@@ -703,8 +707,8 @@ push u onto stack
                      */
 #define TAB "    "
                     if(tinyap_verbose) {
-                        /*if((++states_count)%100==0) {*/
-                        if (true) {
+                        if((++states_count)%100==0) {
+                        /*if (true) {*/
                             std::clog << "s:" << states_count << TAB << '@' << farthest << '/' << size
                                 << TAB << "gss:" << gss_allocs << '+' << gss_reallocs << '/' << gss_frees << '|' << gss_ram_size
                                 << TAB << gss_shifts << '\\' << gss_reduces
@@ -776,7 +780,7 @@ push u onto stack
 				bool ok = false;
 				{
 					Ast g = gram?ast_unserialize(grammar.c_str()):NULL;
-                    std::clog << "g ref_count = " << ref_count(g) << std::endl;
+                    /*std::clog << "g ref_count = " << ref_count(g) << std::endl;*/
 					/*ast_node_t g = gram?Car(ast_unserialize(grammar.c_str())):NULL;*/
 					std::clog << "===========================================================" << std::endl;
 					std::clog << "===========================================================" << std::endl;

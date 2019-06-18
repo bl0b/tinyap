@@ -4,6 +4,7 @@
 #include "lr_base.h"
 #include "lr_grammar.h"
 #include "trie.h"
+#include "string_registry.h"
 #include <unordered_map>
 
 extern "C" {
@@ -49,6 +50,7 @@ typedef std::unordered_map<pair_key, ast_node_t, hash_pair, comp_pair> pair_regi
 
 
 struct tinyap_static_init {
+    str_reg_t str_reg;
 	std::set<ast_node_t> still_has_refs;
 	atom_registry_t atom_registry;
 	pair_registry_t pair_registry;

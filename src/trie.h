@@ -22,6 +22,10 @@
 #include "tinyap_alloc.h"
 #include "string_registry.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct _trie_node_t* trie_t;
 
 trie_t trie_new();
@@ -31,6 +35,9 @@ unsigned long trie_match(trie_t t, const char*s);
 unsigned long trie_match_prefix(trie_t t, const char*s);
 void trie_insert(trie_t t, const char*s);
 
+#ifdef __cplusplus
+}
+#endif
 
 
 #endif

@@ -20,38 +20,18 @@
 #include "registry.h"
 #include <cstdlib>
 #include <cstdio>
-#include <unordered_map>
-#include <memory>
+#include "static_init.h"
 
-struct k_h {
-	size_t operator()(const char*x) const {
-		return x?_srh(x):0;
-	}
-};
-
-struct k_cmp {
-	bool operator()(const char*a, const char*b) const {
-		return !strcmp(a, b);
-	}
-};
-
-struct str_registry_alloc {
-    std::string own(std::string s) { return s; }
-    void disown(std::string s) {}
-};
-
-typedef registry<std::string, str_registry_alloc> str_reg_t;
+str_reg_t& str_registry = _static_init.str_reg;
 
 //extern "C" {
 //	const char* op2string(int typ); 	/* defined in tokenizer.c */
 //}
 
 
-unsigned int strreg_h(char*str) {
-	return str?_srh(str):0;
-}
-
-std::unique_ptr<str_reg_t> str_registry = std::make_unique<str_reg_t>();
+/*unsigned int strreg_h(char*str) {*/
+	/*return str?_srh(str):0;*/
+/*}*/
 
 /*struct _hashtable str_registry;*/
 
@@ -93,10 +73,7 @@ extern "C" {
 void init_strreg() {
 	/*init_hashtab(&str_registry, (hash_func) strreg_h, (compare_func) strcmp);*/
 	/* pre-fill registry with all hardcoded strings used in the tokenizer */
-    if (!str_registry) {
-        str_registry = std::make_unique<str_reg_t>();
-    }
-    str_registry->clear();
+    /*str_registry->clear();*/
 	STR__whitespace		= regstr_impl("_whitespace");
 	STR__start	        = regstr_impl("_start");
 	STR_Grammar	        = regstr_impl("Grammar");
@@ -131,25 +108,45 @@ void init_strreg() {
 }
 
 char* regstr_impl(const char* str) {
-    if (!str) {
-        return NULL;
+    auto it = str_registry.find(str);
+    if (it != str_registry.end()) {
+        it->second++;
+    } else {
+        bool uniq;
+        std::tie(it, uniq) = str_registry.emplace(strdup(str), 1);
     }
-    char* ret = const_cast<char*>(str_registry->ref(str).c_str());
-    /*std::cout << '"' << str << "\" => " << ((void*) ret) << std::endl;*/
-    return ret;
+    return const_cast<char*>(it->first);
+    
+    /*if (!str) {*/
+        /*return NULL;*/
+    /*}*/
+    /*char* ret = const_cast<char*>(str_registry->ref(str).c_str());*/
+    /*return ret;*/
 }
 
 void unregstr(const char*str) {
-    str_registry->unref(str);
+    auto it = str_registry.find(str);
+    if (it != str_registry.end()) {
+        it->second--;
+        if (!it->second) {
+            free(const_cast<char*>(it->first));
+            str_registry.erase(it);
+        }
+    }
 }
 
 
 
 void deinit_strreg() {
-	str_registry->clear();
+	str_registry.clear();
 }
 
 
 
 }
 
+
+/*struct _str_reg_init {*/
+    /*_str_reg_init () { init_strreg(); }*/
+    /*~_str_reg_init () { deinit_strreg(); }*/
+/*};*/

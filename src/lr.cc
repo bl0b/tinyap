@@ -76,10 +76,11 @@ namespace item {
 			/*cached->accept(&d);*/
 			/*std::cout << std::endl;*/
 			return cached;
-		/*} else {*/
-			/*std::cout << "no cached item for node " << ast_serialize_to_string(n) << std::endl;*/
+		} else {
+			/*std::cout << "no cached item for node " << n << std::endl;*/
 		}
-		const char* tag = Value(Car(n));
+		const char* tag = regstr(Value(Car(n)));
+        /*std::cout << "tag=" << tag << '@' << ((void*)tag) << "  OperatorRule=@" << ((void*)STR_OperatorRule) << std::endl;*/
 		if(tag==STR_RE) {
 			ret = cached = new token::Re(Value(Car(Cdr(n))));
 		} else if(tag==STR_T) {
@@ -201,8 +202,8 @@ namespace item {
 		}
 		/*std::cout << "adding item ";*/
 		/*visitors::debugger d;*/
-		/*cached->accept(&d);*/
-		/*std::cout << " in cache for node " << ast_serialize_to_string(n) << std::endl;*/
+		/*if (ret) { ret->accept(&d); } else { std::cout << "NULL"; }*/
+		/*std::cout << " in cache for node " << n << std::endl;*/
 
 
 		if(cached) {
@@ -250,7 +251,7 @@ namespace combination {
 				stack.push_back(Car(cur.first));
 				/*Car(cur.first)->raw.ref++;*/
                 ref(Car(cur.first));
-                std::cout << cur.first << std::endl;
+                /*std::cout << cur.first << std::endl;*/
 				delete_node(cur.first);
 			}
 			++i;
@@ -420,8 +421,8 @@ Grammar::Grammar(ast_node_t rules) {
     while(rules) {
         ast_node_t rule = Car(rules);
         /*std::cout << "         RULE " << rule << std::endl;*/
-        if(regstr(Value(Car(rule)))!=STR_Comment) {
-            const char* tag = regstr(Value(Car(Cdr(rule))));
+        if(Value(Car(rule))!=STR_Comment) {
+            const char* tag = Value(Car(Cdr(rule)));
             add_rule(tag, dynamic_cast<rule::base*>(item::base::from_ast(rule, this)));
         }
         rules = Cdr(rules);

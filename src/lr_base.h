@@ -16,9 +16,10 @@
 
 namespace ext = __gnu_cxx;
 
+#include "string_registry.h"
+
 extern "C" {
 #include "tinyap_alloc.h"
-#include "string_registry.h"
 #include "token_utils.h"
 #include "trie.h"
 }

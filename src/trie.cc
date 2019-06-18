@@ -16,9 +16,9 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
 
-extern "C" {
-
 #include "trie.h"
+
+extern "C" {
 
 unsigned long int trie_stats_allocs;
 unsigned long int trie_stats_words;

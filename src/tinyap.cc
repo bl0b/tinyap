@@ -28,22 +28,7 @@ namespace grammar {
 	}
 }
 
-struct k_h {
-	size_t operator()(const char*x) const {
-		return x?_srh(x):0;
-	}
-};
 
-struct k_cmp {
-	bool operator()(const char*a, const char*b) const {
-		return !strcmp(a, b);
-	}
-};
-
-#include <unordered_map>
-typedef std::unordered_map<const char*, int, k_h, k_cmp> str_reg_t;
-
-/*static*/ str_reg_t str_registry;
 struct tinyap_static_init _static_init;
 
 
@@ -314,7 +299,7 @@ tinyap_t tinyap_new() {
 	tinyap_t ret=new _tinyap_t();
 	/*tinyap_t ret=(tinyap_t)malloc(sizeof(struct _tinyap_t));*/
 	/*memset(ret,0,sizeof(struct _tinyap_t));*/
-	tinyap_set_grammar(ret,"short");
+	tinyap_set_grammar(ret, "short");
 	ret->flags=0;
 	/*init_pilot_manager();*/
 	return ret;
@@ -383,7 +368,7 @@ void init_grammar(tinyap_t t) {
 	t->G = new grammar::Grammar(Cdr(Car((ast_node_t)t->grammar)));
 	/*grammar::visitors::debugger d;*/
 	/*t->G->accept(&d);*/
-	/*std::cout << std::endl;*/
+	/*std::clog << std::endl;*/
 }
 
 void tinyap_set_grammar(tinyap_t t,const char*g) {
@@ -391,9 +376,13 @@ void tinyap_set_grammar(tinyap_t t,const char*g) {
 		free(t->grammar_source);
 		t->grammar_source=NULL;
 	}
+    /*fprintf(stdout, "[set grammar] g=%s\n", g);*/
 	t->grammar_source=strdup(g);
 	/*delete_node(t->grammar);*/
+    unref(t->grammar);
 	t->grammar=tinyap_get_ruleset(g);
+    /*dump_node(t->grammar);*/
+    ref(t->grammar);
 	/*t->grammar->raw.ref++;*/
 	init_grammar(t);
 }
@@ -404,12 +393,19 @@ ast_node_t tinyap_get_grammar_ast(tinyap_t t) {
 }
 
 void tinyap_set_grammar_ast(tinyap_t t,ast_node_t g) {
+    if (!g) {
+        fprintf(stderr,"Trying to set the grammar to NIL\n");
+        return;
+    }
+    /*dump_node(g);*/
 	if(t->grammar_source) {
 		free(t->grammar_source);
 		t->grammar_source=NULL;
 	}
 	/*delete_node(t->grammar);*/
+    unref(t->grammar);
 	t->grammar=g;
+    ref(t->grammar);
 	/*t->grammar->raw.ref++;*/
 	init_grammar(t);
 }
@@ -520,6 +516,14 @@ int tinyap_parse(tinyap_t t, int full) {
 	unsigned long deltasec;
 
 	if(!t->A) {
+        if (!t->G) {
+            if (!t->grammar) {
+                t->error = 1;
+                fprintf(stderr, "error: Grammar not initialized.\n");
+                return t->error;
+            }
+            t->G = new grammar::Grammar(t->grammar);
+        }
 		gettimeofday(&t1, NULL);
 		t->A = new lr::automaton(t->G);
 		if(tinyap_verbose) {
@@ -590,7 +594,7 @@ int tinyap_get_error_row(const tinyap_t t) {
 	return p.row();
 	return -1 /*parse_error_line(t->context)*/;
 }
-const char* tinyap_get_error(const tinyap_t t) { return t->A->errors.back().message().c_str(); }
+const char* tinyap_get_error(const tinyap_t t) { return t->A->errors.size() ? t->A->errors.back().message().c_str() : "no error"; }
 #endif
 
 int tinyap_node_is_nil(const ast_node_t  n) {

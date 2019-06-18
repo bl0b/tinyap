@@ -16,7 +16,7 @@ struct registry {
     map_type m_items;
     Alloc m_alloc;
 
-    registry() : m_items(1ULL << 16), m_alloc() { std::cout << "registry ctor" << std::endl; }
+    registry() : m_items(1ULL << 16), m_alloc() {}
     ~registry() {}
 
     registry(const registry<T, Alloc>& r) : m_items(r.m_items), m_alloc() { std::cout << "registry copy ctor" << std::endl; }

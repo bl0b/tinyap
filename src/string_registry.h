@@ -23,7 +23,11 @@
 #include "tinyap_alloc.h"
 
 #ifdef __cplusplus
+
+#include <unordered_map>
+
 static inline unsigned int _srh(const char*notnull) {
+    /*std::clog << "_srh(" << ((void*)notnull) << ':' << notnull << ')' << std::endl;*/
 	unsigned int accum = 0;
 //	if((unsigned int)notnull<0x100) {
 //		 /* suspect an optimized tag (not-a-string) */
@@ -38,8 +42,24 @@ static inline unsigned int _srh(const char*notnull) {
 	return accum;
 }
 
+struct k_h {
+	size_t operator()(const char*x) const {
+		return x?_srh(x):0;
+	}
+};
+
+struct k_cmp {
+	bool operator()(const char*a, const char*b) const {
+		return !strcmp(a, b);
+	}
+};
+
+typedef std::unordered_map<const char*, int, k_h, k_cmp> str_reg_t;
+
 extern "C" {
+
 #endif
+
 void init_strreg();
 char* regstr_impl(const char*);
 void unregstr(const char* str);
